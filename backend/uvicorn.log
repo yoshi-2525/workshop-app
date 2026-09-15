@@ -1,0 +1,102 @@
+INFO:     Will watch for changes in these directories: ['C:\\Development\\workshop-app\\backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [17032] using WatchFiles
+INFO:     Started server process [16684]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:60479 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60482 - "GET /api/facilitators/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60485 - "GET /api/workshops?facilitator_id=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60487 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60489 - "POST /api/workshops/1/favorite HTTP/1.1" 201 Created
+INFO:     127.0.0.1:60491 - "GET /api/favorites HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60493 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60495 - "DELETE /api/workshops/1/favorite HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:60497 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60499 - "PATCH /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60501 - "GET /api/facilitators/2 HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'scripts\seed_sample_data.py'. Reloading...
+ INFO:     127.0.0.1:59196 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59199 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59195 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49674 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53965 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53967 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53964 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60445 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59539 - "GET /api/facilitators/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59542 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59545 - "GET /api/reservations/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59548 - "GET /api/favorites HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61076 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61078 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61075 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61080 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61082 - "POST /api/workshops/8/favorite HTTP/1.1" 201 Created
+INFO:     127.0.0.1:61084 - "DELETE /api/workshops/8/favorite HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52052 - "POST /api/workshops/8/favorite HTTP/1.1" 201 Created
+INFO:     127.0.0.1:54517 - "DELETE /api/workshops/8/favorite HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:62979 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50147 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54755 - "GET /api/facilitators/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54598 - "GET /api/facilitators/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54757 - "GET /api/workshops?facilitator_id=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60309 - "GET /api/workshops?facilitator_id=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62967 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54413 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51458 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50090 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55514 - "GET /api/workshops/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62785 - "GET /api/workshops/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57870 - "GET /api/facilitators/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63426 - "GET /api/facilitators/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57871 - "GET /api/workshops?facilitator_id=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59513 - "GET /api/workshops?facilitator_id=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55542 - "GET /api/workshops/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55036 - "GET /api/workshops/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51453 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49801 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63957 - "GET /api/workshops/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49672 - "GET /api/workshops/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58354 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51990 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62630 - "GET /api/workshops/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61866 - "GET /api/workshops/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65202 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62992 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56842 - "GET /api/workshops/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64530 - "GET /api/workshops/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59232 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53669 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49672 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49673 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54999 - "GET /api/facilitators/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64429 - "GET /api/facilitators/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55000 - "GET /api/workshops?facilitator_id=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63077 - "GET /api/workshops?facilitator_id=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61402 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60910 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62038 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64403 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49273 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65522 - "GET /api/workshops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50195 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54022 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59176 - "GET /api/workshops/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59177 - "GET /api/workshops/5/reservations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49849 - "GET /api/workshops/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49850 - "GET /api/workshops/5/reservations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54067 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64678 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58088 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58087 - "GET /api/workshops/8/reservations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56687 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52042 - "GET /api/workshops/8/reservations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54992 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53417 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57201 - "GET /api/workshops/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57202 - "GET /api/workshops/2/reservations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63316 - "GET /api/workshops/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57656 - "GET /api/workshops/2/reservations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50495 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64781 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK

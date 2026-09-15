@@ -1,0 +1,199 @@
+
+> workshop-app@0.0.0 dev
+> concurrently -n backend,frontend -c blue,green "npm:dev:backend" "npm:dev:frontend"
+
+[backend] 
+[backend] > workshop-app@0.0.0 dev:backend
+[backend] > backend\venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000 --app-dir backend
+[backend] 
+[frontend] 
+[frontend] > workshop-app@0.0.0 dev:frontend
+[frontend] > npm --prefix frontend run dev
+[frontend] 
+[backend] INFO:     Will watch for changes in these directories: ['C:\\Development\\workshop-app']
+[backend] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+[backend] INFO:     Started reloader process [11952] using WatchFiles
+[backend] INFO:     Started server process [1832]
+[backend] INFO:     Waiting for application startup.
+[backend] INFO:     Application startup complete.
+[backend] INFO:     127.0.0.1:59188 - "GET /api/workshops HTTP/1.1" 200 OK
+[frontend] 
+[frontend] > frontend@0.0.0 dev
+[frontend] > vite
+[frontend] 
+[frontend] 
+[frontend]   [32m[1mVITE[22m v8.2.2[39m  [2mready in [0m[1m317[22m[2m[0m ms[22m
+[frontend] 
+[frontend]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[frontend] [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[backend] WARNING:  WatchFiles detected changes in 'backend\scripts\seed_sample_data.py'. Reloading...
+[backend]  INFO:     127.0.0.1:50766 - "GET /api/auth/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:50765 - "GET /api/workshops/4 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:50769 - "GET /api/auth/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:50771 - "GET /api/workshops/4 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:57278 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:64752 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:61971 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:53112 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:49764 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:58789 - "GET /api/workshops HTTP/1.1" 200 OK
+[frontend] [2m16:14:03[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/manage/ManageWorkshopsPage.tsx, /src/index.css[22m
+[backend] INFO:     127.0.0.1:55566 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:55568 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:56902 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:64126 - "GET /api/auth/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:64128 - "GET /api/auth/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:64130 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:64132 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:57070 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:60862 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:63935 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:53515 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:49754 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:56606 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:57433 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:59565 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:59889 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:63002 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+[frontend] [2m16:23:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/manage/WorkshopFormPage.tsx, /src/index.css[22m
+[frontend] [2m16:23:34[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/manage/WorkshopFormPage.tsx, /src/index.css[22m
+[frontend] [2m16:23:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ReservationFormPage.tsx, /src/index.css[22m
+[frontend] [2m16:24:00[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ReservationFormPage.tsx, /src/index.css[22m
+[frontend] [2m16:24:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ReservationFormPage.tsx, /src/index.css[22m
+[backend] INFO:     127.0.0.1:53919 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:51828 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:63563 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:53757 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52340 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:57916 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52120 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:49850 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:53864 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:55952 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:54919 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:56431 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:64327 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:56149 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:54745 - "GET /api/auth/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:54747 - "GET /api/auth/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:54749 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:64988 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:55818 - "GET /api/auth/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:55820 - "GET /api/auth/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:55824 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:55826 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:54075 - "GET /api/workshops/7 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:54950 - "GET /api/workshops/7 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52971 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:65280 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:61998 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:60345 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:50604 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:58549 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:53687 - "DELETE /api/reservations/24 HTTP/1.1" 204 No Content
+[backend] INFO:     127.0.0.1:51827 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:61036 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:61895 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:54846 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:54346 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:64526 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:58670 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:58266 - "GET /api/facilitators/3 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:57873 - "GET /api/facilitators/3 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:58267 - "GET /api/workshops?facilitator_id=3 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:49711 - "GET /api/workshops?facilitator_id=3 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:54188 - "GET /api/workshops/3 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:59786 - "GET /api/workshops/3 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:61553 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52789 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:58678 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:51900 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:56750 - "DELETE /api/reservations/23 HTTP/1.1" 204 No Content
+[backend] INFO:     127.0.0.1:50287 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:60022 - "GET /api/auth/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:60024 - "GET /api/auth/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:60026 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:60028 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:60030 - "DELETE /api/reservations/19 HTTP/1.1" 204 No Content
+[backend] INFO:     127.0.0.1:60032 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:59113 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:62536 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:58916 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:51944 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:50291 - "POST /api/workshops/8/reservations HTTP/1.1" 201 Created
+[backend] INFO:     127.0.0.1:60378 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:58088 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:57081 - "GET /api/auth/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:57083 - "GET /api/auth/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:57085 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:57087 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[frontend] [2m18:26:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/MyReservationsPage.tsx, /src/index.css[22m
+[frontend] [2m18:26:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/MyReservationsPage.tsx, /src/index.css[22m
+[backend] INFO:     127.0.0.1:54199 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:49291 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:56656 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:49724 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:63515 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:55715 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:65275 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:56152 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:56968 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:53694 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:61410 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:50670 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:64950 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:61240 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:61327 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:57901 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:60253 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:62274 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:49672 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:63361 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52267 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:62120 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52490 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:58042 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:49197 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:55754 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:61270 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:49834 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:63834 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:57155 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:55130 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:55999 - "GET /api/workshops/8 HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:56246 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:62504 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:59754 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:63003 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:63782 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:56857 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52978 - "POST /api/workshops/8/favorite HTTP/1.1" 201 Created
+[backend] INFO:     127.0.0.1:56355 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:62363 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:54198 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:61677 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:63428 - "DELETE /api/workshops/8/favorite HTTP/1.1" 204 No Content
+[backend] INFO:     127.0.0.1:53999 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:56123 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[frontend] [2m18:30:29[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/manage/ManageWorkshopsPage.tsx, /src/index.css[22m
+[frontend] [2m18:31:03[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/MyReservationsPage.tsx, /src/index.css[22m
+[backend] INFO:     127.0.0.1:52200 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52202 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52207 - "POST /api/auth/login HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52210 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52213 - "POST /api/auth/login HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52216 - "GET /api/workshops?mine=true HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52219 - "POST /api/auth/login HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52222 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:52850 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:58672 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:62516 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:64185 - "GET /api/favorites HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:60644 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:64261 - "GET /api/reservations/me HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:53709 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:49277 - "GET /api/workshops HTTP/1.1" 200 OK
+[frontend] [2m18:34:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/WorkshopListPage.tsx, /src/index.css[22m
+[backend] INFO:     127.0.0.1:60510 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:60512 - "GET /api/workshops HTTP/1.1" 200 OK
+[backend] INFO:     127.0.0.1:57547 - "GET /api/workshops HTTP/1.1" 200 OK
