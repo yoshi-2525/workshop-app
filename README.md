@@ -9,8 +9,33 @@
 ## ディレクトリ構成
 
 ```
-frontend/   React SPA
-backend/    FastAPI サーバー
+frontend/                 React SPA (Vite + TypeScript + TailwindCSS)
+  src/
+    api/                  バックエンドAPIクライアント(エンドポイントごとにファイル分割)
+    components/           共通コンポーネント(Navbar, Layout, WorkshopCard など)
+      auth/                 ログイン・登録フォームなど認証系コンポーネント
+    context/               AuthContext / NotificationContext(グローバルstate)
+    pages/                  ルーティング単位のページコンポーネント
+      auth/                 ログイン・登録画面(participant / facilitator 別)
+      manage/                facilitator 向けワークショップ管理画面
+    types/                  共通の型定義
+    utils/                  フォーマットや地図表示などのユーティリティ
+  public/                 静的アセット
+
+backend/                  FastAPI サーバー
+  app/
+    routers/                エンドポイント定義(auth, workshops, reservations, favorites, notifications, facilitators)
+    schemas/                Pydanticスキーマ(リクエスト/レスポンス)
+    models/                 SQLAlchemyモデル(user, workshop, reservation, favorite, notification)
+    services/               ビジネスロジック(workshops, notifications, uploads)
+    core/                   認証・認可まわりの共通処理(security, deps)
+    main.py                 アプリのエントリーポイント
+    config.py               環境変数・設定
+    database.py             DB接続設定
+  alembic/                マイグレーション
+  scripts/                 運用スクリプト(set_role.py, seed_sample_data.py)
+  uploads/                アップロードされたファイルの保存先
+  schema.sql              初期テーブル定義
 ```
 
 ## 起動(2回目以降・DBセットアップ済みの場合)
