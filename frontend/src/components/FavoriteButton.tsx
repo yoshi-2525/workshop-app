@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { addFavorite, removeFavorite } from '../api/workshops'
+import { extractErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 
 interface FavoriteButtonProps {
@@ -36,6 +37,8 @@ export function FavoriteButton({ workshopId, isFavorited, onChange, className = 
       }
       setFavorited(next)
       onChange?.(next)
+    } catch (err) {
+      alert(extractErrorMessage(err, 'お気に入りの更新に失敗しました'))
     } finally {
       setSubmitting(false)
     }

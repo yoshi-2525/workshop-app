@@ -3,10 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { cancelReservation, listMyReservations } from '../api/reservations'
 import { extractErrorMessage } from '../api/client'
 import type { Reservation } from '../types'
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString('ja-JP', { dateStyle: 'medium', timeStyle: 'short' })
-}
+import { formatDateTime } from '../utils/format'
 
 function isPast(reservation: Reservation): boolean {
   return new Date(reservation.workshop.end_at).getTime() < Date.now()

@@ -31,7 +31,9 @@ class User(Base):
         Enum(UserRole, name="user_role"), default=UserRole.participant, nullable=False
     )
     bio: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
 
     workshops: Mapped[list["Workshop"]] = relationship(back_populates="facilitator")
     reservations: Mapped[list["Reservation"]] = relationship(back_populates="user")

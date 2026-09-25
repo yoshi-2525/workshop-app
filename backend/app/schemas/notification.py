@@ -1,8 +1,7 @@
-from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict
 
 from app.models.notification import NotificationType
+from app.schemas.types import UTCDateTime
 
 
 class NotificationRead(BaseModel):
@@ -14,4 +13,4 @@ class NotificationRead(BaseModel):
     type: NotificationType
     message: str
     is_read: bool
-    created_at: datetime
+    created_at: UTCDateTime

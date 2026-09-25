@@ -21,6 +21,12 @@ export type WorkshopStatus = 'draft' | 'published' | 'canceled'
 
 export type LocationType = 'online' | 'offline'
 
+/** 閲覧者(ログインユーザー)によって値が変わる項目 */
+export interface WorkshopViewer {
+  is_favorited: boolean
+  is_reserved: boolean
+}
+
 export interface Workshop {
   id: number
   title: string
@@ -37,8 +43,7 @@ export interface Workshop {
   cancellation_policy: string
   reserved_count: number
   status: WorkshopStatus
-  is_favorited: boolean
-  is_reserved: boolean
+  viewer: WorkshopViewer
 }
 
 export type WorkshopInput = Pick<

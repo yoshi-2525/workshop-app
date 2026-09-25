@@ -10,6 +10,7 @@ import {
 import { extractErrorMessage } from '../../api/client'
 import { googleMapsSearchUrl } from '../../utils/maps'
 import type { LocationType, WorkshopInput, WorkshopStatus } from '../../types'
+import { parseIdParam } from '../../utils/params'
 
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
@@ -36,6 +37,7 @@ const emptyForm: WorkshopInput = {
 export function WorkshopFormPage() {
   const { id } = useParams<{ id: string }>()
   const isEdit = Boolean(id)
+  const workshopId = parseIdParam(id)
   const navigate = useNavigate()
   const formRef = useRef<HTMLFormElement>(null)
   const [form, setForm] = useState<WorkshopInput>(emptyForm)
@@ -51,8 +53,13 @@ export function WorkshopFormPage() {
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (!id) return
-    getWorkshop(Number(id))
+    if (!isEdit) return
+    if (workshopId === null) {
+      setError('ワークショップが見つかりませんでした')
+      setLoading(false)
+      return
+    }
+    getWorkshop(workshopId)
       .then((workshop) => {
         const loaded: WorkshopInput = {
           title: workshop.title,
@@ -72,7 +79,7 @@ export function WorkshopFormPage() {
       })
       .catch((err) => setError(extractErrorMessage(err, '取得に失敗しました')))
       .finally(() => setLoading(false))
-  }, [id])
+  }, [isEdit, workshopId])
 
   useEffect(() => {
     if (!imageFile) {
@@ -145,7 +152,7 @@ export function WorkshopFormPage() {
         end_at: endDate.toISOString(),
       }
       const workshop =
-        isEdit && id ? await updateWorkshop(Number(id), payload) : await createWorkshop(payload)
+        isEdit && workshopId !== null ? await updateWorkshop(workshopId, payload) : await createWorkshop(payload)
 
       if (imageFile) {
         await uploadWorkshopImage(workshop.id, imageFile)
@@ -165,6 +172,8 @@ export function WorkshopFormPage() {
   }
 
   if (loading) return <p className="text-slate-500">読み込み中...</p>
+  // 不正な ID のまま保存すると新規作成扱いになるため、フォームを出さない
+  if (isEdit && workshopId === null) return <p className="text-red-600">{error}</p>
 
   const mapUrl = form.location.trim() ? googleMapsSearchUrl(form.location.trim()) : null
 

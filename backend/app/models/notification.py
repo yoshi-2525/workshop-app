@@ -31,7 +31,9 @@ class Notification(Base):
     )
     message: Mapped[str] = mapped_column(Text, nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
 
     user: Mapped["User"] = relationship(back_populates="notifications")
     workshop: Mapped["Workshop"] = relationship(back_populates="notifications")

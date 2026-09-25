@@ -18,7 +18,9 @@ class Favorite(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     workshop_id: Mapped[int] = mapped_column(ForeignKey("workshops.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
 
     user: Mapped["User"] = relationship(back_populates="favorites")
     workshop: Mapped["Workshop"] = relationship(back_populates="favorites")

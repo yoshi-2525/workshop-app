@@ -5,12 +5,10 @@ import { getWorkshop } from '../api/workshops'
 import { reserveWorkshop } from '../api/reservations'
 import { extractErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
-import { formatPrice } from '../utils/format'
+import { formatDateTime, formatPrice } from '../utils/format'
 import type { Workshop } from '../types'
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString('ja-JP', { dateStyle: 'full', timeStyle: 'short' })
-}
+import { parseIdParam } from '../utils/params'
+import { MAX_TICKETS_PER_RESERVATION } from '../utils/workshop'
 
 export function ReservationFormPage() {
   const { id } = useParams<{ id: string }>()
@@ -27,8 +25,13 @@ export function ReservationFormPage() {
   const initialRef = useRef({ attendeeName: '', contact: '', ticketCount: 1 })
 
   useEffect(() => {
-    if (!id) return
-    getWorkshop(Number(id))
+    const workshopId = parseIdParam(id)
+    if (workshopId === null) {
+      setError('ワークショップが見つかりませんでした')
+      setLoading(false)
+      return
+    }
+    getWorkshop(workshopId)
       .then((w) => {
         setWorkshop(w)
         const name = user?.name ?? ''
@@ -58,7 +61,7 @@ export function ReservationFormPage() {
   if (!workshop) return null
 
   const remaining = workshop.capacity - workshop.reserved_count
-  const maxTickets = Math.max(1, remaining)
+  const maxTickets = Math.max(1, Math.min(remaining, MAX_TICKETS_PER_RESERVATION))
   const totalPrice = workshop.price * ticketCount
 
   async function handleSubmit(event: FormEvent) {
@@ -80,7 +83,22 @@ export function ReservationFormPage() {
     }
   }
 
-  if (workshop.is_reserved) {
+  if (workshop.status !== 'published') {
+    return (
+      <div className="mx-auto max-w-xl">
+        <p className="text-red-600">
+          {workshop.status === 'canceled'
+            ? 'このワークショップは中止になったため予約できません。'
+            : 'このワークショップは公開されていないため予約できません。'}
+        </p>
+        <Link to={`/workshops/${workshop.id}`} className="mt-4 inline-block text-sm text-slate-600 underline">
+          ワークショップ詳細に戻る
+        </Link>
+      </div>
+    )
+  }
+
+  if (workshop.viewer.is_reserved) {
     return (
       <div className="mx-auto max-w-xl">
         <p className="text-slate-600">このワークショップは既に予約済みです。</p>
@@ -108,7 +126,7 @@ export function ReservationFormPage() {
       <h1 className="text-xl font-semibold text-slate-900">参加者情報の入力</h1>
       <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-sm">
         <p className="font-semibold text-slate-900">{workshop.title}</p>
-        <p className="mt-1 text-slate-500">{formatDateTime(workshop.start_at)}</p>
+        <p className="mt-1 text-slate-500">{formatDateTime(workshop.start_at, 'full')}</p>
         <p className="text-slate-500">
           {workshop.location_type === 'online' ? 'オンライン' : workshop.location}
         </p>
@@ -148,7 +166,7 @@ export function ReservationFormPage() {
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-slate-500">残席の都合上、最大{maxTickets}枚まで選択できます。</p>
+          <p className="mt-1 text-xs text-slate-500">1回の予約で最大{maxTickets}枚まで選択できます。</p>
         </div>
 
         <div className="rounded-lg bg-slate-50 p-4 text-sm">

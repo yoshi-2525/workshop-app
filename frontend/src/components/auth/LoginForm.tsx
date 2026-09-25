@@ -106,7 +106,8 @@ export function LoginForm({
           </Link>
         </p>
         <p className="mt-1 text-sm text-slate-600">
-          <Link to={switchTo} className="text-slate-900 underline">
+          {/* ログイン後の戻り先(state.from)を切り替え先にも引き継ぐ */}
+          <Link to={switchTo} state={location.state} className="text-slate-900 underline">
             {switchLabel}
           </Link>
         </p>

@@ -45,7 +45,9 @@ class Workshop(Base):
         Enum(WorkshopStatus, name="workshop_status"), default=WorkshopStatus.draft, nullable=False
     )
     facilitator_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
 
     facilitator: Mapped["User"] = relationship(back_populates="workshops")
     reservations: Mapped[list["Reservation"]] = relationship(

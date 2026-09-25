@@ -1,12 +1,12 @@
 -- Workshop App: MySQL schema
--- Generated from app/models/*.py (SQLAlchemy ORM). Keep in sync if models change.
+-- Matches app/models/*.py and alembic/versions (up to 0009). Keep in sync if models change.
 
 CREATE TABLE users (
 	id INTEGER NOT NULL AUTO_INCREMENT,
 	email VARCHAR(255) NOT NULL,
 	name VARCHAR(255) NOT NULL,
 	hashed_password VARCHAR(255) NOT NULL,
-	role ENUM('admin','facilitator','participant') NOT NULL,
+	role ENUM('admin','facilitator','participant') NOT NULL DEFAULT 'participant',
 	bio TEXT NOT NULL DEFAULT '',
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
@@ -22,10 +22,10 @@ CREATE TABLE workshops (
 	location VARCHAR(255) NOT NULL,
 	start_at DATETIME NOT NULL,
 	end_at DATETIME NOT NULL,
-	capacity INTEGER NOT NULL,
+	capacity INTEGER NOT NULL DEFAULT 10,
 	price INTEGER NOT NULL DEFAULT 0,
 	cancellation_policy TEXT NOT NULL DEFAULT '',
-	status ENUM('draft','published','canceled') NOT NULL,
+	status ENUM('draft','published','canceled') NOT NULL DEFAULT 'draft',
 	facilitator_id INTEGER NOT NULL,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
@@ -39,7 +39,7 @@ CREATE TABLE reservations (
 	attendee_name VARCHAR(255) NOT NULL DEFAULT '',
 	contact VARCHAR(255) NOT NULL DEFAULT '',
 	ticket_count INTEGER NOT NULL DEFAULT 1,
-	status ENUM('confirmed','canceled') NOT NULL,
+	status ENUM('confirmed','canceled') NOT NULL DEFAULT 'confirmed',
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
 	CONSTRAINT uq_reservation_workshop_user UNIQUE (workshop_id, user_id),

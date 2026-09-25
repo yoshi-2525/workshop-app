@@ -5,6 +5,7 @@ import { listWorkshops } from '../api/workshops'
 import { extractErrorMessage } from '../api/client'
 import { WorkshopCard } from '../components/WorkshopCard'
 import type { FacilitatorProfile, Workshop } from '../types'
+import { parseIdParam } from '../utils/params'
 
 export function FacilitatorProfilePage() {
   const { id } = useParams<{ id: string }>()
@@ -14,8 +15,12 @@ export function FacilitatorProfilePage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!id) return
-    const facilitatorId = Number(id)
+    const facilitatorId = parseIdParam(id)
+    if (facilitatorId === null) {
+      setError('主催者が見つかりませんでした')
+      setLoading(false)
+      return
+    }
     Promise.all([getFacilitatorProfile(facilitatorId), listWorkshops({ facilitator_id: facilitatorId })])
       .then(([p, w]) => {
         setProfile(p)

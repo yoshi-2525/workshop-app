@@ -4,10 +4,8 @@ import { getWorkshop } from '../../api/workshops'
 import { listWorkshopReservations } from '../../api/reservations'
 import { extractErrorMessage } from '../../api/client'
 import type { Reservation, Workshop } from '../../types'
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString('ja-JP', { dateStyle: 'medium', timeStyle: 'short' })
-}
+import { formatDateTime } from '../../utils/format'
+import { parseIdParam } from '../../utils/params'
 
 export function WorkshopReservationsPage() {
   const { id } = useParams<{ id: string }>()
@@ -17,8 +15,12 @@ export function WorkshopReservationsPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!id) return
-    const workshopId = Number(id)
+    const workshopId = parseIdParam(id)
+    if (workshopId === null) {
+      setError('ワークショップが見つかりませんでした')
+      setLoading(false)
+      return
+    }
     Promise.all([getWorkshop(workshopId), listWorkshopReservations(workshopId)])
       .then(([w, r]) => {
         setWorkshop(w)

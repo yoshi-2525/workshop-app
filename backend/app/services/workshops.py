@@ -5,7 +5,7 @@ from app.models.favorite import Favorite
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User
 from app.models.workshop import Workshop
-from app.schemas.workshop import WorkshopRead
+from app.schemas.workshop import WorkshopRead, WorkshopViewer
 
 
 def reserved_count(db: Session, workshop_id: int) -> int:
@@ -51,6 +51,10 @@ def to_workshop_read(db: Session, workshop: Workshop, current_user: User | None 
         facilitator_id=workshop.facilitator_id,
         facilitator_name=workshop.facilitator.name,
         reserved_count=reserved_count(db, workshop.id),
-        is_favorited=is_favorited(db, workshop.id, current_user.id) if current_user else False,
-        is_reserved=is_reserved(db, workshop.id, current_user.id) if current_user else False,
+        viewer=WorkshopViewer(
+            is_favorited=is_favorited(db, workshop.id, current_user.id),
+            is_reserved=is_reserved(db, workshop.id, current_user.id),
+        )
+        if current_user
+        else WorkshopViewer(),
     )

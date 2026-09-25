@@ -3,16 +3,12 @@ import { Link } from 'react-router-dom'
 import { deleteWorkshop, listWorkshops, updateWorkshop } from '../../api/workshops'
 import { extractErrorMessage } from '../../api/client'
 import type { Workshop } from '../../types'
-import { formatPrice } from '../../utils/format'
+import { formatDateTime, formatPrice } from '../../utils/format'
 
 const statusLabel: Record<Workshop['status'], string> = {
   draft: '下書き',
   published: '公開中',
   canceled: '中止',
-}
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString('ja-JP', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 function isPast(workshop: Workshop): boolean {
@@ -56,7 +52,7 @@ export function ManageWorkshopsPage() {
   }
 
   async function handleCancel(workshop: Workshop) {
-    if (!confirm('このワークショップを中止にしますか?参加者には別途ご連絡ください。')) return
+    if (!confirm('このワークショップを中止にしますか?予約済みの参加者には中止のお知らせが自動で届きます。')) return
     try {
       await updateWorkshop(workshop.id, {
         title: workshop.title,
@@ -167,7 +163,9 @@ export function ManageWorkshopsPage() {
               )}
               <button
                 onClick={() => handleDelete(workshop.id)}
-                className="rounded-md border border-red-300 px-3 py-1.5 text-red-600 hover:bg-red-50"
+                disabled={workshop.reserved_count > 0}
+                title={workshop.reserved_count > 0 ? '予約者がいるため削除できません。中止をご利用ください' : undefined}
+                className="rounded-md border border-red-300 px-3 py-1.5 text-red-600 enabled:hover:bg-red-50 disabled:opacity-50"
               >
                 削除
               </button>

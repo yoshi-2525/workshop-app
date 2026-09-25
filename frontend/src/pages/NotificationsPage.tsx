@@ -8,6 +8,7 @@ import {
 import { extractErrorMessage } from '../api/client'
 import { useNotifications } from '../context/NotificationContext'
 import type { Notification } from '../types'
+import { formatDateTime } from '../utils/format'
 
 const typeLabel: Record<Notification['type'], string> = {
   cancellation: '中止',
@@ -17,10 +18,6 @@ const typeLabel: Record<Notification['type'], string> = {
 const typeColor: Record<Notification['type'], string> = {
   cancellation: 'bg-red-100 text-red-700',
   reminder: 'bg-sky-100 text-sky-700',
-}
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString('ja-JP', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 export function NotificationsPage() {

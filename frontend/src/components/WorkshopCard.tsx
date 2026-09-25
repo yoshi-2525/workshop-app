@@ -1,17 +1,12 @@
 import { Link } from 'react-router-dom'
 import type { Workshop } from '../types'
-import { formatPrice } from '../utils/format'
+import { formatDateTime, formatPrice } from '../utils/format'
+import { isWorkshopFull, priceTextClass } from '../utils/workshop'
 import { FavoriteButton } from './FavoriteButton'
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString('ja-JP', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
-}
+import { LocationTypeBadge } from './LocationTypeBadge'
 
 export function WorkshopCard({ workshop }: { workshop: Workshop }) {
-  const isFull = workshop.reserved_count >= workshop.capacity
+  const isFull = isWorkshopFull(workshop)
 
   return (
     <Link
@@ -31,12 +26,12 @@ export function WorkshopCard({ workshop }: { workshop: Workshop }) {
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-base font-semibold text-slate-900">{workshop.title}</h3>
         <div className="flex shrink-0 items-center gap-1">
-          {workshop.is_reserved && (
+          {workshop.viewer.is_reserved && (
             <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
               予約済み
             </span>
           )}
-          <FavoriteButton workshopId={workshop.id} isFavorited={workshop.is_favorited} />
+          <FavoriteButton workshopId={workshop.id} isFavorited={workshop.viewer.is_favorited} />
         </div>
       </div>
       <p className="text-xs text-slate-500">主催: {workshop.facilitator_name}</p>
@@ -49,21 +44,13 @@ export function WorkshopCard({ workshop }: { workshop: Workshop }) {
         <div className="flex gap-2">
           <dt className="font-medium">場所:</dt>
           <dd>
-            <span
-              className={`mr-1 rounded px-1.5 py-0.5 text-xs font-medium ${
-                workshop.location_type === 'online'
-                  ? 'bg-sky-100 text-sky-700'
-                  : 'bg-orange-100 text-orange-700'
-              }`}
-            >
-              {workshop.location_type === 'online' ? 'オンライン' : '会場'}
-            </span>
+            <LocationTypeBadge type={workshop.location_type} className="mr-1" />
             {workshop.location}
           </dd>
         </div>
         <div className="flex gap-2">
           <dt className="font-medium">参加費:</dt>
-          <dd className={workshop.price > 0 ? 'font-semibold text-slate-900' : 'font-semibold text-emerald-600'}>
+          <dd className={priceTextClass(workshop.price)}>
             {formatPrice(workshop.price)}
           </dd>
         </div>

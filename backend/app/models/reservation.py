@@ -34,7 +34,9 @@ class Reservation(Base):
         default=ReservationStatus.confirmed,
         nullable=False,
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
 
     workshop: Mapped["Workshop"] = relationship(back_populates="reservations")
     user: Mapped["User"] = relationship(back_populates="reservations")

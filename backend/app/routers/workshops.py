@@ -1,5 +1,7 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import exists, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -8,7 +10,7 @@ from app.database import get_db
 from app.models.favorite import Favorite
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User, UserRole
-from app.models.workshop import Workshop, WorkshopStatus
+from app.models.workshop import LocationType, Workshop, WorkshopStatus
 from app.schemas.reservation import ReservationCreate, ReservationRead
 from app.schemas.workshop import WorkshopInput, WorkshopRead
 from app.services.notifications import notify_workshop_canceled
@@ -28,10 +30,25 @@ def _get_owned_workshop(db: Session, workshop_id: int, user: User) -> Workshop:
     return workshop
 
 
+def _has_reservation(db: Session, workshop_id: int, user_id: int) -> bool:
+    stmt = select(
+        exists().where(Reservation.workshop_id == workshop_id, Reservation.user_id == user_id)
+    )
+    return bool(db.scalar(stmt))
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 @router.get("", response_model=list[WorkshopRead])
 def list_workshops(
     mine: bool = Query(False),
     facilitator_id: int | None = Query(None),
+    q: str | None = Query(None, max_length=100),
+    location_type: LocationType | None = Query(None),
+    price: Literal["free", "paid"] | None = Query(None),
+    max_price: int | None = Query(None, ge=0),
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
 ) -> list[WorkshopRead]:
@@ -49,6 +66,23 @@ def list_workshops(
         )
         if facilitator_id is not None:
             stmt = stmt.where(Workshop.facilitator_id == facilitator_id)
+        keyword = q.strip() if q else ""
+        if keyword:
+            pattern = f"%{_escape_like(keyword)}%"
+            stmt = stmt.where(
+                or_(
+                    Workshop.title.ilike(pattern, escape="\\"),
+                    Workshop.description.ilike(pattern, escape="\\"),
+                )
+            )
+        if location_type is not None:
+            stmt = stmt.where(Workshop.location_type == location_type)
+        if price == "free":
+            stmt = stmt.where(Workshop.price == 0)
+        elif price == "paid":
+            stmt = stmt.where(Workshop.price > 0)
+            if max_price is not None:
+                stmt = stmt.where(Workshop.price <= max_price)
     workshops = db.scalars(stmt).all()
     return [_to_read(db, w, current_user) for w in workshops]
 
@@ -65,7 +99,14 @@ def get_workshop(
     is_owner = current_user is not None and (
         current_user.role == UserRole.admin or current_user.id == workshop.facilitator_id
     )
-    if workshop.status != WorkshopStatus.published and not is_owner:
+    # Participants keep access to a canceled workshop they booked, so links from
+    # the cancellation notice and their reservation list still resolve.
+    had_reservation = (
+        workshop.status == WorkshopStatus.canceled
+        and current_user is not None
+        and _has_reservation(db, workshop_id, current_user.id)
+    )
+    if workshop.status != WorkshopStatus.published and not (is_owner or had_reservation):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
     return _to_read(db, workshop, current_user)
 
@@ -143,6 +184,13 @@ def delete_workshop(
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> None:
     workshop = _get_owned_workshop(db, workshop_id, current_user)
+    # Deleting cascades to reservations and notifications, which would erase a
+    # booking without telling the participant. Such workshops must be canceled.
+    if _reserved_count(db, workshop_id) > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="予約者がいるワークショップは削除できません。開催を取りやめる場合は中止にしてください",
+        )
     db.delete(workshop)
     db.commit()
 

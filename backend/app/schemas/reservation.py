@@ -1,8 +1,7 @@
-from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.reservation import ReservationStatus
+from app.schemas.types import UTCDateTime
 from app.schemas.workshop import WorkshopRead
 
 
@@ -24,4 +23,4 @@ class ReservationRead(BaseModel):
     contact: str
     ticket_count: int
     status: ReservationStatus
-    created_at: datetime
+    created_at: UTCDateTime

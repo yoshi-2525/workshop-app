@@ -1,0 +1,29 @@
+# 設計書 目次
+
+最終更新日: 2026-09-25
+
+Workshop App（対話型ワークショップの予約・管理システム）の設計書一覧。すべて現状のコード（作業ツリー）を正として作成しており、図は Mermaid で記述している。
+
+## 設計書一覧
+
+| 設計書 | 内容 | 主な情報源 |
+|---|---|---|
+| [サイトマップ](./sitemap.md) | 全 20 画面の階層、URL、アクセス権限、画面一覧表 | `frontend/src/App.tsx`、`ProtectedRoute.tsx`、`Navbar.tsx` |
+| [画面遷移図](./screen-transition.md) | 共通ナビ・認証・利用者向け・主催者向けの画面遷移とリダイレクト | `pages/**/*.tsx` の `Link` / `navigate()` |
+| [ワイヤーフレーム](./wireframes.md) | 共通レイアウトと各画面の ASCII レイアウト、状態別の表示 | `pages/**/*.tsx`、`components/*.tsx` |
+| [ER 図](./er-diagram.md) | 5 テーブルの ER 図、テーブル定義、日時の扱い、マイグレーション履歴、定義間の整合性 | `backend/app/models/`、`alembic/versions/`、`schema.sql` |
+| [システム構成図](./system-architecture.md) | ブラウザ〜Vite〜FastAPI〜MySQL の構成、認証方式、技術スタック、環境変数 | `vite.config.ts`、`app/main.py`、`app/config.py`、`requirements.txt`、`package.json` |
+| [機能一覧表](./feature-list.md) | カテゴリ別の機能一覧（機能 ID 付き）と API 一覧 | `app/routers/`、`src/api/`、`src/pages/` |
+
+## 表記ルール
+
+- 推測で補った記述には「※推測」と明記している。
+- 各設計書の末尾に、根拠として参照したファイルを列挙している。
+- 機能 ID は `F-<カテゴリ略称>-<連番>` 形式。更新時も既存の ID は変更しない。
+
+## 更新履歴
+
+| 日付 | 内容 |
+|---|---|
+| 2026-09-25 | 初版作成（6 種類の設計書と本目次） |
+| 2026-09-25 | コード変更に追従（日時の UTC 扱い、マイグレーション 0009、中止ワークショップの閲覧権限、削除制限、予約枚数上限、ログイン切替時の state 引き継ぎ、`.env.example` の追記など） |

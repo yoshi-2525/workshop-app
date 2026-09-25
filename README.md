@@ -57,7 +57,7 @@ npm run dev
 
 ### DB
 
-`backend/schema.sql` に必要なテーブル定義(users / workshops / reservations)があります。
+`backend/schema.sql` に必要なテーブル定義(users / workshops / reservations / favorites / notifications)があります。
 MySQL に対象データベースを作成し、このSQLを流し込んでください。
 
 ```

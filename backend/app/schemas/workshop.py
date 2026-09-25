@@ -1,8 +1,7 @@
-from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.workshop import LocationType, WorkshopStatus
+from app.schemas.types import NaiveUTCDateTime, UTCDateTime
 
 
 class WorkshopInput(BaseModel):
@@ -10,8 +9,8 @@ class WorkshopInput(BaseModel):
     description: str = ""
     location_type: LocationType = LocationType.offline
     location: str = Field(min_length=1, max_length=255)
-    start_at: datetime
-    end_at: datetime
+    start_at: NaiveUTCDateTime
+    end_at: NaiveUTCDateTime
     capacity: int = Field(ge=1, le=10000)
     price: int = Field(ge=0, le=10_000_000, default=0)
     cancellation_policy: str = Field(default="", max_length=2000)
@@ -24,6 +23,13 @@ class WorkshopInput(BaseModel):
         return self
 
 
+class WorkshopViewer(BaseModel):
+    """閲覧者(リクエストしたユーザー)によって値が変わる項目"""
+
+    is_favorited: bool = False
+    is_reserved: bool = False
+
+
 class WorkshopRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -33,8 +39,8 @@ class WorkshopRead(BaseModel):
     image_url: str
     location_type: LocationType
     location: str
-    start_at: datetime
-    end_at: datetime
+    start_at: UTCDateTime
+    end_at: UTCDateTime
     capacity: int
     price: int
     cancellation_policy: str
@@ -42,5 +48,4 @@ class WorkshopRead(BaseModel):
     facilitator_id: int
     facilitator_name: str
     reserved_count: int
-    is_favorited: bool = False
-    is_reserved: bool = False
+    viewer: WorkshopViewer = WorkshopViewer()

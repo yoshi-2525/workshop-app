@@ -1,11 +1,18 @@
 import { apiClient } from './client'
-import type { Workshop, WorkshopInput } from '../types'
+import type { LocationType, Workshop, WorkshopInput } from '../types'
 
-export async function listWorkshops(params?: {
-  mine?: boolean
-  facilitator_id?: number
-}): Promise<Workshop[]> {
-  const { data } = await apiClient.get<Workshop[]>('/workshops', { params })
+export async function listWorkshops(
+  params?: {
+    mine?: boolean
+    facilitator_id?: number
+    q?: string
+    location_type?: LocationType
+    price?: 'free' | 'paid'
+    max_price?: number
+  },
+  signal?: AbortSignal,
+): Promise<Workshop[]> {
+  const { data } = await apiClient.get<Workshop[]>('/workshops', { params, signal })
   return data
 }
 
@@ -18,8 +25,8 @@ export async function removeFavorite(workshopId: number): Promise<void> {
   await apiClient.delete(`/workshops/${workshopId}/favorite`)
 }
 
-export async function getWorkshop(id: number): Promise<Workshop> {
-  const { data } = await apiClient.get<Workshop>(`/workshops/${id}`)
+export async function getWorkshop(id: number, signal?: AbortSignal): Promise<Workshop> {
+  const { data } = await apiClient.get<Workshop>(`/workshops/${id}`, { signal })
   return data
 }
 
