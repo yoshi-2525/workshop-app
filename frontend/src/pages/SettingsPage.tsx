@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 interface SettingsLink {
@@ -8,8 +8,14 @@ interface SettingsLink {
 }
 
 export function SettingsPage() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
   if (!user) return null
+
+  function handleLogout() {
+    logout()
+    navigate('/login')
+  }
 
   const isFacilitator = user.role === 'admin' || user.role === 'facilitator'
 
@@ -33,6 +39,11 @@ export function SettingsPage() {
       title: '予約履歴・参加履歴',
       description: '参加予定のワークショップの確認・キャンセル、過去に参加した履歴を見られます。',
     },
+    {
+      to: '/favorites',
+      title: 'お気に入り',
+      description: 'お気に入りに登録したワークショップを確認できます。',
+    },
   ]
 
   return (
@@ -43,7 +54,7 @@ export function SettingsPage() {
           <li key={link.to}>
             <Link
               to={link.to}
-              className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md"
+              className="flex items-center justify-between rounded-lg border border-border-muted bg-white p-4 shadow-sm transition hover:shadow-md"
             >
               <div>
                 <p className="font-medium text-slate-900">{link.title}</p>
@@ -54,6 +65,13 @@ export function SettingsPage() {
           </li>
         ))}
       </ul>
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="mt-8 w-full rounded-lg border border-border bg-white p-3 text-sm font-medium text-red-600 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+      >
+        ログアウト
+      </button>
     </div>
   )
 }

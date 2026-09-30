@@ -22,7 +22,7 @@ def get_current_user(
     user_id = decode_access_token(token)
     if user_id is None:
         raise credentials_error
-    user = db.get(User, int(user_id))
+    user = db.get(User, user_id)
     if user is None:
         raise credentials_error
     return user
@@ -37,7 +37,7 @@ def get_current_user_optional(
     user_id = decode_access_token(token)
     if user_id is None:
         return None
-    return db.get(User, int(user_id))
+    return db.get(User, user_id)
 
 
 def require_roles(*roles: UserRole):

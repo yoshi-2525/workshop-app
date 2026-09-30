@@ -2,7 +2,7 @@
 
 最終更新日: 2026-09-25
 
-MySQL 上の全 5 テーブル（`users` / `workshops` / `reservations` / `favorites` / `notifications`）の構造とリレーションを示す。SQLAlchemy モデル（`backend/app/models/`）を正とし、Alembic マイグレーション（最新 `0009`）および `backend/schema.sql` との整合性を末尾に記載する。
+MySQL 上の全 5 テーブル（`users` / `workshops` / `reservations` / `favorites` / `notifications`）の構造とリレーションを示す。SQLAlchemy モデル（`backend/app/models/`）を正とし、Alembic マイグレーション（最新 `0011`）および `backend/schema.sql` との整合性を末尾に記載する。
 
 ## ER 図
 
@@ -40,6 +40,7 @@ erDiagram
         text cancellation_policy
         enum status "draft / published / canceled"
         int facilitator_id FK "users.id"
+        datetime published_at "初回公開日時"
         datetime created_at
     }
 
@@ -120,18 +121,19 @@ erDiagram
 | カラム名 | 型 | NULL | デフォルト | 制約 | 説明 |
 |---|---|---|---|---|---|
 | id | INTEGER | 不可 | AUTO_INCREMENT | PK | ワークショップ ID |
-| title | VARCHAR(255) | 不可 | — | — | タイトル（API: 1〜255 文字） |
-| description | TEXT | 不可 | ORM: `""` | — | 説明 |
+| title | VARCHAR(255) | 不可 | — | — | タイトル（API: 1〜50 文字） |
+| description | TEXT | 不可 | ORM: `""` | — | 説明（API: 必須、1〜1000 文字） |
 | image_url | VARCHAR(2000) | 不可 | ORM: `""` / DB: `''` | — | 画像 URL（`/api/uploads/workshops/<uuid>.<ext>`）。未設定は空文字 |
 | location_type | ENUM('online','offline') | 不可 | ORM: `offline` / DB: `'offline'` | — | 開催形式 |
 | location | VARCHAR(255) | 不可 | ORM: `""` | — | 会場名・住所、またはオンラインツール・URL（API: 1〜255 文字） |
 | start_at | DATETIME | 不可 | — | — | 開始日時。タイムゾーンなし（UTC として扱う。`backend/app/services/notifications.py:43`） |
 | end_at | DATETIME | 不可 | — | — | 終了日時（API で `end_at > start_at` を検証） |
-| capacity | INTEGER | 不可 | ORM: `10` / DB: `10` | — | 定員（チケット枚数ベース。API: 1〜10000） |
-| price | INTEGER | 不可 | ORM: `0` / DB: `0` | — | 参加費（円）。0 は無料（API: 0〜10,000,000） |
+| capacity | INTEGER | 不可 | ORM: `10` / DB: `10` | — | 定員（チケット枚数ベース。API: 1〜100） |
+| price | INTEGER | 不可 | ORM: `0` / DB: `0` | — | 参加費（円）。0 は無料（API: 0〜100,000） |
 | cancellation_policy | TEXT | 不可 | ORM: `""` / DB: `''` | — | キャンセルポリシー（API: 最大 2000 文字） |
 | status | ENUM('draft','published','canceled') | 不可 | ORM: `draft` / DB: `'draft'` | — | 公開状態 |
 | facilitator_id | INTEGER | 不可 | — | FK → users.id | 主催者 |
+| published_at | DATETIME | 可 | — | — | 初めて公開（published）になった日時（UTC）。ORM のイベントで自動設定し、下書きに戻しても保持する。一覧の「公開日時の新しい順」に使う |
 | created_at | DATETIME | 不可 | DB: `CURRENT_TIMESTAMP` | — | 作成日時（UTC） |
 
 ### reservations（予約）
@@ -145,7 +147,7 @@ erDiagram
 | user_id | INTEGER | 不可 | — | FK → users.id、UK（同上） | 予約したユーザー |
 | attendee_name | VARCHAR(255) | 不可 | ORM: `""` / DB: `''` | — | 参加者名（API: 1〜255 文字） |
 | contact | VARCHAR(255) | 不可 | ORM: `""` / DB: `''` | — | 連絡先（API: 1〜255 文字） |
-| ticket_count | INTEGER | 不可 | ORM: `1` / DB: `1` | — | チケット枚数（API: 1〜20） |
+| ticket_count | INTEGER | 不可 | ORM: `1` / DB: `1` | CHECK `ck_reservation_ticket_count`(1〜4) | チケット枚数（API: 1〜4。定数 `MAX_TICKETS_PER_RESERVATION`） |
 | status | ENUM('confirmed','canceled') | 不可 | ORM: `confirmed` / DB: `'confirmed'` | — | 予約状態。キャンセルは論理（status 更新） |
 | created_at | DATETIME | 不可 | DB: `CURRENT_TIMESTAMP` | — | 予約日時（UTC） |
 
@@ -189,10 +191,12 @@ erDiagram
 | 0007 | `workshops.image_url` 追加 | `backend/alembic/versions/0007_workshop_image_url.py` |
 | 0008 | `notifications` 作成 | `backend/alembic/versions/0008_notifications.py` |
 | 0009 | 全 5 テーブルの `created_at` を NOT NULL 化（既存の NULL 行は `CURRENT_TIMESTAMP` で補完） | `backend/alembic/versions/0009_created_at_not_null.py` |
+| 0010 | `reservations.ticket_count` に CHECK 制約 `ck_reservation_ticket_count`（1〜4）を追加（範囲外の既存行があれば中断し、データは書き換えない） | `backend/alembic/versions/0010_reservation_ticket_count_check.py` |
+| 0011 | `workshops.published_at` 追加（既存の公開中データは `created_at` で補完） | `backend/alembic/versions/0011_workshop_published_at.py` |
 
 ## 定義間の整合性
 
-モデル（`app/models/`）、最新マイグレーション（0009 まで適用後）、`backend/schema.sql`（冒頭コメントに「up to 0009」と記載）の 3 つで、カラム構成・型・NULL 可否・DB デフォルト・制約は一致している。
+モデル（`app/models/`）、最新マイグレーション（0011 まで適用後）、`backend/schema.sql`（冒頭コメントに「up to 0011」と記載）の 3 つで、カラム構成・型・NULL 可否・DB デフォルト・制約は一致している。
 
 - `users.bio` / `workshops.cancellation_policy`（TEXT 型）の `DEFAULT ''` は、`schema.sql` とマイグレーション（0003 / 0006）の両方にある。MySQL は TEXT 型にリテラルの既定値を付けることを制限しているため、MySQL のバージョンや SQL モードによっては DDL がエラーまたは警告になる可能性がある（※推測。実行しての確認はしていない）。
 
@@ -214,6 +218,8 @@ erDiagram
 - `backend/alembic/versions/0007_workshop_image_url.py`
 - `backend/alembic/versions/0008_notifications.py`
 - `backend/alembic/versions/0009_created_at_not_null.py`
+- `backend/alembic/versions/0010_reservation_ticket_count_check.py`
+- `backend/alembic/versions/0011_workshop_published_at.py`
 - `backend/schema.sql`
 - `backend/app/database.py`
 - `backend/app/schemas/types.py`

@@ -94,6 +94,7 @@ flowchart LR
 | フロントエンド | React / React DOM | ^19.2.8 | UI |
 | フロントエンド | react-router-dom | ^7.18.3 | ルーティング |
 | フロントエンド | axios | ^1.20.0 | HTTP クライアント |
+| フロントエンド | @daypicker/react | ^10.0.1 | ワークショップ作成・編集フォームの日付選択カレンダー |
 | フロントエンド | TypeScript | ~6.0.2 | 型 |
 | フロントエンド | Vite | ^8.2.2 | 開発サーバー・ビルド |
 | フロントエンド | @vitejs/plugin-react | ^6.1.0 | Vite React プラグイン |

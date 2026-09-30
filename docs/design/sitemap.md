@@ -1,6 +1,6 @@
 # サイトマップ
 
-最終更新日: 2026-09-25
+最終更新日: 2026-09-28
 
 Workshop App（React SPA）の全画面と URL パス、アクセス権限を階層で示す。ルート定義は `frontend/src/App.tsx` のもの。すべての画面は共通レイアウト `Layout`（`Navbar` + メイン領域）の中に表示される。
 
@@ -115,16 +115,14 @@ flowchart TD
 |---|---|---|
 | 常時 | 「Workshop App」（ロゴ） | `/` |
 | 常時 | 「ワークショップ一覧」 | `/` |
-| ログイン時 | 「お気に入り」 | `/favorites` |
-| ログイン時 | 🔔（通知、未読件数バッジ付き） | `/notifications` |
-| ログイン時 | 「{ユーザー名}さん」 | `/settings` |
-| ログイン時 | 「ログアウト」ボタン | ログアウト後 `/login` |
+| ログイン時 | 通知アイコン（未読件数バッジ付き） | `/notifications` |
+| ログイン時 | プロフィールアイコン | `/settings` |
 | 未ログイン時 | 「ログイン」 | `/login` |
 | 未ログイン時 | 「新規登録」 | `/register` |
 
 根拠: `frontend/src/components/Navbar.tsx:18-75`
 
-- `/manage`（ワークショップ管理）と `/reservations`（参加予定）へは Navbar に直接リンクはなく、設定画面（`/settings`）のメニューから遷移する（`frontend/src/pages/SettingsPage.tsx:16-36`）。
+- `/manage`（ワークショップ管理）、`/reservations`（参加予定）、`/favorites`（お気に入り）へは Navbar に直接リンクはなく、設定画面（`/settings`）のメニューから遷移する（`frontend/src/pages/SettingsPage.tsx`）。
 
 ---
 

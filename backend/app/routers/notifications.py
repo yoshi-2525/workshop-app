@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.notification import NotificationRead
+from app.services.pagination import PageQuery, paginate
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -24,15 +28,18 @@ def _to_read(notification: Notification) -> NotificationRead:
 
 @router.get("", response_model=list[NotificationRead])
 def list_notifications(
+    page: Annotated[PageQuery, Query()],
+    response: Response,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[NotificationRead]:
-    notifications = (
-        db.query(Notification)
-        .filter(Notification.user_id == current_user.id)
-        .order_by(Notification.created_at.desc())
-        .all()
+    stmt = (
+        select(Notification)
+        .options(selectinload(Notification.workshop))
+        .where(Notification.user_id == current_user.id)
+        .order_by(Notification.created_at.desc(), Notification.id.desc())
     )
+    notifications = db.scalars(paginate(db, stmt, page, response)).all()
     return [_to_read(n) for n in notifications]
 
 

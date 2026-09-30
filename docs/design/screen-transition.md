@@ -1,6 +1,6 @@
 # 画面遷移図
 
-最終更新日: 2026-09-25
+最終更新日: 2026-09-28
 
 各画面間の遷移を、きっかけ（リンク・ボタン・処理結果）とともに示す。画面数が多いため「共通ナビゲーション」「認証」「利用者向け」「主催者向け」の 4 つの図に分けている。遷移は `Link` / `navigate()` / `<Navigate>` のコードから読み取った。
 
@@ -10,7 +10,6 @@
 flowchart LR
     ANY(["任意の画面"])
     LIST["ワークショップ一覧<br/>/"]
-    FAV["お気に入り<br/>/favorites"]
     NOTI["通知<br/>/notifications"]
     SET["設定<br/>/settings"]
     LOGIN["ログイン（種別選択）<br/>/login"]
@@ -22,10 +21,8 @@ flowchart LR
     MNG(["主催者・管理者の画面<br/>/manage 配下"])
 
     ANY -->|"ロゴ / ワークショップ一覧"| LIST
-    ANY -->|"お気に入り（ログイン時）"| FAV
-    ANY -->|"🔔 通知（ログイン時）"| NOTI
-    ANY -->|"{名前}さん（ログイン時）"| SET
-    ANY -->|"ログアウト"| LOGIN
+    ANY -->|"通知アイコン（ログイン時）"| NOTI
+    ANY -->|"プロフィールアイコン（ログイン時）"| SET
     ANY -->|"ログイン（未ログイン時）"| LOGIN
     ANY -->|"新規登録（未ログイン時）"| REG
     ANY -->|"未定義パス *"| NF
@@ -38,7 +35,8 @@ flowchart LR
 
 根拠:
 
-- Navbar のリンクとログアウト後の `navigate('/login')`: `frontend/src/components/Navbar.tsx:10-13, 18-75`
+- Navbar のリンク: `frontend/src/components/Navbar.tsx`
+- ログアウト後の `navigate('/login')`: `frontend/src/pages/SettingsPage.tsx`
 - 未ログイン時のリダイレクト（`state: { from: location.pathname }`）とロール不足時の `/` へのリダイレクト: `frontend/src/components/ProtectedRoute.tsx:18-24`
 - ログイン先の出し分け（`loginPath`）: `frontend/src/App.tsx:39, 48`
 - 未定義パス → `/404`: `frontend/src/App.tsx:55-56`
@@ -123,7 +121,7 @@ flowchart LR
 
     RESERVE -->|"この内容で予約を確定する: 成功<br/>state.justReserved = タイトル"| MYRSV
     RESERVE -->|"確定: 失敗（エラー表示）"| RESERVE
-    RESERVE -->|"キャンセル（入力変更時は確認ダイアログ）"| DETAIL
+    RESERVE -->|"キャンセル（確認なし）"| DETAIL
     RESERVE -->|"予約済み: 参加予定のワークショップを見る"| MYRSV
     RESERVE -->|"満員: ワークショップ詳細に戻る"| DETAIL
     RESERVE -->|"中止・非公開: ワークショップ詳細に戻る"| DETAIL
@@ -137,6 +135,8 @@ flowchart LR
     SET -->|"プロフィール編集"| PROF
     SET -->|"ワークショップの管理<br/>（facilitator / admin のみ表示）"| MANAGE
     SET -->|"予約履歴・参加履歴"| MYRSV
+    SET -->|"お気に入り"| FAV
+    SET -->|"ログアウト"| LOGIN_OUT["ログイン（種別選択）<br/>/login"]
     PROF -->|"保存する（同一画面で完了表示）"| PROF
 ```
 
@@ -169,7 +169,6 @@ flowchart LR
     MANAGE -->|"新規作成"| NEW
     MANAGE -->|"編集"| EDIT
     MANAGE -->|"予約状況"| RSV
-    MANAGE -->|"中止する（確認ダイアログ→再取得）"| MANAGE
     MANAGE -->|"削除（予約者がいない場合のみ有効<br/>確認ダイアログ→再取得）"| MANAGE
 
     NEW -->|"下書きとして保存 / 公開する: 成功"| MANAGE
@@ -180,12 +179,13 @@ flowchart LR
     EDIT -->|"下書きとして保存 / 公開する: 成功"| MANAGE
     EDIT -->|"保存: 入力エラー・API 失敗（エラー表示）"| EDIT
     EDIT -->|"キャンセル（入力変更時は確認ダイアログ）"| MANAGE
+    EDIT -->|"中止する（中止済みでない場合のみ表示<br/>確認ダイアログ→成功）"| MANAGE
     EDIT -->|"地図で確認（オフライン開催時）"| GMAP
 ```
 
 補足:
 
-- 「中止する」は開催予定タブかつ `status !== 'canceled'` の行にのみ表示される。実体は `PUT /api/workshops/{id}` で `status: 'canceled'` を送る処理（`frontend/src/pages/manage/ManageWorkshopsPage.tsx:54-73, 156-163`）。
+- 「中止する」は編集画面の下部に、`status !== 'canceled'` のときだけ表示される。実体は、保存済みの内容のまま `PUT /api/workshops/{id}` で `status: 'canceled'` を送る処理（`frontend/src/pages/manage/WorkshopFormPage.tsx` の `handleCancelWorkshop`）。
 - 保存時は、ワークショップ本体の保存（作成 / 更新）が成功した後に、画像の差し替え（`POST /image`）または削除（`DELETE /image`）を行ってから `/manage` へ遷移する（`frontend/src/pages/manage/WorkshopFormPage.tsx:146-162`）。
 - 予約状況画面にはリンク・ボタンがなく、戻る導線は Navbar またはブラウザバックのみ（`frontend/src/pages/manage/WorkshopReservationsPage.tsx`）。
 

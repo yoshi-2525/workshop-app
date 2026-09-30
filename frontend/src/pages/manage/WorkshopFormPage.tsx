@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   createWorkshop,
   deleteWorkshopImage,
@@ -8,18 +8,13 @@ import {
   uploadWorkshopImage,
 } from '../../api/workshops'
 import { extractErrorMessage } from '../../api/client'
-import { googleMapsSearchUrl } from '../../utils/maps'
-import type { LocationType, WorkshopInput, WorkshopStatus } from '../../types'
+import { useAuth } from '../../context/AuthContext'
+import type { Workshop, WorkshopInput, WorkshopStatus } from '../../types'
+import { toDateTimeInputValue } from '../../utils/date'
 import { parseIdParam } from '../../utils/params'
-
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-
-function toDatetimeLocal(value: string): string {
-  const date = new Date(value)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
+import { isWorkshopFinished, WORKSHOP_IMAGE_MAX_BYTES, WORKSHOP_IMAGE_TYPES } from '../../utils/workshop'
+import { WorkshopFormFields } from './WorkshopFormFields'
+import { removeWorkshopDraft, useWorkshopDraft, workshopDraftKey } from './useWorkshopDraft'
 
 const emptyForm: WorkshopInput = {
   title: '',
@@ -45,12 +40,38 @@ export function WorkshopFormPage() {
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // 開催済み・中止のワークショップは編集できない(URL を直接開いた場合もフォームを出さない)。
+  // 編集できない理由のメッセージを入れる
+  const [notEditableMessage, setNotEditableMessage] = useState<string | null>(null)
+  const finished = notEditableMessage !== null
+  // 編集画面で読み込んだ、保存済みのワークショップ(中止の処理に使う)
+  const [savedWorkshop, setSavedWorkshop] = useState<Workshop | null>(null)
+  const [canceling, setCanceling] = useState(false)
+  const { user } = useAuth()
 
   const [currentImageUrl, setCurrentImageUrl] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [removeImage, setRemoveImage] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
+
+  // 入力内容をこのブラウザに自動保存する。編集画面では、読み込みが終わってから始める
+  const draftKey =
+    user && !loading && !finished && !(isEdit && workshopId === null)
+      ? workshopDraftKey(user.id, isEdit ? workshopId : null)
+      : null
+  const { pendingDraft, lastSavedAt, takePendingDraft, discardPendingDraft, clearDraft } =
+    useWorkshopDraft({ storageKey: draftKey, form, baseline: initialForm })
+
+  // 編集できなくなった(開催済み・中止の)ワークショップの下書きは、残しておいても使えないので消す
+  useEffect(() => {
+    if (finished && user && workshopId !== null) removeWorkshopDraft(workshopDraftKey(user.id, workshopId))
+  }, [finished, user, workshopId])
+
+  function handleRestoreDraft() {
+    const restored = takePendingDraft()
+    if (restored) setForm(restored)
+  }
 
   useEffect(() => {
     if (!isEdit) return
@@ -61,13 +82,21 @@ export function WorkshopFormPage() {
     }
     getWorkshop(workshopId)
       .then((workshop) => {
+        if (workshop.status === 'canceled') {
+          setNotEditableMessage('中止したワークショップは編集できません。')
+          return
+        }
+        if (isWorkshopFinished(workshop)) {
+          setNotEditableMessage('開催済みのワークショップは編集できません。')
+          return
+        }
         const loaded: WorkshopInput = {
           title: workshop.title,
           description: workshop.description,
           location_type: workshop.location_type,
           location: workshop.location,
-          start_at: toDatetimeLocal(workshop.start_at),
-          end_at: toDatetimeLocal(workshop.end_at),
+          start_at: toDateTimeInputValue(new Date(workshop.start_at)),
+          end_at: toDateTimeInputValue(new Date(workshop.end_at)),
           capacity: workshop.capacity,
           price: workshop.price,
           cancellation_policy: workshop.cancellation_policy,
@@ -76,6 +105,7 @@ export function WorkshopFormPage() {
         setForm(loaded)
         setInitialForm(loaded)
         setCurrentImageUrl(workshop.image_url)
+        setSavedWorkshop(workshop)
       })
       .catch((err) => setError(extractErrorMessage(err, '取得に失敗しました')))
       .finally(() => setLoading(false))
@@ -94,12 +124,12 @@ export function WorkshopFormPage() {
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null
     if (!file) return
-    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+    if (!WORKSHOP_IMAGE_TYPES.includes(file.type)) {
       setError('対応していない画像形式です(jpg, png, webp, gif のみ利用できます)')
       e.target.value = ''
       return
     }
-    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    if (file.size > WORKSHOP_IMAGE_MAX_BYTES) {
       setError('画像サイズは5MB以内にしてください。')
       e.target.value = ''
       return
@@ -121,14 +151,48 @@ export function WorkshopFormPage() {
     if (isDirty && !confirm('入力した内容が破棄されますが、よろしいですか?')) {
       return
     }
+    clearDraft()
     navigate('/manage')
+  }
+
+  // 保存済みの内容のまま中止にする(フォームで編集中の内容は反映しない)
+  async function handleCancelWorkshop() {
+    if (!savedWorkshop) return
+    const isDirty =
+      JSON.stringify(form) !== JSON.stringify(initialForm) || Boolean(imageFile) || removeImage
+    const message =
+      'このワークショップを中止にしますか?予約済みの参加者には中止のお知らせが自動で届きます。' +
+      (isDirty ? '\n(編集中の内容は保存されません)' : '')
+    if (!confirm(message)) return
+    setError(null)
+    setCanceling(true)
+    try {
+      await updateWorkshop(savedWorkshop.id, {
+        title: savedWorkshop.title,
+        description: savedWorkshop.description,
+        location_type: savedWorkshop.location_type,
+        location: savedWorkshop.location,
+        start_at: savedWorkshop.start_at,
+        end_at: savedWorkshop.end_at,
+        capacity: savedWorkshop.capacity,
+        price: savedWorkshop.price,
+        cancellation_policy: savedWorkshop.cancellation_policy,
+        status: 'canceled',
+      })
+      clearDraft()
+      navigate('/manage')
+    } catch (err) {
+      setError(extractErrorMessage(err, '中止処理に失敗しました'))
+    } finally {
+      setCanceling(false)
+    }
   }
 
   async function handleSave(targetStatus: WorkshopStatus) {
     setError(null)
 
     if (!formRef.current?.reportValidity()) {
-      setError('未入力の項目があります。赤枠の項目を確認してください。')
+      setError('未入力または入力範囲外の項目があります。赤枠の項目を確認してください。')
       return
     }
 
@@ -144,267 +208,117 @@ export function WorkshopFormPage() {
     }
 
     setSaving(true)
+    const payload: WorkshopInput = {
+      ...form,
+      status: targetStatus,
+      start_at: startDate.toISOString(),
+      end_at: endDate.toISOString(),
+    }
+    // 保存済みのものがあれば更新する。新規作成のあと画像の保存だけ失敗した場合も、
+    // もう一度保存したときに同じワークショップを二重に作らないよう、作成済みのものを更新する
+    const existingId = savedWorkshop?.id ?? (isEdit ? workshopId : null)
+    let workshop: Workshop
     try {
-      const payload: WorkshopInput = {
-        ...form,
-        status: targetStatus,
-        start_at: startDate.toISOString(),
-        end_at: endDate.toISOString(),
-      }
-      const workshop =
-        isEdit && workshopId !== null ? await updateWorkshop(workshopId, payload) : await createWorkshop(payload)
+      workshop = existingId !== null ? await updateWorkshop(existingId, payload) : await createWorkshop(payload)
+    } catch (err) {
+      setError(extractErrorMessage(err, '保存に失敗しました'))
+      setSaving(false)
+      return
+    }
+    setSavedWorkshop(workshop)
 
+    try {
       if (imageFile) {
         await uploadWorkshopImage(workshop.id, imageFile)
       } else if (removeImage) {
         await deleteWorkshopImage(workshop.id)
       }
-      navigate('/manage')
     } catch (err) {
-      setError(extractErrorMessage(err, '保存に失敗しました'))
-    } finally {
+      setError(
+        `ワークショップの内容は保存しましたが、画像の${imageFile ? 'アップロード' : '削除'}に失敗しました。` +
+          `もう一度保存してください(${extractErrorMessage(err, '原因不明のエラー')})`,
+      )
       setSaving(false)
+      return
     }
-  }
-
-  function setLocationType(locationType: LocationType) {
-    setForm((prev) => ({ ...prev, location_type: locationType }))
+    clearDraft()
+    setSaving(false)
+    navigate('/manage')
   }
 
   if (loading) return <p className="text-slate-500">読み込み中...</p>
   // 不正な ID のまま保存すると新規作成扱いになるため、フォームを出さない
   if (isEdit && workshopId === null) return <p className="text-red-600">{error}</p>
-
-  const mapUrl = form.location.trim() ? googleMapsSearchUrl(form.location.trim()) : null
+  if (finished) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <p className="text-slate-600">{notEditableMessage}</p>
+        <Link to="/manage" className="mt-4 inline-block text-sm text-slate-600 underline">
+          ワークショップの管理に戻る
+        </Link>
+      </div>
+    )
+  }
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-2xl">
       <h1 className="text-xl font-semibold text-slate-900">
         {isEdit ? 'ワークショップを編集' : 'ワークショップを新規作成'}
       </h1>
-      <form ref={formRef} onSubmit={(e) => e.preventDefault()} className="mt-6 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-700">タイトル</label>
-          <input
-            required
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700">説明</label>
-          <textarea
-            required
-            rows={4}
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700">画像</label>
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept={ACCEPTED_IMAGE_TYPES.join(',')}
-            onChange={handleImageChange}
-            className="mt-1 block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-700"
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            一覧・詳細ページに表示される画像をアップロードしてください(jpg, png, webp, gif / 5MBまで)。
+      {pendingDraft && (
+        <div
+          role="status"
+          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+        >
+          <p>
+            {new Date(pendingDraft.savedAt).toLocaleString('ja-JP', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })}
+            に自動保存された入力内容があります。復元しますか?(画像は復元されません)
           </p>
-          {imagePreviewUrl ? (
-            <div className="mt-2">
-              <img
-                src={imagePreviewUrl}
-                alt="プレビュー"
-                className="h-32 w-full rounded-md border border-slate-200 object-cover"
-              />
-              <button
-                type="button"
-                onClick={handleRemoveImage}
-                className="mt-2 text-xs text-red-600 underline"
-              >
-                画像を取り消す
-              </button>
-            </div>
-          ) : currentImageUrl && !removeImage ? (
-            <div className="mt-2">
-              <img
-                src={currentImageUrl}
-                alt="現在の画像"
-                className="h-32 w-full rounded-md border border-slate-200 object-cover"
-              />
-              <button
-                type="button"
-                onClick={handleRemoveImage}
-                className="mt-2 text-xs text-red-600 underline"
-              >
-                画像を削除する
-              </button>
-            </div>
-          ) : null}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700">開催形式</label>
-          <div className="mt-1 inline-flex rounded-md border border-slate-300 p-0.5 text-sm">
+          <div className="mt-3 flex gap-2">
             <button
               type="button"
-              onClick={() => setLocationType('offline')}
-              className={`rounded px-3 py-1.5 font-medium transition ${
-                form.location_type === 'offline'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
+              onClick={handleRestoreDraft}
+              className="rounded-md bg-amber-600 px-3 py-1.5 font-medium text-white hover:bg-amber-700"
             >
-              オフライン(会場)
+              復元する
             </button>
             <button
               type="button"
-              onClick={() => setLocationType('online')}
-              className={`rounded px-3 py-1.5 font-medium transition ${
-                form.location_type === 'online'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
+              onClick={discardPendingDraft}
+              className="rounded-md border border-amber-300 px-3 py-1.5 text-amber-800 hover:bg-amber-100"
             >
-              オンライン
+              破棄する
             </button>
           </div>
         </div>
+      )}
+      <form ref={formRef} onSubmit={(e) => e.preventDefault()} className="mt-6">
+        <WorkshopFormFields
+          form={form}
+          setForm={setForm}
+          imageInputRef={imageInputRef}
+          imagePreviewUrl={imagePreviewUrl}
+          currentImageUrl={currentImageUrl}
+          removeImage={removeImage}
+          onImageChange={handleImageChange}
+          onRemoveImage={handleRemoveImage}
+        />
 
-        {form.location_type === 'offline' ? (
-          <div>
-            <label className="block text-sm font-medium text-slate-700">会場名・住所</label>
-            <div className="mt-1 flex gap-2">
-              <input
-                required
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-                placeholder="例: 東京都渋谷区神宮前4丁目 表参道カフェスペース"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-              />
-              <a
-                href={mapUrl ?? undefined}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-disabled={!mapUrl}
-                className={`shrink-0 whitespace-nowrap rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 ${
-                  mapUrl ? '' : 'pointer-events-none opacity-50'
-                }`}
-              >
-                地図で確認
-              </a>
-            </div>
-            <p className="mt-1 text-xs text-slate-500">
-              「地図で確認」から地図アプリで住所や周辺情報を確認できます。
-            </p>
-          </div>
-        ) : (
-          <div>
-            <label className="block text-sm font-medium text-slate-700">オンライン開催ツール・URL</label>
-            <input
-              required
-              value={form.location}
-              onChange={(e) => setForm({ ...form, location: e.target.value })}
-              placeholder="例: Zoom(お申し込み後にURLをご案内します)"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-            />
-          </div>
+        {error && (
+          <p role="alert" className="mt-4 text-sm text-red-600">
+            {error}
+          </p>
         )}
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">開始日時</label>
-            <input
-              type="datetime-local"
-              required
-              value={form.start_at}
-              onChange={(e) => setForm({ ...form, start_at: e.target.value })}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">終了日時</label>
-            <input
-              type="datetime-local"
-              required
-              value={form.end_at}
-              onChange={(e) => setForm({ ...form, end_at: e.target.value })}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700">定員</label>
-            <input
-              type="number"
-              min={1}
-              required
-              value={form.capacity}
-              onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">参加費(円)</label>
-            <input
-              type="number"
-              min={0}
-              step={100}
-              required
-              value={form.price}
-              onChange={(e) => {
-                const price = Number(e.target.value)
-                setForm((prev) => ({
-                  ...prev,
-                  price,
-                  cancellation_policy: price > 0 ? prev.cancellation_policy : '',
-                }))
-              }}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-              placeholder="0円の場合は無料として表示されます"
-            />
-          </div>
-        </div>
-
-        {form.price > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-slate-700">キャンセルポリシー</label>
-            <textarea
-              rows={3}
-              value={form.cancellation_policy}
-              onChange={(e) => setForm({ ...form, cancellation_policy: e.target.value })}
-              placeholder="例: 開催3日前までは無料キャンセル可能です。それ以降は参加費の50%をキャンセル料として申し受けます。"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-            />
-            <p className="mt-1 text-xs text-slate-500">
-              有料ワークショップの参加者には、この内容がワークショップ詳細ページに表示されます。
-            </p>
-          </div>
-        )}
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => handleSave('draft')}
-            disabled={saving}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
-            {saving ? '保存中...' : '下書きとして保存'}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSave('published')}
-            disabled={saving}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-          >
-            {saving ? '保存中...' : '公開する'}
-          </button>
+        <p className="mt-3 text-right text-xs text-slate-500" aria-live="polite">
+          {lastSavedAt
+            ? `入力内容をこのブラウザに自動保存しました(${new Date(lastSavedAt).toLocaleTimeString('ja-JP', { timeStyle: 'short' })})`
+            : '入力内容はこのブラウザに自動保存されます'}
+        </p>
+        {/* 入力欄のカードとボタンの間は広めに空ける */}
+        <div className="mt-8 flex flex-wrap justify-end gap-3">
           <button
             type="button"
             onClick={handleCancelClick}
@@ -412,8 +326,52 @@ export function WorkshopFormPage() {
           >
             キャンセル
           </button>
+          {/* 下書き保存は新規作成と下書きの編集のときだけ。公開済みのものは API でも下書きに戻せない */}
+          {(!savedWorkshop || savedWorkshop.status === 'draft') && (
+            <button
+              type="button"
+              onClick={() => handleSave('draft')}
+              disabled={saving}
+              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {saving ? '保存中...' : '下書きとして保存'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => handleSave('published')}
+            disabled={saving}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+          >
+            {saving ? '保存中...' : '公開する'}
+          </button>
         </div>
       </form>
+
+      {/* 中止は保存とは別の操作なので、フォームのボタンから離して置く */}
+      {savedWorkshop && savedWorkshop.status !== 'canceled' && (
+        <section
+          aria-labelledby="cancel-workshop-heading"
+          className="mt-12 rounded-lg border border-amber-300 bg-amber-50 p-4"
+        >
+          <h2 id="cancel-workshop-heading" className="text-sm font-semibold text-amber-900">
+            ワークショップの中止
+          </h2>
+          <p className="mt-1 text-sm text-amber-900">
+            開催を取りやめる場合は中止にします。予約済みの参加者には中止のお知らせが自動で届きます。
+          </p>
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={handleCancelWorkshop}
+              disabled={canceling || saving}
+              className="rounded-md border border-amber-400 bg-white px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+            >
+              {canceling ? '処理中...' : '中止する'}
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

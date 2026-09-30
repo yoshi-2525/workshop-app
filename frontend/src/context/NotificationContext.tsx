@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { getUnreadNotificationCount } from '../api/notifications'
 import { useAuth } from './AuthContext'
@@ -36,11 +36,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval)
   }, [user, refreshUnreadCount])
 
-  return (
-    <NotificationContext.Provider value={{ unreadCount, refreshUnreadCount, setUnreadCount }}>
-      {children}
-    </NotificationContext.Provider>
+  // 値が変わったときだけ、通知を使うコンポーネントを再描画させる
+  const value = useMemo(
+    () => ({ unreadCount, refreshUnreadCount, setUnreadCount }),
+    [unreadCount, refreshUnreadCount],
   )
+
+  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>
 }
 
 export function useNotifications(): NotificationContextValue {

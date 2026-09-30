@@ -27,7 +27,7 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 | F-AUTH-04 | 認証 | 参加者登録 | 名前・メール・パスワード（8 文字以上）で participant として登録し、自動ログイン | 全員 | `/register/participant` | `POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me` |
 | F-AUTH-05 | 認証 | 主催者登録 | facilitator として登録し、自動ログインして `/manage` へ | 全員 | `/register/facilitator` | `POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me` |
 | F-AUTH-06 | 認証 | ログイン状態の復元 | 起動時に localStorage の JWT でユーザー情報を取得。失敗時・401 応答時はトークンを破棄 | ログイン | （全画面共通） | `GET /api/auth/me` |
-| F-AUTH-07 | 認証 | ログアウト | トークンを破棄して `/login` へ遷移（サーバー API 呼び出しなし） | ログイン | Navbar | — |
+| F-AUTH-07 | 認証 | ログアウト | トークンを破棄して `/login` へ遷移（サーバー API 呼び出しなし） | ログイン | `/settings` | — |
 | F-AUTH-08 | 認証 | 画面アクセス制御 | 未ログイン時はログイン画面へ（`state.from` 付き）、主催者画面にロール不足でアクセスすると `/` へリダイレクト | 全員 | ログイン必須画面・`/manage` 配下 | — |
 | F-AUTH-09 | 認証 | ロール変更（管理者付与） | 運用スクリプトで既存ユーザーのロールを変更する。admin は API からは作成できない | 管理者（運用者） | なし（`backend/scripts/set_role.py`） | — |
 
@@ -35,8 +35,8 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 
 | 機能ID | カテゴリ | 機能名 | 概要 | 利用者（権限） | 画面 | API（メソッド + パス） |
 |---|---|---|---|---|---|---|
-| F-WS-01 | ワークショップ | 公開ワークショップ一覧 | 公開中（published）のワークショップを開始日時の昇順でカード表示 | 全員 | `/` | `GET /api/workshops` |
-| F-WS-02 | ワークショップ | ワークショップ検索・絞り込み | キーワード（タイトル・説明の部分一致、最大 100 文字）、開催形式（オフライン / オンライン）、料金（無料 / 有料）、上限金額（有料時） | 全員 | `/` | `GET /api/workshops?q=&location_type=&price=&max_price=` |
+| F-WS-01 | ワークショップ | 公開ワークショップ一覧 | 公開中（published）のワークショップを 30 件ずつカード表示。ログイン中は、自分が予約済み（確定済み）のワークショップと、自分が主催するワークショップを除く（キャンセル済みの予約は除かない）。並び替えは開催日時の近い順（既定）/ 公開日時の新しい順 / 価格の安い順 | 全員 | `/` | `GET /api/workshops?sort=&limit=&offset=&exclude_reserved=true&exclude_own=true` |
+| F-WS-02 | ワークショップ | ワークショップ検索・絞り込み | キーワード（タイトル・説明の部分一致、最大 100 文字）、開催形式（オフライン / オンライン）、料金（無料 / 有料）、上限金額（有料時）、開催日（今日 / 明日 / 直近1週間 / 期間を指定（検索開始日〜検索終了日。片方のみも可、終了日はその日を含む）。日付の区切りは利用者の端末の時間帯で計算し、API には開催日時の範囲として渡す）。検索フォームとは別に「参加可能なワークショップを表示する」チェックボックス（満員を除外、即時反映） | 全員 | `/` | `GET /api/workshops?q=&location_type=&price=&max_price=&start_from=&start_to=&available=` |
 | F-WS-03 | ワークショップ | ワークショップ詳細 | 画像・日時・場所・参加費・定員・説明・キャンセルポリシーを表示。下書きは主催者本人と admin のみ、中止はそれに加えて予約したことのあるユーザーも閲覧可（「中止になりました」と表示） | 全員 | `/workshops/:id` | `GET /api/workshops/{workshop_id}` |
 | F-WS-04 | ワークショップ | 地図表示リンク | オフライン開催の場所を Google マップ検索で新しいタブに表示 | 全員 | `/workshops/:id` | —（外部リンク） |
 | F-WS-05 | ワークショップ | 閲覧者別の状態表示 | ログインユーザーごとのお気に入り登録状態・予約済み状態（`viewer`）をカード・詳細に反映 | ログイン | `/`、`/workshops/:id`、`/favorites`、`/facilitators/:id` | `GET /api/workshops`、`GET /api/workshops/{workshop_id}` |
@@ -80,13 +80,14 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 
 | 機能ID | カテゴリ | 機能名 | 概要 | 利用者（権限） | 画面 | API（メソッド + パス） |
 |---|---|---|---|---|---|---|
-| F-MNG-01 | 主催者管理 | 自分のワークショップ一覧 | 自分のワークショップ（admin は全件）を「開催予定」/「開催履歴」タブで表示。ステータス・参加費・予約数を表示 | 主催者 | `/manage` | `GET /api/workshops?mine=true` |
+| F-MNG-01 | 主催者管理 | 自分のワークショップ一覧 | 自分のワークショップ（admin は全件）を「開催予定」/「開催履歴」タブで表示。ステータス・参加費・予約数を表示 | 主催者 | `/manage` | `GET /api/manage/workshops` |
 | F-MNG-02 | 主催者管理 | ワークショップ作成 | タイトル・説明・開催形式・場所・日時・定員・参加費・キャンセルポリシーを入力し、下書き保存または公開 | 主催者 | `/manage/workshops/new` | `POST /api/workshops` |
-| F-MNG-03 | 主催者管理 | ワークショップ編集 | 既存ワークショップを編集し、下書き保存または公開 | 主催者（所有者 / admin） | `/manage/workshops/:id/edit` | `GET /api/workshops/{workshop_id}`、`PUT /api/workshops/{workshop_id}` |
-| F-MNG-04 | 主催者管理 | ワークショップ画像の登録・削除 | jpg / png / webp / gif（5MB 以内）の画像をアップロード、または削除。旧画像ファイルは削除 | 主催者（所有者 / admin） | `/manage/workshops/new`、`/manage/workshops/:id/edit` | `POST /api/workshops/{workshop_id}/image`、`DELETE /api/workshops/{workshop_id}/image` |
-| F-MNG-05 | 主催者管理 | ワークショップ中止 | 確認（「予約済みの参加者には中止のお知らせが自動で届きます。」）後、ステータスを `canceled` に更新（F-NTF-05 の通知を発火） | 主催者（所有者 / admin） | `/manage` | `PUT /api/workshops/{workshop_id}` |
-| F-MNG-06 | 主催者管理 | ワークショップ削除 | 確認後、ワークショップを物理削除（関連するキャンセル済み予約・お気に入り・通知も ORM カスケードで削除）。確定済み予約がある場合は削除ボタンが無効で、API も 409 を返す（中止を利用する） | 主催者（所有者 / admin） | `/manage` | `DELETE /api/workshops/{workshop_id}` |
+| F-MNG-03 | 主催者管理 | ワークショップ編集 | 既存ワークショップを編集し、下書き保存または公開。開催済み（終了日時を過ぎた）ものは編集不可：管理画面の「開催履歴」タブに「編集」を出さず、編集画面を直接開いても「開催済みのワークショップは編集できません。」を表示し、API も 409 を返す | 主催者（所有者 / admin） | `/manage/workshops/:id/edit` | `GET /api/workshops/{workshop_id}`、`PUT /api/workshops/{workshop_id}` |
+| F-MNG-04 | 主催者管理 | ワークショップ画像の登録・削除 | jpg / png / webp / gif（5MB 以内）の画像をアップロード、または削除。旧画像ファイルは削除。開催済みのものは API が 409 を返す | 主催者（所有者 / admin） | `/manage/workshops/new`、`/manage/workshops/:id/edit` | `POST /api/workshops/{workshop_id}/image`、`DELETE /api/workshops/{workshop_id}/image` |
+| F-MNG-05 | 主催者管理 | ワークショップ中止 | 確認（「予約済みの参加者には中止のお知らせが自動で届きます。」）後、ステータスを `canceled` に更新（F-NTF-05 の通知を発火）。操作は編集画面の下部の「ワークショップの中止」から行う（編集中の内容は保存しない） | 主催者（所有者 / admin） | `/manage/workshops/:id/edit` | `PUT /api/workshops/{workshop_id}` |
+| F-MNG-06 | 主催者管理 | ワークショップ削除 | 確認後、ワークショップを物理削除（関連するキャンセル済み予約・お気に入り・通知も ORM カスケードで削除）。開催予定（終了日時前）のものは下書きのみ削除でき、公開中・中止は削除ボタンを出さず API も 409 を返す（取りやめる場合は中止を利用する）。確定済み予約がある場合は削除ボタンが無効で、API も 409 を返す | 主催者（所有者 / admin） | `/manage` | `DELETE /api/workshops/{workshop_id}` |
 | F-MNG-07 | 主催者管理 | 予約状況の確認 | ワークショップの予約者一覧（参加者名・連絡先・枚数・状態・予約日時）と確定チケット数を表示 | 主催者（所有者 / admin） | `/manage/workshops/:id/reservations` | `GET /api/workshops/{workshop_id}`、`GET /api/workshops/{workshop_id}/reservations` |
+| F-MNG-08 | 主催者管理 | 入力内容の自動保存 | 作成・編集フォームの入力内容を 1 秒ごと（入力が止まったとき）にブラウザの localStorage へ自動保存し、次に開いたときに復元・破棄を選べる。画像は対象外。保存成功・キャンセルで削除 | 主催者 | `/manage/workshops/new`、`/manage/workshops/:id/edit` | —（ブラウザ内のみ） |
 
 ### システム（SYS）
 
@@ -107,11 +108,12 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 | 2 | POST | `/api/auth/login` | 不要 | ログイン（form: username, password）。JWT を返す。失敗は 401 | `backend/app/routers/auth.py` |
 | 3 | GET | `/api/auth/me` | 必須 | ログインユーザー情報の取得 | `backend/app/routers/auth.py` |
 | 4 | PATCH | `/api/auth/me` | 必須 | 表示名・自己紹介の更新 | `backend/app/routers/auth.py` |
-| 5 | GET | `/api/workshops` | 任意（`mine=true` は主催者） | ワークショップ一覧。クエリ: `mine`, `facilitator_id`, `q`, `location_type`, `price`, `max_price`。`mine=true` 以外は公開中のみ | `backend/app/routers/workshops.py` |
+| 5 | GET | `/api/workshops` | 任意 | 公開中のワークショップの検索・一覧。クエリ: `facilitator_id`, `q`, `location_type`, `price`, `max_price`, `available`, `exclude_reserved`, `exclude_own`, `start_from`, `start_to`, `sort`, `limit`, `offset`（`limit` 指定時は総件数を `X-Total-Count` ヘッダーで返す）。検索条件は `WorkshopSearchQuery`（`backend/app/schemas/workshop.py`）で受け取り、存在しないパラメータや `start_from >= start_to` は 422 | `backend/app/routers/workshops.py` |
+| 5-2 | GET | `/api/manage/workshops` | 主催者・管理者 | 管理用のワークショップ一覧。下書き・中止を含む自分のワークショップ（admin は全員分）を開催日時の新しい順で返す。未ログインは 401、参加者は 403 | `backend/app/routers/manage.py` |
 | 6 | GET | `/api/workshops/{workshop_id}` | 任意 | ワークショップ詳細。非公開は所有者 / admin 以外 404。ただし中止済みは、そのワークショップを予約したことのあるユーザーも閲覧可 | `backend/app/routers/workshops.py` |
 | 7 | POST | `/api/workshops` | 主催者 | ワークショップ作成 | `backend/app/routers/workshops.py` |
 | 8 | PUT | `/api/workshops/{workshop_id}` | 主催者（所有者 / admin） | ワークショップ更新。`canceled` への変更時に中止通知を作成 | `backend/app/routers/workshops.py` |
-| 9 | DELETE | `/api/workshops/{workshop_id}` | 主催者（所有者 / admin） | ワークショップ削除（204）。確定済み予約がある場合は 409 | `backend/app/routers/workshops.py` |
+| 9 | DELETE | `/api/workshops/{workshop_id}` | 主催者（所有者 / admin） | ワークショップ削除（204）。開催予定（終了日時前）で下書き以外のもの、または確定済み予約がある場合は 409 | `backend/app/routers/workshops.py` |
 | 10 | POST | `/api/workshops/{workshop_id}/image` | 主催者（所有者 / admin） | 画像アップロード（multipart, `file`） | `backend/app/routers/workshops.py` |
 | 11 | DELETE | `/api/workshops/{workshop_id}/image` | 主催者（所有者 / admin） | 画像削除 | `backend/app/routers/workshops.py` |
 | 12 | POST | `/api/workshops/{workshop_id}/reservations` | 必須 | 予約作成（公開中のみ）。残席不足・予約済みは 409 | `backend/app/routers/workshops.py` |

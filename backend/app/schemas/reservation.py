@@ -1,14 +1,14 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.reservation import ReservationStatus
-from app.schemas.types import UTCDateTime
+from app.models.reservation import MAX_TICKETS_PER_RESERVATION, ReservationStatus
+from app.schemas.types import TrimmedStr, UTCDateTime
 from app.schemas.workshop import WorkshopRead
 
 
 class ReservationCreate(BaseModel):
-    attendee_name: str = Field(min_length=1, max_length=255)
-    contact: str = Field(min_length=1, max_length=255)
-    ticket_count: int = Field(ge=1, le=20, default=1)
+    attendee_name: TrimmedStr = Field(min_length=1, max_length=255)
+    contact: TrimmedStr = Field(min_length=1, max_length=255)
+    ticket_count: int = Field(ge=1, le=MAX_TICKETS_PER_RESERVATION, default=1)
 
 
 class ReservationRead(BaseModel):

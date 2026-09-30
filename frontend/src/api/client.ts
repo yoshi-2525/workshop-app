@@ -14,11 +14,21 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+// トークンが無効(期限切れなど)になったことを AuthContext に知らせるイベント
+export const AUTH_EXPIRED_EVENT = 'workshop_app:auth_expired'
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem(TOKEN_STORAGE_KEY)
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      // トークンを付けて送ったリクエストだけが対象(ログイン失敗の 401 は含めない)。
+      // 送信後に別のアカウントでログインし直していた場合は、新しいトークンを消さない
+      const sentAuth = error.config?.headers?.Authorization
+      const currentToken = localStorage.getItem(TOKEN_STORAGE_KEY)
+      if (currentToken && sentAuth === `Bearer ${currentToken}`) {
+        localStorage.removeItem(TOKEN_STORAGE_KEY)
+        window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
+      }
     }
     return Promise.reject(error)
   },

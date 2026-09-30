@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { extractErrorMessage } from '../../api/client'
 import type { SelfRegisterRole } from '../../types'
+import { PASSWORD_MAX_BYTES, PASSWORD_MIN_LENGTH, USER_NAME_MAX_LENGTH, utf8ByteLength } from '../../utils/user'
 import { authThemeStyles } from './theme'
 
 interface RegisterFormProps {
@@ -35,9 +36,18 @@ export function RegisterForm({
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const style = authThemeStyles[role]
+  const nameId = useId()
+  const emailId = useId()
+  const passwordId = useId()
+  const passwordHelpId = useId()
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    // maxLength は文字数でしか数えないので、日本語などを含むパスワードはバイト数でも確かめる
+    if (utf8ByteLength(password) > PASSWORD_MAX_BYTES) {
+      setError(`パスワードは${PASSWORD_MAX_BYTES}バイト以内にしてください(日本語などは1文字3バイトです)`)
+      return
+    }
     setError(null)
     setSubmitting(true)
     try {
@@ -60,36 +70,58 @@ export function RegisterForm({
         <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-lg bg-white p-5 shadow-sm">
           <div>
-            <label className="block text-sm font-medium text-slate-700">名前</label>
+            <label htmlFor={nameId} className="block text-sm font-medium text-slate-700">
+              名前
+            </label>
             <input
+              id={nameId}
+              autoComplete="name"
               required
+              maxLength={USER_NAME_MAX_LENGTH}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none ${style.focusRing}`}
+              className={`mt-1 w-full rounded-md border border-border px-3 py-2 text-sm focus:outline-none ${style.focusRing}`}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700">メールアドレス</label>
+            <label htmlFor={emailId} className="block text-sm font-medium text-slate-700">
+              メールアドレス
+            </label>
             <input
+              id={emailId}
               type="email"
+              autoComplete="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={`mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none ${style.focusRing}`}
+              className={`mt-1 w-full rounded-md border border-border px-3 py-2 text-sm focus:outline-none ${style.focusRing}`}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700">パスワード</label>
+            <label htmlFor={passwordId} className="block text-sm font-medium text-slate-700">
+              パスワード
+            </label>
             <input
+              id={passwordId}
               type="password"
+              autoComplete="new-password"
               required
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
+              maxLength={PASSWORD_MAX_BYTES}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={`mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none ${style.focusRing}`}
+              aria-describedby={passwordHelpId}
+              className={`mt-1 w-full rounded-md border border-border px-3 py-2 text-sm focus:outline-none ${style.focusRing}`}
             />
+            <p id={passwordHelpId} className="mt-1 text-xs text-slate-500">
+              {PASSWORD_MIN_LENGTH}文字以上、{PASSWORD_MAX_BYTES}バイト以内(英数字なら{PASSWORD_MAX_BYTES}文字まで)
+            </p>
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-red-600">
+              {error}
+            </p>
+          )}
           <button
             type="submit"
             disabled={submitting}

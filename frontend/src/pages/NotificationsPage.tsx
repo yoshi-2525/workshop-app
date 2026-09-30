@@ -12,7 +12,7 @@ import { formatDateTime } from '../utils/format'
 
 const typeLabel: Record<Notification['type'], string> = {
   cancellation: '中止',
-  reminder: '開催前日',
+  reminder: 'リマインダー',
 }
 
 const typeColor: Record<Notification['type'], string> = {
@@ -66,7 +66,7 @@ export function NotificationsPage() {
         {unreadCount > 0 && (
           <button
             onClick={handleMarkAllRead}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            className="rounded-md border border-border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
           >
             すべて既読にする
           </button>
@@ -74,7 +74,11 @@ export function NotificationsPage() {
       </div>
 
       {loading && <p className="mt-6 text-slate-500">読み込み中...</p>}
-      {error && <p className="mt-6 text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-6 text-red-600">
+          {error}
+        </p>
+      )}
       {!loading && notifications.length === 0 && (
         <p className="mt-6 text-slate-500">通知はまだありません。</p>
       )}
@@ -87,8 +91,8 @@ export function NotificationsPage() {
               onClick={() => handleOpen(notification)}
               className={`flex items-start gap-3 rounded-lg border p-4 transition hover:shadow-md ${
                 notification.is_read
-                  ? 'border-slate-200 bg-white'
-                  : 'border-slate-300 bg-slate-50'
+                  ? 'border-border-muted bg-white'
+                  : 'border-border bg-slate-50'
               }`}
             >
               <span

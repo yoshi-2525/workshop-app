@@ -6,8 +6,8 @@ export interface UpdateMePayload {
   bio?: string
 }
 
-export async function getFacilitatorProfile(userId: number): Promise<FacilitatorProfile> {
-  const { data } = await apiClient.get<FacilitatorProfile>(`/facilitators/${userId}`)
+export async function getFacilitatorProfile(userId: number, signal?: AbortSignal): Promise<FacilitatorProfile> {
+  const { data } = await apiClient.get<FacilitatorProfile>(`/facilitators/${userId}`, { signal })
   return data
 }
 

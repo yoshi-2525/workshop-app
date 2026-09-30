@@ -6,8 +6,8 @@ export async function listMyReservations(): Promise<Reservation[]> {
   return data
 }
 
-export async function listWorkshopReservations(workshopId: number): Promise<Reservation[]> {
-  const { data } = await apiClient.get<Reservation[]>(`/workshops/${workshopId}/reservations`)
+export async function listWorkshopReservations(workshopId: number, signal?: AbortSignal): Promise<Reservation[]> {
+  const { data } = await apiClient.get<Reservation[]>(`/workshops/${workshopId}/reservations`, { signal })
   return data
 }
 

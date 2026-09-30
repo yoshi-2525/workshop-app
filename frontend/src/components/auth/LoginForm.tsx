@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -40,6 +40,8 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const style = authThemeStyles[theme]
+  const emailId = useId()
+  const passwordId = useId()
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -71,26 +73,38 @@ export function LoginForm({
         <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-lg bg-white p-5 shadow-sm">
           <div>
-            <label className="block text-sm font-medium text-slate-700">メールアドレス</label>
+            <label htmlFor={emailId} className="block text-sm font-medium text-slate-700">
+              メールアドレス
+            </label>
             <input
+              id={emailId}
               type="email"
+              autoComplete="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={`mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none ${style.focusRing}`}
+              className={`mt-1 w-full rounded-md border border-border px-3 py-2 text-sm focus:outline-none ${style.focusRing}`}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700">パスワード</label>
+            <label htmlFor={passwordId} className="block text-sm font-medium text-slate-700">
+              パスワード
+            </label>
             <input
+              id={passwordId}
               type="password"
+              autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={`mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none ${style.focusRing}`}
+              className={`mt-1 w-full rounded-md border border-border px-3 py-2 text-sm focus:outline-none ${style.focusRing}`}
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-red-600">
+              {error}
+            </p>
+          )}
           <button
             type="submit"
             disabled={submitting}

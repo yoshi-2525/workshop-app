@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* アプリ全体の配色トークン。bg-background / bg-accent / border-border / ring-ring などで参照する */
+@theme {
+  --color-background: #f8fafc; /* slate-50 */
+  --color-accent: #0f172b; /* slate-900 */
+  --color-accent-hover: #314158; /* slate-700 */
+  --color-accent-foreground: #fff;
+  --color-border: #cad5e2; /* slate-300: 入力欄・ボタンの枠線 */
+  --color-border-muted: #e2e8f0; /* slate-200: カード・区切り線 */
+  --color-ring: #62748e; /* slate-500: フォーカスリング・フォーカス時の枠線 */
+}
+
 html,
 body,
 #root {

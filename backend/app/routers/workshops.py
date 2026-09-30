@@ -1,28 +1,32 @@
-from typing import Literal
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy import exists, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.deps import get_current_user, get_current_user_optional, require_roles
+from app.core.timeutil import utcnow_naive
 from app.database import get_db
-from app.models.favorite import Favorite
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User, UserRole
-from app.models.workshop import LocationType, Workshop, WorkshopStatus
+from app.models.workshop import Workshop, WorkshopStatus
 from app.schemas.reservation import ReservationCreate, ReservationRead
-from app.schemas.workshop import WorkshopInput, WorkshopRead
-from app.services.notifications import notify_workshop_canceled
-from app.services.uploads import delete_workshop_image, save_workshop_image
+from app.schemas.workshop import WorkshopInput, WorkshopRead, WorkshopSearchQuery
+from app.services.notifications import add_cancellation_notices
+from app.services.pagination import PageQuery, paginate
+from app.services.reservations import to_reservation_read, to_reservation_reads
+from app.services.uploads import delete_workshop_image, reject_oversized_upload, save_workshop_image
+from app.services.workshops import check_workshop_input, confirmed_tickets_select, ensure_editable, lock_workshop
 from app.services.workshops import reserved_count as _reserved_count
 from app.services.workshops import to_workshop_read as _to_read
+from app.services.workshops import to_workshop_reads as _to_reads
 
 router = APIRouter(prefix="/workshops", tags=["workshops"])
 
 
-def _get_owned_workshop(db: Session, workshop_id: int, user: User) -> Workshop:
-    workshop = db.get(Workshop, workshop_id)
+def _get_owned_workshop(db: Session, workshop_id: int, user: User, *, for_update: bool = False) -> Workshop:
+    workshop = lock_workshop(db, workshop_id) if for_update else db.get(Workshop, workshop_id)
     if workshop is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
     if user.role != UserRole.admin and workshop.facilitator_id != user.id:
@@ -37,54 +41,78 @@ def _has_reservation(db: Session, workshop_id: int, user_id: int) -> bool:
     return bool(db.scalar(stmt))
 
 
+# 公開一覧の並び順。同じ値のときの順序が毎回変わらないよう、最後に id を付ける
+_PUBLIC_SORT_ORDERS = {
+    "start": (Workshop.start_at.asc(), Workshop.id.asc()),
+    "newest": (Workshop.published_at.desc(), Workshop.id.desc()),
+    "price": (Workshop.price.asc(), Workshop.start_at.asc(), Workshop.id.asc()),
+}
+
+
 def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 @router.get("", response_model=list[WorkshopRead])
 def list_workshops(
-    mine: bool = Query(False),
-    facilitator_id: int | None = Query(None),
-    q: str | None = Query(None, max_length=100),
-    location_type: LocationType | None = Query(None),
-    price: Literal["free", "paid"] | None = Query(None),
-    max_price: int | None = Query(None, ge=0),
+    query: Annotated[WorkshopSearchQuery, Query()],
+    response: Response,
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
 ) -> list[WorkshopRead]:
-    if mine:
-        if current_user is None or current_user.role not in (UserRole.admin, UserRole.facilitator):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="この操作を行う権限がありません")
-        stmt = select(Workshop).order_by(Workshop.start_at.desc())
-        if current_user.role != UserRole.admin:
-            stmt = stmt.where(Workshop.facilitator_id == current_user.id)
-    else:
-        stmt = (
-            select(Workshop)
-            .where(Workshop.status == WorkshopStatus.published)
-            .order_by(Workshop.start_at.asc())
-        )
-        if facilitator_id is not None:
-            stmt = stmt.where(Workshop.facilitator_id == facilitator_id)
-        keyword = q.strip() if q else ""
-        if keyword:
-            pattern = f"%{_escape_like(keyword)}%"
-            stmt = stmt.where(
-                or_(
-                    Workshop.title.ilike(pattern, escape="\\"),
-                    Workshop.description.ilike(pattern, escape="\\"),
-                )
+    # 公開中のワークショップだけを検索する(主催者用の一覧は routers/manage.py)。
+    # 検索条件の入力チェックは WorkshopSearchQuery で済んでいるので、ここでは SQL を組み立てるだけ
+    # 開始済み・終了済みのものは予約できないので、一覧には開催予定(まだ始まっていない)ものだけを出す
+    stmt = (
+        select(Workshop)
+        .where(Workshop.status == WorkshopStatus.published, Workshop.start_at > utcnow_naive())
+        .order_by(*_PUBLIC_SORT_ORDERS[query.sort])
+    )
+    if query.facilitator_id is not None:
+        stmt = stmt.where(Workshop.facilitator_id == query.facilitator_id)
+    keyword = query.q.strip() if query.q else ""
+    if keyword:
+        pattern = f"%{_escape_like(keyword)}%"
+        stmt = stmt.where(
+            or_(
+                Workshop.title.ilike(pattern, escape="\\"),
+                Workshop.description.ilike(pattern, escape="\\"),
             )
-        if location_type is not None:
-            stmt = stmt.where(Workshop.location_type == location_type)
-        if price == "free":
-            stmt = stmt.where(Workshop.price == 0)
-        elif price == "paid":
-            stmt = stmt.where(Workshop.price > 0)
-            if max_price is not None:
-                stmt = stmt.where(Workshop.price <= max_price)
-    workshops = db.scalars(stmt).all()
-    return [_to_read(db, w, current_user) for w in workshops]
+        )
+    if query.location_type is not None:
+        stmt = stmt.where(Workshop.location_type == query.location_type)
+    if query.price == "free":
+        stmt = stmt.where(Workshop.price == 0)
+    elif query.price == "paid":
+        stmt = stmt.where(Workshop.price > 0)
+        if query.max_price is not None:
+            stmt = stmt.where(Workshop.price <= query.max_price)
+    if query.start_from is not None:
+        stmt = stmt.where(Workshop.start_at >= query.start_from)
+    if query.start_to is not None:
+        stmt = stmt.where(Workshop.start_at < query.start_to)
+    if query.exclude_reserved and current_user is not None:
+        stmt = stmt.where(
+            ~exists().where(
+                Reservation.workshop_id == Workshop.id,
+                Reservation.user_id == current_user.id,
+                Reservation.status == ReservationStatus.confirmed,
+            )
+        )
+    if query.exclude_own and current_user is not None:
+        stmt = stmt.where(Workshop.facilitator_id != current_user.id)
+    if query.available:
+        # 確定済みチケットの合計が定員に達していない(満員でない)ものだけ
+        booked = (
+            confirmed_tickets_select(Reservation.workshop_id == Workshop.id)
+            .correlate(Workshop)
+            .scalar_subquery()
+        )
+        stmt = stmt.where(booked < Workshop.capacity)
+    # ページネーション時は絞り込み後の総件数をヘッダーで返す
+    stmt = paginate(db, stmt, PageQuery(limit=query.limit, offset=query.offset), response)
+    workshops = db.scalars(stmt.options(selectinload(Workshop.facilitator))).all()
+    return _to_reads(db, workshops, current_user)
 
 
 @router.get("/{workshop_id}", response_model=WorkshopRead)
@@ -117,6 +145,7 @@ def create_workshop(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> WorkshopRead:
+    check_workshop_input(db, payload)
     workshop = Workshop(**payload.model_dump(), facilitator_id=current_user.id)
     db.add(workshop)
     db.commit()
@@ -131,30 +160,45 @@ def update_workshop(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> WorkshopRead:
-    workshop = _get_owned_workshop(db, workshop_id, current_user)
-    was_canceled = workshop.status == WorkshopStatus.canceled
+    # 予約の受付と同時に定員・状態を変えても食い違わないよう、行をロックしてから確かめる
+    workshop = _get_owned_workshop(db, workshop_id, current_user, for_update=True)
+    ensure_editable(workshop)
+    check_workshop_input(db, payload, workshop)
     for field, value in payload.model_dump().items():
         setattr(workshop, field, value)
+    # 中止への変更と中止の通知は、同じトランザクションでまとめて確定する
+    if workshop.status == WorkshopStatus.canceled:
+        add_cancellation_notices(db, workshop)
     db.commit()
     db.refresh(workshop)
-    if workshop.status == WorkshopStatus.canceled and not was_canceled:
-        notify_workshop_canceled(db, workshop)
     return _to_read(db, workshop, current_user)
 
 
-@router.post("/{workshop_id}/image", response_model=WorkshopRead)
-async def upload_workshop_image(
+# 同期 DB セッションとファイル書き込みでイベントループを止めないよう、async にせずスレッドプールで動かす。
+# reject_oversized_upload は本文の受け取り前に評価されるよう、ルートの依存関係に置く
+@router.post(
+    "/{workshop_id}/image",
+    response_model=WorkshopRead,
+    dependencies=[Depends(reject_oversized_upload)],
+)
+def upload_workshop_image(
     workshop_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> WorkshopRead:
     workshop = _get_owned_workshop(db, workshop_id, current_user)
-    contents = await file.read()
-    new_image_url = save_workshop_image(file, contents)
+    ensure_editable(workshop)
+    new_image_url = save_workshop_image(file)
     old_image_url = workshop.image_url
     workshop.image_url = new_image_url
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        # DB に記録できなかった画像はどこからも参照されないので消す
+        delete_workshop_image(new_image_url)
+        raise
     db.refresh(workshop)
     if old_image_url:
         delete_workshop_image(old_image_url)
@@ -168,6 +212,7 @@ def remove_workshop_image(
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> WorkshopRead:
     workshop = _get_owned_workshop(db, workshop_id, current_user)
+    ensure_editable(workshop)
     old_image_url = workshop.image_url
     workshop.image_url = ""
     db.commit()
@@ -183,14 +228,23 @@ def delete_workshop(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> None:
-    workshop = _get_owned_workshop(db, workshop_id, current_user)
-    # Deleting cascades to reservations and notifications, which would erase a
-    # booking without telling the participant. Such workshops must be canceled.
-    if _reserved_count(db, workshop_id) > 0:
+    workshop = _get_owned_workshop(db, workshop_id, current_user, for_update=True)
+    # 開催予定(終了日時前)で公開中のものは削除させない(取りやめる場合は中止にする)。
+    # 管理画面の「開催予定」タブと同じく終了日時で判定する
+    if workshop.status == WorkshopStatus.published and workshop.end_at >= utcnow_naive():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="予約者がいるワークショップは削除できません。開催を取りやめる場合は中止にしてください",
+            detail="開催予定のワークショップは削除できません。開催を取りやめる場合は中止にしてください",
         )
+    # Deleting cascades to reservations and notifications, which would erase the
+    # participants' booking and cancellation notice. Keep such workshops as records.
+    if _reserved_count(db, workshop_id) > 0:
+        detail = (
+            "予約者がいた中止済みのワークショップは、参加者への記録として残すため削除できません"
+            if workshop.status == WorkshopStatus.canceled
+            else "予約者がいるワークショップは削除できません。開催を取りやめる場合は中止にしてください"
+        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
     db.delete(workshop)
     db.commit()
 
@@ -202,9 +256,12 @@ def reserve_workshop(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ReservationRead:
-    workshop = db.get(Workshop, workshop_id)
+    # 同時に申し込まれても定員を超えないよう、行をロックしてから予約数を数える(commit まで保持)
+    workshop = lock_workshop(db, workshop_id)
     if workshop is None or workshop.status != WorkshopStatus.published:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
+    if workshop.start_at <= utcnow_naive():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="開始済みのワークショップは予約できません")
 
     if _reserved_count(db, workshop_id) + payload.ticket_count > workshop.capacity:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="残席がチケット枚数に満たないため予約できません")
@@ -233,18 +290,7 @@ def reserve_workshop(
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="既に予約済みです") from exc
     db.refresh(reservation)
-    return ReservationRead(
-        id=reservation.id,
-        workshop_id=reservation.workshop_id,
-        workshop=_to_read(db, workshop, current_user),
-        user_id=reservation.user_id,
-        user_name=current_user.name,
-        attendee_name=reservation.attendee_name,
-        contact=reservation.contact,
-        ticket_count=reservation.ticket_count,
-        status=reservation.status,
-        created_at=reservation.created_at,
-    )
+    return to_reservation_read(db, reservation, current_user)
 
 
 @router.get("/{workshop_id}/reservations", response_model=list[ReservationRead])
@@ -253,70 +299,14 @@ def list_workshop_reservations(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> list[ReservationRead]:
-    workshop = _get_owned_workshop(db, workshop_id, current_user)
-    reservations = (
-        db.query(Reservation)
-        .filter(Reservation.workshop_id == workshop_id)
-        .order_by(Reservation.created_at.asc())
-        .all()
-    )
-    workshop_read = _to_read(db, workshop, current_user)
-    return [
-        ReservationRead(
-            id=r.id,
-            workshop_id=r.workshop_id,
-            workshop=workshop_read,
-            user_id=r.user_id,
-            user_name=r.user.name,
-            attendee_name=r.attendee_name,
-            contact=r.contact,
-            ticket_count=r.ticket_count,
-            status=r.status,
-            created_at=r.created_at,
+    _get_owned_workshop(db, workshop_id, current_user)
+    reservations = db.scalars(
+        select(Reservation)
+        .options(
+            selectinload(Reservation.user),
+            selectinload(Reservation.workshop).selectinload(Workshop.facilitator),
         )
-        for r in reservations
-    ]
-
-
-@router.post("/{workshop_id}/favorite", response_model=WorkshopRead, status_code=status.HTTP_201_CREATED)
-def add_favorite(
-    workshop_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> WorkshopRead:
-    workshop = db.get(Workshop, workshop_id)
-    is_owner = current_user.role == UserRole.admin or (
-        workshop is not None and current_user.id == workshop.facilitator_id
-    )
-    if workshop is None or (workshop.status != WorkshopStatus.published and not is_owner):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
-
-    existing = (
-        db.query(Favorite)
-        .filter(Favorite.workshop_id == workshop_id, Favorite.user_id == current_user.id)
-        .first()
-    )
-    if existing is None:
-        db.add(Favorite(workshop_id=workshop_id, user_id=current_user.id))
-        try:
-            db.commit()
-        except IntegrityError as exc:
-            db.rollback()
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="既にお気に入り登録済みです") from exc
-    return _to_read(db, workshop, current_user)
-
-
-@router.delete("/{workshop_id}/favorite", status_code=status.HTTP_204_NO_CONTENT)
-def remove_favorite(
-    workshop_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> None:
-    favorite = (
-        db.query(Favorite)
-        .filter(Favorite.workshop_id == workshop_id, Favorite.user_id == current_user.id)
-        .first()
-    )
-    if favorite is not None:
-        db.delete(favorite)
-        db.commit()
+        .where(Reservation.workshop_id == workshop_id)
+        .order_by(Reservation.created_at.asc(), Reservation.id.asc())
+    ).all()
+    return to_reservation_reads(db, reservations, current_user)

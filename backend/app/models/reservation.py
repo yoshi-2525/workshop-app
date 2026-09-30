@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint, text
+from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -10,6 +10,9 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.models.user import User
     from app.models.workshop import Workshop
+
+# 1回の予約で申し込めるチケット枚数の上限。API の検証と DB の CHECK 制約の両方で使う
+MAX_TICKETS_PER_RESERVATION = 4
 
 
 class ReservationStatus(str, enum.Enum):
@@ -21,6 +24,10 @@ class Reservation(Base):
     __tablename__ = "reservations"
     __table_args__ = (
         UniqueConstraint("workshop_id", "user_id", name="uq_reservation_workshop_user"),
+        CheckConstraint(
+            f"ticket_count BETWEEN 1 AND {MAX_TICKETS_PER_RESERVATION}",
+            name="ck_reservation_ticket_count",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

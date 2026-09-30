@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { fetchCurrentUser, login as loginRequest, register as registerRequest } from '../api/auth'
-import { TOKEN_STORAGE_KEY } from '../api/client'
+import { AUTH_EXPIRED_EVENT, TOKEN_STORAGE_KEY } from '../api/client'
 import type { RegisterPayload } from '../api/auth'
 import type { User } from '../types'
 
@@ -41,6 +41,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadUser()
   }, [loadUser])
+
+  // API がトークンを無効と判断したら、画面もログアウトした状態にする
+  // (ログインが必要なページにいれば ProtectedRoute がログイン画面へ移す)
+  useEffect(() => {
+    function handleAuthExpired() {
+      setUser(null)
+    }
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired)
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired)
+  }, [])
 
   const login = useCallback(async (email: string, password: string) => {
     const token = await loginRequest({ email, password })

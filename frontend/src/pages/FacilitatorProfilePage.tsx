@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import axios from 'axios'
 import { getFacilitatorProfile } from '../api/users'
 import { listWorkshops } from '../api/workshops'
 import { extractErrorMessage } from '../api/client'
@@ -21,22 +22,40 @@ export function FacilitatorProfilePage() {
       setLoading(false)
       return
     }
-    Promise.all([getFacilitatorProfile(facilitatorId), listWorkshops({ facilitator_id: facilitatorId })])
+    const controller = new AbortController()
+    setLoading(true)
+    setError(null)
+    Promise.all([
+      getFacilitatorProfile(facilitatorId, controller.signal),
+      listWorkshops({ facilitator_id: facilitatorId }, controller.signal),
+    ])
       .then(([p, w]) => {
         setProfile(p)
         setWorkshops(w)
       })
-      .catch((err) => setError(extractErrorMessage(err, '主催者情報の取得に失敗しました')))
-      .finally(() => setLoading(false))
+      .catch((err) => {
+        // 別の主催者へ遷移して中断した古いリクエストは無視する
+        if (axios.isCancel(err)) return
+        setError(extractErrorMessage(err, '主催者情報の取得に失敗しました'))
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+    return () => controller.abort()
   }, [id])
 
   if (loading) return <p className="text-slate-500">読み込み中...</p>
-  if (error) return <p className="text-red-600">{error}</p>
+  if (error)
+    return (
+      <p role="alert" className="text-red-600">
+        {error}
+      </p>
+    )
   if (!profile) return null
 
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div className="rounded-lg border border-border-muted bg-white p-6">
         <h1 className="text-xl font-semibold text-slate-900">{profile.name}</h1>
         <p className="mt-1 text-xs font-medium text-slate-400">
           {profile.role === 'admin' ? '運営' : '主催者'}
@@ -48,9 +67,9 @@ export function FacilitatorProfilePage() {
         )}
       </div>
 
-      <h2 className="mt-8 text-lg font-semibold text-slate-900">開催中のワークショップ</h2>
+      <h2 className="mt-8 text-lg font-semibold text-slate-900">開催予定のワークショップ</h2>
       {workshops.length === 0 ? (
-        <p className="mt-4 text-slate-500">現在公開中のワークショップはありません。</p>
+        <p className="mt-4 text-slate-500">開催予定のワークショップはありません。</p>
       ) : (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {workshops.map((workshop) => (

@@ -1,7 +1,11 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from pydantic import AfterValidator
+from pydantic import AfterValidator, StringConstraints
+
+# 前後の空白を取り除いてから長さを確かめる文字列。空白だけの入力は min_length=1 で弾ける。
+# パスワードのように空白も意味を持つ項目には使わないこと
+TrimmedStr = Annotated[str, StringConstraints(strip_whitespace=True)]
 
 # The DB stores every datetime as naive UTC. API responses must carry an
 # explicit offset so browsers don't read them as local time, and inputs are

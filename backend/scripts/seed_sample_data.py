@@ -71,8 +71,9 @@ def ensure_sample_image(workshop: Workshop, color_index: int) -> None:
 
 
 def dt(days: int, hour: int, minute: int = 0) -> datetime:
+    """hour:minute is JST; returns the naive UTC datetime the DB stores."""
     base = NOW.replace(hour=0, minute=0, second=0, microsecond=0)
-    return base + timedelta(days=days, hours=hour, minutes=minute)
+    return base + timedelta(days=days, hours=hour - 9, minutes=minute)
 
 
 def get_or_create_user(db, email: str, name: str, role: UserRole, bio: str = "") -> User:

@@ -6,11 +6,27 @@ import { extractErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { FavoriteButton } from '../components/FavoriteButton'
 import { LocationTypeBadge } from '../components/LocationTypeBadge'
+import { NoImage } from '../components/NoImage'
 import type { Workshop } from '../types'
 import { formatDateTime, formatPrice } from '../utils/format'
 import { googleMapsSearchUrl } from '../utils/maps'
 import { parseIdParam } from '../utils/params'
-import { isWorkshopFull, priceTextClass } from '../utils/workshop'
+import { isWorkshopFull, isWorkshopStarted, priceTextClass } from '../utils/workshop'
+import { getLastListUrl } from '../utils/workshopListState'
+
+// 最後に見ていた一覧(検索条件・ページ番号つき)へ戻り、スクロール位置も復元させる
+function BackToListLink() {
+  return (
+    <Link
+      to={getLastListUrl()}
+      state={{ restoreScroll: true }}
+      className="mb-4 inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 hover:underline"
+    >
+      <span aria-hidden="true">←</span>
+      ワークショップ一覧に戻る
+    </Link>
+  )
+}
 
 export function WorkshopDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -18,12 +34,15 @@ export function WorkshopDetailPage() {
   const navigate = useNavigate()
   const [workshop, setWorkshop] = useState<Workshop | null>(null)
   const [loading, setLoading] = useState(true)
+  // 画像の読み込みに失敗したときは、画像なしと同じ表示にする
+  const [imageFailed, setImageFailed] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // 別のワークショップへ遷移したとき、前のデータやエラーを残さない
+    // 別のワークショップへ遷移したとき、前のデータやエラー・画像の読み込み失敗を残さない
     setWorkshop(null)
     setError(null)
+    setImageFailed(false)
 
     const workshopId = parseIdParam(id)
     if (workshopId === null) {
@@ -65,25 +84,30 @@ export function WorkshopDetailPage() {
     )
   if (error && !workshop)
     return (
-      <p role="alert" className="text-red-600">
-        {error}
-      </p>
+      <div>
+        <BackToListLink />
+        <p role="alert" className="text-red-600">
+          {error}
+        </p>
+      </div>
     )
   if (!workshop) return null
 
   const isFull = isWorkshopFull(workshop)
+  const isStarted = isWorkshopStarted(workshop)
 
   return (
     <div className="mx-auto max-w-2xl">
-      {workshop.image_url && (
+      <BackToListLink />
+      {workshop.image_url && !imageFailed ? (
         <img
           src={workshop.image_url}
           alt=""
-          className="mb-4 h-64 w-full rounded-lg object-cover"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none'
-          }}
+          className="mb-4 aspect-video w-full rounded-lg object-cover"
+          onError={() => setImageFailed(true)}
         />
+      ) : (
+        <NoImage className="mb-4 rounded-lg" />
       )}
       {workshop.status === 'canceled' && (
         <p role="status" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
@@ -102,7 +126,7 @@ export function WorkshopDetailPage() {
           {workshop.facilitator_name}
         </Link>
       </p>
-      <dl className="mt-6 space-y-2 rounded-lg border border-slate-200 bg-white p-4 text-sm">
+      <dl className="mt-6 space-y-2 rounded-lg border border-border-muted bg-white p-4 text-sm">
         <div className="flex gap-2">
           <dt className="w-20 font-medium text-slate-500">日時</dt>
           <dd className="text-slate-900">{formatDateTime(workshop.start_at)}</dd>
@@ -158,16 +182,18 @@ export function WorkshopDetailPage() {
         <>
           <button
             onClick={handleReserveClick}
-            disabled={isFull || workshop.viewer.is_reserved}
-            className="mt-6 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white enabled:hover:bg-slate-700 disabled:opacity-50"
+            disabled={isStarted || isFull || workshop.viewer.is_reserved}
+            className="mt-6 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground enabled:hover:bg-accent-hover disabled:opacity-50"
           >
-            {isFull
-              ? '満員です'
-              : !user
-                ? 'ログインして予約する'
-                : workshop.viewer.is_reserved
-                  ? '予約済みです'
-                  : `予約する(${formatPrice(workshop.price)})`}
+            {workshop.viewer.is_reserved
+              ? '予約済みです'
+              : isStarted
+                ? '開始済みのため予約できません'
+                : isFull
+                  ? '空席がないため予約できません'
+                  : !user
+                    ? 'ログインして予約する'
+                    : `予約する(${formatPrice(workshop.price)})`}
           </button>
           {workshop.viewer.is_reserved && (
             <p className="mt-2 text-sm text-slate-500">

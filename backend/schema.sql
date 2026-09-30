@@ -1,5 +1,5 @@
 -- Workshop App: MySQL schema
--- Matches app/models/*.py and alembic/versions (up to 0009). Keep in sync if models change.
+-- Matches app/models/*.py and alembic/versions (up to 0011). Keep in sync if models change.
 
 CREATE TABLE users (
 	id INTEGER NOT NULL AUTO_INCREMENT,
@@ -27,6 +27,7 @@ CREATE TABLE workshops (
 	cancellation_policy TEXT NOT NULL DEFAULT '',
 	status ENUM('draft','published','canceled') NOT NULL DEFAULT 'draft',
 	facilitator_id INTEGER NOT NULL,
+	published_at DATETIME NULL,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
 	FOREIGN KEY(facilitator_id) REFERENCES users (id)
@@ -43,6 +44,7 @@ CREATE TABLE reservations (
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
 	CONSTRAINT uq_reservation_workshop_user UNIQUE (workshop_id, user_id),
+	CONSTRAINT ck_reservation_ticket_count CHECK (ticket_count BETWEEN 1 AND 4),
 	FOREIGN KEY(workshop_id) REFERENCES workshops (id),
 	FOREIGN KEY(user_id) REFERENCES users (id)
 );

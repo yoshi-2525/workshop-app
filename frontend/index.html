@@ -1,10 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <!--
+      Google の Material Symbols(アイコンフォント)。使うアイコンだけを icon_names で指定して読み込む量を減らす。
+      アイコンを増やすときは icon_names に追加する(カンマ区切り・アルファベット順でないと読み込めない)。
+      display=block: フォントの読み込み中にアイコン名の文字列が見えてしまわないようにする
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_circle,notifications&display=block"
+    />
+    <title>Workshop App</title>
   </head>
   <body>
     <div id="root"></div>
