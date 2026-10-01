@@ -1,7 +1,5 @@
 import { useId } from 'react'
 
-const FOCUS_RING = 'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1'
-
 export type ToggleOption<T extends string> = { value: T; label: string }
 
 interface ToggleGroupProps<T extends string> {
@@ -40,7 +38,7 @@ export function ToggleGroup<T extends string>({
             type="button"
             aria-pressed={value === option.value}
             onClick={() => onChange(option.value)}
-            className={`rounded px-3 py-1.5 font-medium transition focus:outline-none ${FOCUS_RING} ${
+            className={`rounded px-3 py-1.5 font-medium transition focus-ring focus:outline-none ${
               value === option.value ? 'bg-accent text-accent-foreground' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >

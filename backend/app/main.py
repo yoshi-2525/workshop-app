@@ -9,7 +9,7 @@ from starlette.types import Scope
 
 from app.config import settings
 from app.database import SessionLocal
-from app.routers import auth, facilitators, favorites, manage, notifications, reservations, workshops
+from app.routers import auth, facilitators, favorites, inquiries, manage, notifications, reservations, workshops
 from app.services.notifications import send_upcoming_reminders
 
 REMINDER_JOB_INTERVAL_MINUTES = 30
@@ -60,6 +60,7 @@ app.include_router(reservations.router, prefix=api_router_prefix)
 app.include_router(favorites.router, prefix=api_router_prefix)
 app.include_router(facilitators.router, prefix=api_router_prefix)
 app.include_router(notifications.router, prefix=api_router_prefix)
+app.include_router(inquiries.router, prefix=api_router_prefix)
 app.include_router(manage.router, prefix=api_router_prefix)
 
 settings.upload_path.mkdir(parents=True, exist_ok=True)

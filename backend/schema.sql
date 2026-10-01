@@ -1,5 +1,5 @@
 -- Workshop App: MySQL schema
--- Matches app/models/*.py and alembic/versions (up to 0011). Keep in sync if models change.
+-- Matches app/models/*.py and alembic/versions (up to 0014). Keep in sync if models change.
 
 CREATE TABLE users (
 	id INTEGER NOT NULL AUTO_INCREMENT,
@@ -8,6 +8,7 @@ CREATE TABLE users (
 	hashed_password VARCHAR(255) NOT NULL,
 	role ENUM('admin','facilitator','participant') NOT NULL DEFAULT 'participant',
 	bio TEXT NOT NULL DEFAULT '',
+	avatar_url VARCHAR(2000) NOT NULL DEFAULT '',
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
 	UNIQUE KEY ix_users_email (email)
@@ -64,7 +65,7 @@ CREATE TABLE notifications (
 	id INTEGER NOT NULL AUTO_INCREMENT,
 	user_id INTEGER NOT NULL,
 	workshop_id INTEGER NOT NULL,
-	type ENUM('cancellation','reminder') NOT NULL,
+	type ENUM('cancellation','reminder','reservation_canceled') NOT NULL,
 	message TEXT NOT NULL,
 	is_read BOOLEAN NOT NULL DEFAULT FALSE,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -72,4 +73,30 @@ CREATE TABLE notifications (
 	CONSTRAINT uq_notification_user_workshop_type UNIQUE (user_id, workshop_id, type),
 	FOREIGN KEY(user_id) REFERENCES users (id),
 	FOREIGN KEY(workshop_id) REFERENCES workshops (id)
+);
+
+CREATE TABLE inquiries (
+	id INTEGER NOT NULL AUTO_INCREMENT,
+	workshop_id INTEGER NOT NULL,
+	participant_id INTEGER NOT NULL,
+	last_message_at DATETIME NOT NULL,
+	participant_last_read_id INTEGER NOT NULL DEFAULT 0,
+	facilitator_last_read_id INTEGER NOT NULL DEFAULT 0,
+	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_inquiry_workshop_participant UNIQUE (workshop_id, participant_id),
+	FOREIGN KEY(workshop_id) REFERENCES workshops (id),
+	FOREIGN KEY(participant_id) REFERENCES users (id)
+);
+
+CREATE TABLE inquiry_messages (
+	id INTEGER NOT NULL AUTO_INCREMENT,
+	inquiry_id INTEGER NOT NULL,
+	sender_id INTEGER NOT NULL,
+	body TEXT NOT NULL,
+	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (id),
+	KEY ix_inquiry_messages_inquiry_id (inquiry_id),
+	FOREIGN KEY(inquiry_id) REFERENCES inquiries (id),
+	FOREIGN KEY(sender_id) REFERENCES users (id)
 );

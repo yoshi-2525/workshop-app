@@ -15,3 +15,15 @@ export async function updateMe(payload: UpdateMePayload): Promise<User> {
   const { data } = await apiClient.patch<User>('/auth/me', payload)
   return data
 }
+
+export async function uploadMyAvatar(file: File): Promise<User> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const { data } = await apiClient.post<User>('/auth/me/avatar', formData)
+  return data
+}
+
+export async function deleteMyAvatar(): Promise<User> {
+  const { data } = await apiClient.delete<User>('/auth/me/avatar')
+  return data
+}

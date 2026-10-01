@@ -1,5 +1,3 @@
-const FOCUS_RING = 'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1'
-
 // 現在ページの前後に表示するページ数
 const SIBLING_COUNT = 1
 
@@ -30,7 +28,8 @@ export function Pagination({
 }) {
   if (totalPages <= 1) return null
 
-  const navButton = `rounded-md border border-border px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`
+  const navButton =
+    'rounded-md border border-border px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 focus-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-40'
 
   return (
     <nav aria-label="ページ送り" className="mt-8 flex flex-wrap items-center justify-center gap-1">
@@ -52,7 +51,7 @@ export function Pagination({
                 disabled={disabled}
                 aria-current={item === page ? 'page' : undefined}
                 aria-label={`${item}ページ目`}
-                className={`min-w-9 rounded-md px-3 py-1.5 text-sm font-medium transition focus:outline-none disabled:cursor-not-allowed ${FOCUS_RING} ${
+                className={`min-w-9 rounded-md px-3 py-1.5 text-sm font-medium transition focus-ring focus:outline-none disabled:cursor-not-allowed ${
                   item === page ? 'bg-accent text-accent-foreground' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >

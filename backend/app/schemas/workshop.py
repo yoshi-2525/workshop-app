@@ -37,6 +37,8 @@ class WorkshopViewer(BaseModel):
 
     is_favorited: bool = False
     is_reserved: bool = False
+    # 主催者に参加をキャンセルされた。この場合は同じワークショップを再予約できない
+    is_reservation_canceled: bool = False
 
 
 class WorkshopRead(BaseModel):
@@ -56,8 +58,20 @@ class WorkshopRead(BaseModel):
     status: WorkshopStatus
     facilitator_id: int
     facilitator_name: str
+    facilitator_avatar_url: str
     reserved_count: int
     viewer: WorkshopViewer = WorkshopViewer()
+
+
+class RelatedWorkshops(BaseModel):
+    """ワークショップ詳細ページに出す関連ワークショップ(GET /api/workshops/{id}/related)"""
+
+    # 同じ主催者が開催するもの
+    same_facilitator: list[WorkshopRead]
+    # タイトル・説明が似ているもの
+    similar: list[WorkshopRead]
+    # オフライン開催: 会場が近いもの / オンライン開催: 他のオンライン開催のもの
+    nearby: list[WorkshopRead]
 
 
 class WorkshopSearchQuery(BaseModel):

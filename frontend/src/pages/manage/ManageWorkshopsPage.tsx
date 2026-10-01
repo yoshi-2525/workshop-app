@@ -4,8 +4,8 @@ import { deleteWorkshop, listManagedWorkshops } from '../../api/workshops'
 import { extractErrorMessage } from '../../api/client'
 import { ToggleGroup, type ToggleOption } from '../../components/ToggleGroup'
 import type { Workshop } from '../../types'
-import { formatDateTime } from '../../utils/format'
 import { isWorkshopFinished } from '../../utils/workshop'
+import { WorkshopDateTime } from '../../components/WorkshopDateTime'
 
 const statusLabel: Record<Workshop['status'], string> = {
   draft: '下書き',
@@ -107,7 +107,7 @@ export function ManageWorkshopsPage() {
               )}
               <div>
                 <p className="font-medium text-slate-900">{workshop.title}</p>
-                <p className="text-sm text-slate-500">{formatDateTime(workshop.start_at)}</p>
+                <p className="text-sm text-slate-500"><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} /></p>
                 <p className="text-sm text-slate-500">
                   {statusLabel[workshop.status]} ・ 予約{' '}
                   {workshop.reserved_count} / {workshop.capacity}
@@ -120,6 +120,12 @@ export function ManageWorkshopsPage() {
                 className="rounded-md border border-border px-3 py-1.5 text-slate-700 hover:bg-slate-50"
               >
                 予約状況
+              </Link>
+              <Link
+                to={`/inquiries?workshop_id=${workshop.id}`}
+                className="rounded-md border border-border px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+              >
+                問い合わせ
               </Link>
               {/* 開催済み・中止のワークショップは編集できない */}
               {tab === 'upcoming' && workshop.status !== 'canceled' && (

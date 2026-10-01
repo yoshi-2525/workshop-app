@@ -9,6 +9,15 @@
   --color-border: #cad5e2; /* slate-300: 入力欄・ボタンの枠線 */
   --color-border-muted: #e2e8f0; /* slate-200: カード・区切り線 */
   --color-ring: #62748e; /* slate-500: フォーカスリング・フォーカス時の枠線 */
+
+  /* サービス名(ロゴ)用の游明朝。font-brand で参照する。
+     Windows は "Yu Mincho"、Mac は "YuMincho" という名前で入っている。游明朝がない環境(Android など)は明朝体にフォールバック */
+  --font-brand: "Yu Mincho", "YuMincho", "游明朝", "Hiragino Mincho ProN", serif;
+}
+
+/* キーボード操作でフォーカスしたときの枠線。focus:outline-none と組み合わせて使う */
+@utility focus-ring {
+  @apply focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1;
 }
 
 html,

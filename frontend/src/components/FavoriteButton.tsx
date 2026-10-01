@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { addFavorite, removeFavorite } from '../api/workshops'
 import { extractErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { HoverLabel } from './HoverLabel'
 
 // 失敗したときのメッセージを表示しておく時間
 const ERROR_DISPLAY_MS = 4000
@@ -62,7 +63,7 @@ export function FavoriteButton({ workshopId, isFavorited, onChange, className = 
         disabled={submitting}
         aria-pressed={favorited}
         aria-label={favorited ? 'お気に入りから外す' : 'お気に入りに追加'}
-        className={`inline-flex items-center justify-center rounded-full p-1.5 transition disabled:opacity-50 ${
+        className={`peer inline-flex items-center justify-center rounded-full p-2 transition disabled:opacity-50 ${
           favorited ? 'text-red-500 hover:text-red-600' : 'text-slate-300 hover:text-red-400'
         }`}
       >
@@ -72,7 +73,7 @@ export function FavoriteButton({ workshopId, isFavorited, onChange, className = 
           fill={favorited ? 'currentColor' : 'none'}
           stroke="currentColor"
           strokeWidth={2}
-          className="h-5 w-5"
+          className="h-6 w-6"
           aria-hidden="true"
         >
           <path
@@ -82,6 +83,7 @@ export function FavoriteButton({ workshopId, isFavorited, onChange, className = 
           />
         </svg>
       </button>
+      <HoverLabel text="お気に入り" />
       {error && (
         <span
           role="alert"

@@ -1,26 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { cancelReservation, listMyReservations } from '../api/reservations'
+import { listMyReservations } from '../api/reservations'
 import { extractErrorMessage } from '../api/client'
 import { ToggleGroup, type ToggleOption } from '../components/ToggleGroup'
 import type { Reservation } from '../types'
-import { formatDateTime } from '../utils/format'
-import { isWorkshopFinished, isWorkshopStarted } from '../utils/workshop'
+import { isWorkshopFinished } from '../utils/workshop'
+import { WorkshopDateTime } from '../components/WorkshopDateTime'
 
 // 予約の状態の表示。ワークショップ自体が中止になったものは、予約の状態より中止を優先して伝える
 function reservationStatusView(reservation: Reservation): { label: string; className: string } {
-  if (reservation.status === 'canceled') return { label: 'キャンセル済み', className: 'text-slate-400 line-through' }
+  // 参加者は自分でキャンセルできないので、キャンセル済みは主催者がキャンセルしたもの
+  if (reservation.status === 'canceled') return { label: '主催者によりキャンセル', className: 'text-slate-400' }
   if (reservation.workshop.status === 'canceled') return { label: 'ワークショップ中止', className: 'font-medium text-red-600' }
   return { label: '予約確定', className: 'text-emerald-600' }
-}
-
-// キャンセルできるのは、確定済みの予約で、ワークショップが中止されておらず、まだ始まっていないものだけ
-function canCancel(reservation: Reservation): boolean {
-  return (
-    reservation.status === 'confirmed' &&
-    reservation.workshop.status !== 'canceled' &&
-    !isWorkshopStarted(reservation.workshop)
-  )
 }
 
 type Tab = 'upcoming' | 'history'
@@ -37,7 +29,6 @@ export function MyReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [cancelingId, setCancelingId] = useState<number | null>(null)
 
   function load() {
     setLoading(true)
@@ -58,28 +49,12 @@ export function MyReservationsPage() {
     return tab === 'upcoming' ? upcoming : history
   }, [reservations, tab])
 
-  async function handleCancel(reservation: Reservation) {
-    const confirmMessage =
-      reservation.workshop.price > 0 && reservation.workshop.cancellation_policy
-        ? `「${reservation.workshop.title}」の予約を本当にキャンセルしますか?\n\nキャンセルポリシー: ${reservation.workshop.cancellation_policy}`
-        : `「${reservation.workshop.title}」の予約を本当にキャンセルしますか?`
-    if (!confirm(confirmMessage)) return
-
-    setCancelingId(reservation.id)
-    setError(null)
-    try {
-      await cancelReservation(reservation.id)
-      load()
-    } catch (err) {
-      setError(extractErrorMessage(err, 'キャンセルに失敗しました'))
-    } finally {
-      setCancelingId(null)
-    }
-  }
-
   return (
     <div>
       <h1 className="text-xl font-semibold text-slate-900">参加予定のワークショップ</h1>
+      <p className="mt-1 text-sm text-slate-500">
+        予約のキャンセルはこの画面からはできません。キャンセルをご希望の場合は、ワークショップの主催者にご連絡ください。
+      </p>
       {justReserved && (
         <p role="status" className="mt-4 rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
           「{justReserved}」への参加登録が完了しました。
@@ -119,7 +94,7 @@ export function MyReservationsPage() {
               >
                 {reservation.workshop.title}
               </Link>
-              <p className="text-sm text-slate-500">{formatDateTime(reservation.workshop.start_at)}</p>
+              <p className="text-sm text-slate-500"><WorkshopDateTime start={reservation.workshop.start_at} end={reservation.workshop.end_at} /></p>
               <p className="text-sm text-slate-500">
                 参加者: {reservation.attendee_name} ・ チケット{reservation.ticket_count}枚
               </p>
@@ -129,15 +104,6 @@ export function MyReservationsPage() {
                 </span>
               </p>
             </div>
-            {tab === 'upcoming' && canCancel(reservation) && (
-              <button
-                onClick={() => handleCancel(reservation)}
-                disabled={cancelingId === reservation.id}
-                className="rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
-              >
-                {cancelingId === reservation.id ? 'キャンセル中...' : 'キャンセル'}
-              </button>
-            )}
           </li>
         ))}
       </ul>

@@ -4,6 +4,7 @@ import axios from 'axios'
 import { getFacilitatorProfile } from '../api/users'
 import { listWorkshops } from '../api/workshops'
 import { extractErrorMessage } from '../api/client'
+import { Avatar } from '../components/Avatar'
 import { WorkshopCard } from '../components/WorkshopCard'
 import type { FacilitatorProfile, Workshop } from '../types'
 import { parseIdParam } from '../utils/params'
@@ -56,10 +57,15 @@ export function FacilitatorProfilePage() {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="rounded-lg border border-border-muted bg-white p-6">
-        <h1 className="text-xl font-semibold text-slate-900">{profile.name}</h1>
-        <p className="mt-1 text-xs font-medium text-slate-400">
-          {profile.role === 'admin' ? '運営' : '主催者'}
-        </p>
+        <div className="flex items-center gap-4">
+          <Avatar url={profile.avatar_url} name={profile.name} className="h-16 w-16 text-2xl" />
+          <div>
+            <h1 className="text-xl font-semibold text-slate-900">{profile.name}</h1>
+            <p className="mt-1 text-xs font-medium text-slate-400">
+              {profile.role === 'admin' ? '運営' : '主催者'}
+            </p>
+          </div>
+        </div>
         {profile.bio ? (
           <p className="mt-4 whitespace-pre-wrap text-sm text-slate-700">{profile.bio}</p>
         ) : (

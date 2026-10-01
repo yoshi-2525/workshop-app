@@ -13,11 +13,13 @@ import { formatDateTime } from '../utils/format'
 const typeLabel: Record<Notification['type'], string> = {
   cancellation: '中止',
   reminder: 'リマインダー',
+  reservation_canceled: '参加キャンセル',
 }
 
 const typeColor: Record<Notification['type'], string> = {
   cancellation: 'bg-red-100 text-red-700',
   reminder: 'bg-sky-100 text-sky-700',
+  reservation_canceled: 'bg-amber-100 text-amber-800',
 }
 
 export function NotificationsPage() {

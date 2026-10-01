@@ -6,10 +6,16 @@ import { getWorkshop } from '../api/workshops'
 import { reserveWorkshop } from '../api/reservations'
 import { extractErrorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
-import { formatDateTime, formatPrice } from '../utils/format'
+import { formatPrice } from '../utils/format'
 import type { Workshop } from '../types'
 import { parseIdParam } from '../utils/params'
-import { isWorkshopStarted, MAX_TICKETS_PER_RESERVATION, RESERVATION_FIELD_MAX_LENGTH } from '../utils/workshop'
+import {
+  isWorkshopStarted,
+  MAX_TICKETS_PER_RESERVATION,
+  RESERVATION_EMAIL_MAX_LENGTH,
+  RESERVATION_FIELD_MAX_LENGTH,
+} from '../utils/workshop'
+import { WorkshopDateTime } from '../components/WorkshopDateTime'
 
 export function ReservationFormPage() {
   const { id } = useParams<{ id: string }>()
@@ -28,6 +34,7 @@ export function ReservationFormPage() {
 
   const attendeeNameId = useId()
   const contactId = useId()
+  const contactHelpId = useId()
   const ticketCountId = useId()
   const ticketCountHelpId = useId()
 
@@ -115,6 +122,17 @@ export function ReservationFormPage() {
     )
   }
 
+  if (workshop.viewer.is_reservation_canceled) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <p className="text-red-600">主催者により参加がキャンセルされたため、このワークショップは予約できません。</p>
+        <Link to={`/workshops/${workshop.id}`} className="mt-4 inline-block text-sm text-slate-600 underline">
+          ワークショップ詳細に戻る
+        </Link>
+      </div>
+    )
+  }
+
   if (isWorkshopStarted(workshop)) {
     return (
       <div className="mx-auto max-w-xl">
@@ -143,7 +161,7 @@ export function ReservationFormPage() {
       <h1 className="text-xl font-semibold text-slate-900">参加者情報の入力</h1>
       <div className="mt-4 rounded-lg border border-border-muted bg-white p-4 text-sm">
         <p className="font-semibold text-slate-900">{workshop.title}</p>
-        <p className="mt-1 text-slate-500">{formatDateTime(workshop.start_at, 'full')}</p>
+        <p className="mt-1 text-slate-500"><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} dateStyle="long" /></p>
         <p className="text-slate-500">
           {workshop.location_type === 'online' ? 'オンライン' : workshop.location}
         </p>
@@ -167,17 +185,23 @@ export function ReservationFormPage() {
         </div>
         <div>
           <label htmlFor={contactId} className="block text-sm font-medium text-slate-700">
-            連絡先(電話番号・メールアドレスなど)
+            メールアドレス
           </label>
           <input
             id={contactId}
+            type="email"
+            autoComplete="email"
             required
-            maxLength={RESERVATION_FIELD_MAX_LENGTH}
+            maxLength={RESERVATION_EMAIL_MAX_LENGTH}
             value={contact}
             onChange={(e) => setContact(e.target.value)}
-            placeholder="例: 090-1234-5678 または example@mail.com"
+            placeholder="例: example@mail.com"
+            aria-describedby={contactHelpId}
             className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none"
           />
+          <p id={contactHelpId} className="mt-1 text-xs text-slate-500">
+            主催者からの連絡に使います。
+          </p>
         </div>
         <div>
           <label htmlFor={ticketCountId} className="block text-sm font-medium text-slate-700">
@@ -220,14 +244,7 @@ export function ReservationFormPage() {
           </p>
         )}
 
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
-          >
-            {submitting ? '登録中...' : 'この内容で予約を確定する'}
-          </button>
+        <div className="flex gap-3 justify-end">
           <button
             type="button"
             onClick={handleCancelClick}
@@ -235,6 +252,14 @@ export function ReservationFormPage() {
           >
             キャンセル
           </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+          >
+            {submitting ? '登録中...' : 'この内容で予約を確定する'}
+          </button>
+
         </div>
       </form>
     </div>

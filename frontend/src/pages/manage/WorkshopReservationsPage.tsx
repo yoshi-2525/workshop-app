@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import { getWorkshop } from '../../api/workshops'
-import { listWorkshopReservations } from '../../api/reservations'
+import { cancelWorkshopReservation, listWorkshopReservations } from '../../api/reservations'
 import { extractErrorMessage } from '../../api/client'
 import type { Reservation, Workshop } from '../../types'
 import { formatDateTime } from '../../utils/format'
 import { parseIdParam } from '../../utils/params'
+import { isWorkshopStarted } from '../../utils/workshop'
 
 export function WorkshopReservationsPage() {
   const { id } = useParams<{ id: string }>()
@@ -14,6 +15,8 @@ export function WorkshopReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  const [cancelingId, setCancelingId] = useState<number | null>(null)
 
   useEffect(() => {
     const workshopId = parseIdParam(id)
@@ -47,6 +50,36 @@ export function WorkshopReservationsPage() {
       </p>
     )
 
+  // キャンセルできるのは、確定済みの予約で、ワークショップが中止されておらず、まだ始まっていないものだけ
+  // (バックエンドの cancel_workshop_reservation と同じ条件)
+  const canCancel = (reservation: Reservation) =>
+    workshop !== null &&
+    reservation.status === 'confirmed' &&
+    workshop.status !== 'canceled' &&
+    !isWorkshopStarted(workshop)
+
+  async function handleCancel(reservation: Reservation) {
+    if (
+      !confirm(
+        `${reservation.attendee_name}さんの参加をキャンセルしますか?
+
+` +
+          'キャンセルすると参加者に通知が届き、この参加者は同じワークショップを再予約できなくなります。',
+      )
+    )
+      return
+    setCancelingId(reservation.id)
+    setCancelError(null)
+    try {
+      const updated = await cancelWorkshopReservation(reservation.workshop_id, reservation.id)
+      setReservations((current) => current.map((r) => (r.id === updated.id ? updated : r)))
+    } catch (err) {
+      setCancelError(extractErrorMessage(err, 'キャンセルに失敗しました'))
+    } finally {
+      setCancelingId(null)
+    }
+  }
+
   const confirmed = reservations.filter((r) => r.status === 'confirmed')
   const confirmedTickets = confirmed.reduce((sum, r) => sum + r.ticket_count, 0)
 
@@ -56,6 +89,11 @@ export function WorkshopReservationsPage() {
       <p className="mt-1 text-sm text-slate-500">
         確定チケット数 {confirmedTickets} / {workshop?.capacity}(予約件数 {confirmed.length}件)
       </p>
+      {cancelError && (
+        <p role="alert" className="mt-4 text-sm text-red-600">
+          {cancelError}
+        </p>
+      )}
       {reservations.length === 0 ? (
         <p className="mt-6 text-slate-500">まだ予約はありません。</p>
       ) : (
@@ -67,13 +105,26 @@ export function WorkshopReservationsPage() {
             >
               <div className="flex items-center justify-between">
                 <span className="font-medium text-slate-900">{reservation.attendee_name}</span>
-                <span className={reservation.status === 'confirmed' ? 'text-emerald-600' : 'text-slate-400'}>
-                  {reservation.status === 'confirmed' ? '確定' : 'キャンセル済み'}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className={reservation.status === 'confirmed' ? 'text-emerald-600' : 'text-slate-400'}>
+                    {reservation.status === 'confirmed' ? '確定' : 'キャンセル済み'}
+                  </span>
+                  {canCancel(reservation) && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancel(reservation)}
+                      disabled={cancelingId !== null}
+                      aria-label={`${reservation.attendee_name}さんの参加をキャンセル`}
+                      className="rounded-md border border-red-300 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {cancelingId === reservation.id ? 'キャンセル中...' : '参加をキャンセル'}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="mt-1 flex items-center justify-between text-slate-500">
                 <span>
-                  連絡先: {reservation.contact} ・ チケット{reservation.ticket_count}枚
+                  メール: {reservation.contact} ・ チケット{reservation.ticket_count}枚
                   {reservation.user_name !== reservation.attendee_name && (
                     <> ・ アカウント: {reservation.user_name}</>
                   )}

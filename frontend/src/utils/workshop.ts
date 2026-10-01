@@ -1,13 +1,22 @@
 import type { LocationType, Workshop } from '../types'
 
+// カードなどのバッジに出す短い表記
 export const LOCATION_TYPE_LABEL: Record<LocationType, string> = {
   online: 'オンライン',
   offline: '会場',
 }
 
+// 開催形式を選ぶボタン(一覧の絞り込み・作成フォーム)の選択肢。ToggleGroup の options にそのまま渡せる
+export const LOCATION_TYPE_OPTIONS: { value: LocationType; label: string }[] = [
+  { value: 'offline', label: 'オフライン(会場)' },
+  { value: 'online', label: 'オンライン' },
+]
+
 // バックエンドの schemas/reservation.py の上限と揃える
 export const MAX_TICKETS_PER_RESERVATION = 4
 export const RESERVATION_FIELD_MAX_LENGTH = 255
+// 予約の連絡先(メールアドレス)の上限。バックエンドの schemas/types.py の EMAIL_MAX_LENGTH と揃える
+export const RESERVATION_EMAIL_MAX_LENGTH = 254
 
 // バックエンドの schemas/workshop.py の上限と揃える
 export const WORKSHOP_TITLE_MAX_LENGTH = 50

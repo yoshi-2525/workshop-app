@@ -16,6 +16,8 @@ export async function reserveWorkshop(workshopId: number, payload: ReservationCr
   return data
 }
 
-export async function cancelReservation(reservationId: number): Promise<void> {
-  await apiClient.delete(`/reservations/${reservationId}`)
+// 参加者は自分で予約をキャンセルできない。キャンセルはワークショップの主催者(と運営)だけが行える
+export async function cancelWorkshopReservation(workshopId: number, reservationId: number): Promise<Reservation> {
+  const { data } = await apiClient.post<Reservation>(`/workshops/${workshopId}/reservations/${reservationId}/cancel`)
+  return data
 }

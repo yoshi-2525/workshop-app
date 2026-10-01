@@ -46,18 +46,40 @@ function pick<T extends string>(value: string | null, allowed: readonly T[], fal
   return value !== null && (allowed as readonly string[]).includes(value) ? (value as T) : fallback
 }
 
+// 上限金額として使える値か(参加費はこれより高く設定できないので、上限金額もこの範囲で受け付ける)
+function isValidMaxPrice(value: number): boolean {
+  return Number.isInteger(value) && value >= 0 && value <= WORKSHOP_PRICE_MAX
+}
+
+// --- 検索フォームの入力チェック(URL を読むときと同じ基準で確かめる) ---
+
+// 上限金額の入力欄の値を数値にする。空欄なら指定なし(undefined)
+export function parseMaxPriceInput(input: string): { value: number | undefined } | { error: string } {
+  if (!input.trim()) return { value: undefined }
+  const value = Number(input)
+  if (!isValidMaxPrice(value)) {
+    return { error: `上限金額は 0〜${WORKSHOP_PRICE_MAX.toLocaleString()} の整数で入力してください` }
+  }
+  return { value }
+}
+
+// 期間指定の開始日・終了日(YYYY-MM-DD、片方だけでもよい)を確かめ、問題があればメッセージを返す
+export function validateDateRange(from: string, to: string): string | null {
+  if (!from && !to) return '開始日か終了日の少なくとも一方を選択してください'
+  if ((from && !DATE_INPUT_PATTERN.test(from)) || (to && !DATE_INPUT_PATTERN.test(to))) {
+    return '日付の形式が正しくありません'
+  }
+  // YYYY-MM-DD 形式どうしなので、文字列の比較で日付の前後が分かる
+  if (from && to && to < from) return '終了日は開始日以降の日付を選択してください'
+  return null
+}
+
 // URL は手で書き換えられるので、不正な値は無視して既定値に戻す
 export function readListState(params: URLSearchParams): WorkshopListState {
   const price = pick(params.get('price'), ['all', 'free', 'paid'] as const, 'all')
   const maxPriceRaw = Number(params.get('max_price'))
   const maxPrice =
-    price === 'paid' &&
-    params.get('max_price') !== null &&
-    Number.isInteger(maxPriceRaw) &&
-    maxPriceRaw >= 0 &&
-    maxPriceRaw <= WORKSHOP_PRICE_MAX
-      ? maxPriceRaw
-      : undefined
+    price === 'paid' && params.get('max_price') !== null && isValidMaxPrice(maxPriceRaw) ? maxPriceRaw : undefined
 
   let date = pick(params.get('date'), DATE_FILTERS, 'all')
   let from = ''

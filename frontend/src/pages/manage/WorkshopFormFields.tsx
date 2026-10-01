@@ -1,10 +1,11 @@
 import { useId, useState, type ChangeEvent, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import { DateTimeField } from '../../components/DateTimeField'
 import { RequiredMark } from '../../components/RequiredMark'
-import { ToggleGroup, type ToggleOption } from '../../components/ToggleGroup'
-import type { LocationType, WorkshopInput } from '../../types'
+import { ToggleGroup } from '../../components/ToggleGroup'
+import type { WorkshopInput } from '../../types'
 import { googleMapsSearchUrl } from '../../utils/maps'
 import {
+  LOCATION_TYPE_OPTIONS,
   WORKSHOP_CANCELLATION_POLICY_MAX_LENGTH,
   WORKSHOP_CAPACITY_MAX,
   WORKSHOP_DESCRIPTION_MAX_LENGTH,
@@ -17,11 +18,6 @@ import {
 const INPUT_CLASS =
   'w-full rounded-md border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none'
 const LABEL_CLASS = 'block text-sm font-medium text-slate-700'
-
-const LOCATION_TYPE_OPTIONS: ToggleOption<LocationType>[] = [
-  { value: 'offline', label: 'オフライン(会場)' },
-  { value: 'online', label: 'オンライン' },
-]
 
 interface WorkshopFormFieldsProps {
   form: WorkshopInput

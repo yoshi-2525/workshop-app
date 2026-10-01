@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Workshop } from '../types'
-import { formatDateTime, formatPrice } from '../utils/format'
+import { formatPrice } from '../utils/format'
 import { isWorkshopFull, priceTextClass } from '../utils/workshop'
 import { FavoriteButton } from './FavoriteButton'
 import { LocationTypeBadge } from './LocationTypeBadge'
 import { NoImage } from './NoImage'
+import { ShareButton } from './ShareButton'
+import { WorkshopDateTime } from './WorkshopDateTime'
 
 export function WorkshopCard({ workshop }: { workshop: Workshop }) {
   const isFull = isWorkshopFull(workshop)
@@ -20,36 +22,45 @@ export function WorkshopCard({ workshop }: { workshop: Workshop }) {
         <img
           src={workshop.image_url}
           alt=""
-          className="mb-3 aspect-video w-full rounded-md object-cover"
+          className="mb-2 aspect-video w-full rounded-md object-cover"
           onError={() => setImageFailed(true)}
         />
       ) : (
-        <NoImage className="mb-3 rounded-md" />
+        <NoImage className="mb-1 rounded-md" />
       )}
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-base font-semibold text-slate-900">
-          <Link
-            to={`/workshops/${workshop.id}`}
-            className="after:absolute after:inset-0 after:rounded-lg focus:outline-none"
-          >
-            {workshop.title}
-          </Link>
-        </h3>
-        <div className="relative z-10 flex shrink-0 items-center gap-1">
-          {workshop.viewer.is_reserved && (
-            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
-              予約済み
-            </span>
-          )}
-          <FavoriteButton workshopId={workshop.id} isFavorited={workshop.viewer.is_favorited} />
+      {/* タイトルが1行でも2行でも日時以降の位置がそろうよう、タイトル(最大2行)+主催の分の高さを確保する。
+          主催はタイトルのすぐ下に出し、余りは主催の下に回す */}
+      <div className="min-h-[4.5rem]">
+        <div className="flex items-center justify-between gap-4">
+          <h3 className="line-clamp-2 min-w-0 text-lg font-semibold text-slate-900" title={workshop.title}>
+            <Link
+              to={`/workshops/${workshop.id}`}
+              className="after:absolute after:inset-0 after:rounded-lg focus:outline-none"
+            >
+              {workshop.title}
+            </Link>
+          </h3>
+          <div className="relative z-10 flex shrink-0 items-center gap-1">
+            {workshop.viewer.is_reserved && (
+              <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                予約済み
+              </span>
+            )}
+            {/* 共有とお気に入りは、それぞれ薄いグレーの丸で囲む */}
+            <ShareButton path={`/workshops/${workshop.id}`} title={workshop.title} className="rounded-full bg-slate-50" />
+            <FavoriteButton
+              workshopId={workshop.id}
+              isFavorited={workshop.viewer.is_favorited}
+              className="rounded-full bg-slate-50"
+            />
+          </div>
         </div>
+        <p className="text-xs text-slate-500">主催: {workshop.facilitator_name}</p>
       </div>
-      <p className="text-xs text-slate-500">主催: {workshop.facilitator_name}</p>
-      <p className="mt-1 line-clamp-2 text-sm text-slate-600">{workshop.description}</p>
       <dl className="mt-3 space-y-1 text-sm text-slate-500">
         <div className="flex gap-2">
           <dt className="font-medium">日時:</dt>
-          <dd>{formatDateTime(workshop.start_at)}</dd>
+          <dd><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} /></dd>
         </div>
         <div className="flex gap-2">
           <dt className="font-medium">場所:</dt>

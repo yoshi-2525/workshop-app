@@ -1,16 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_roles
 from app.core.rate_limit import FailureLimiter
 from app.core.security import burn_password_check, create_access_token, hash_password, verify_password
 from app.database import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.auth import Token
 from app.schemas.user import UserRead, UserRegister, UserUpdate
+from app.services.uploads import delete_avatar_image, reject_oversized_upload, save_avatar_image
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -90,4 +91,42 @@ def update_me(
         current_user.bio = payload.bio
     db.commit()
     db.refresh(current_user)
+    return current_user
+
+
+# 主催者アイコンはワークショップ詳細・主催者ページに出すものなので、主催者と運営だけが設定できる。
+# ワークショップ画像と同じく、同期処理としてスレッドプールで動かし、大きすぎる送信は本文の受け取り前に断る
+@router.post("/me/avatar", response_model=UserRead, dependencies=[Depends(reject_oversized_upload)])
+def upload_my_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+) -> User:
+    new_avatar_url = save_avatar_image(file)
+    old_avatar_url = current_user.avatar_url
+    current_user.avatar_url = new_avatar_url
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        # DB に記録できなかった画像はどこからも参照されないので消す
+        delete_avatar_image(new_avatar_url)
+        raise
+    db.refresh(current_user)
+    if old_avatar_url:
+        delete_avatar_image(old_avatar_url)
+    return current_user
+
+
+@router.delete("/me/avatar", response_model=UserRead)
+def remove_my_avatar(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+) -> User:
+    old_avatar_url = current_user.avatar_url
+    current_user.avatar_url = ""
+    db.commit()
+    db.refresh(current_user)
+    if old_avatar_url:
+        delete_avatar_image(old_avatar_url)
     return current_user

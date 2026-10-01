@@ -4,7 +4,6 @@ import { ja } from '@daypicker/react/locale'
 import '@daypicker/react/style.css'
 import { parseDateInput, toDateInputValue } from '../utils/date'
 
-const FOCUS_RING = 'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1'
 
 // カレンダーの見た目。ライブラリの CSS は .rdp-root 自身に変数を定義しているため、
 // 親要素で指定しても上書きされる。style などでルート要素・各部品に直接渡して上書きする
@@ -151,7 +150,7 @@ export function DatePicker({
         aria-controls={open ? calendarId : undefined}
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
-        className={`w-full rounded-md border bg-white px-3 text-left text-sm focus:outline-none ${FOCUS_RING} ${
+        className={`w-full rounded-md border bg-white px-3 text-left text-sm focus-ring focus:outline-none ${
           SIZE_CLASSES[size]
         } ${invalid ? 'border-red-500' : 'border-border'} ${
           selectedDate ? 'text-slate-900' : 'text-slate-400'
@@ -189,7 +188,7 @@ export function DatePicker({
               <button
                 type="button"
                 onClick={handleClear}
-                className={`rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 focus:outline-none ${FOCUS_RING}`}
+                className="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 focus-ring focus:outline-none"
               >
                 クリア
               </button>

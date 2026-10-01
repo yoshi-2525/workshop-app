@@ -13,8 +13,11 @@ if TYPE_CHECKING:
 
 
 class NotificationType(str, enum.Enum):
+    # ワークショップ自体の中止
     cancellation = "cancellation"
     reminder = "reminder"
+    # 主催者による参加(予約)のキャンセル
+    reservation_canceled = "reservation_canceled"
 
 
 class Notification(Base):

@@ -37,7 +37,14 @@ export function SettingsPage() {
     {
       to: '/reservations',
       title: '予約履歴・参加履歴',
-      description: '参加予定のワークショップの確認・キャンセル、過去に参加した履歴を見られます。',
+      description: '参加予定のワークショップの確認や、過去に参加した履歴を見られます。',
+    },
+    {
+      to: '/inquiries',
+      title: '問い合わせ',
+      description: isFacilitator
+        ? '主催者への問い合わせや、自分のワークショップに届いた問い合わせのやり取りを確認できます。'
+        : '主催者への問い合わせのやり取りを確認できます。',
     },
     {
       to: '/favorites',
@@ -68,7 +75,7 @@ export function SettingsPage() {
       <button
         type="button"
         onClick={handleLogout}
-        className="mt-8 w-full rounded-lg border border-border bg-white p-3 text-sm font-medium text-red-600 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+        className="mt-8 w-full rounded-lg border border-border bg-white p-3 text-sm font-medium text-red-600 transition hover:bg-red-50 focus-ring focus:outline-none"
       >
         ログアウト
       </button>

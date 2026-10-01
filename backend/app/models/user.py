@@ -31,6 +31,8 @@ class User(Base):
         Enum(UserRole, name="user_role"), default=UserRole.participant, nullable=False
     )
     bio: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # 主催者アイコンの URL。未設定なら空文字
+    avatar_url: Mapped[str] = mapped_column(String(2000), nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )

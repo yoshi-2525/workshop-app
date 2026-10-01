@@ -39,6 +39,7 @@ class UserRead(BaseModel):
     name: str
     role: UserRole
     bio: str
+    avatar_url: str
 
 
 class UserUpdate(BaseModel):
@@ -53,3 +54,4 @@ class FacilitatorProfile(BaseModel):
     name: str
     bio: str
     role: UserRole
+    avatar_url: str

@@ -12,12 +12,19 @@ from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User, UserRole
 from app.models.workshop import Workshop, WorkshopStatus
 from app.schemas.reservation import ReservationCreate, ReservationRead
-from app.schemas.workshop import WorkshopInput, WorkshopRead, WorkshopSearchQuery
-from app.services.notifications import add_cancellation_notices
+from app.schemas.workshop import RelatedWorkshops, WorkshopInput, WorkshopRead, WorkshopSearchQuery
+from app.services.notifications import add_cancellation_notices, add_reservation_canceled_notice
 from app.services.pagination import PageQuery, paginate
+from app.services.related import related_workshops
 from app.services.reservations import to_reservation_read, to_reservation_reads
 from app.services.uploads import delete_workshop_image, reject_oversized_upload, save_workshop_image
-from app.services.workshops import check_workshop_input, confirmed_tickets_select, ensure_editable, lock_workshop
+from app.services.workshops import (
+    check_workshop_input,
+    confirmed_tickets_select,
+    ensure_editable,
+    get_viewable_workshop,
+    lock_workshop,
+)
 from app.services.workshops import reserved_count as _reserved_count
 from app.services.workshops import to_workshop_read as _to_read
 from app.services.workshops import to_workshop_reads as _to_reads
@@ -32,13 +39,6 @@ def _get_owned_workshop(db: Session, workshop_id: int, user: User, *, for_update
     if user.role != UserRole.admin and workshop.facilitator_id != user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="この操作を行う権限がありません")
     return workshop
-
-
-def _has_reservation(db: Session, workshop_id: int, user_id: int) -> bool:
-    stmt = select(
-        exists().where(Reservation.workshop_id == workshop_id, Reservation.user_id == user_id)
-    )
-    return bool(db.scalar(stmt))
 
 
 # 公開一覧の並び順。同じ値のときの順序が毎回変わらないよう、最後に id を付ける
@@ -121,22 +121,19 @@ def get_workshop(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
 ) -> WorkshopRead:
-    workshop = db.get(Workshop, workshop_id)
-    if workshop is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
-    is_owner = current_user is not None and (
-        current_user.role == UserRole.admin or current_user.id == workshop.facilitator_id
-    )
-    # Participants keep access to a canceled workshop they booked, so links from
-    # the cancellation notice and their reservation list still resolve.
-    had_reservation = (
-        workshop.status == WorkshopStatus.canceled
-        and current_user is not None
-        and _has_reservation(db, workshop_id, current_user.id)
-    )
-    if workshop.status != WorkshopStatus.published and not (is_owner or had_reservation):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
+    workshop = get_viewable_workshop(db, workshop_id, current_user)
     return _to_read(db, workshop, current_user)
+
+
+@router.get("/{workshop_id}/related", response_model=RelatedWorkshops)
+def get_related_workshops(
+    workshop_id: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
+) -> RelatedWorkshops:
+    """同じ主催者・類似・近くで開催する、開催予定のワークショップ(詳細ページ用)"""
+    workshop = get_viewable_workshop(db, workshop_id, current_user)
+    return related_workshops(db, workshop, current_user)
 
 
 @router.post("", response_model=WorkshopRead, status_code=status.HTTP_201_CREATED)
@@ -263,9 +260,6 @@ def reserve_workshop(
     if workshop.start_at <= utcnow_naive():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="開始済みのワークショップは予約できません")
 
-    if _reserved_count(db, workshop_id) + payload.ticket_count > workshop.capacity:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="残席がチケット枚数に満たないため予約できません")
-
     existing = (
         db.query(Reservation)
         .filter(Reservation.workshop_id == workshop_id, Reservation.user_id == current_user.id)
@@ -274,15 +268,22 @@ def reserve_workshop(
     if existing is not None:
         if existing.status == ReservationStatus.confirmed:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="既に予約済みです")
-        existing.status = ReservationStatus.confirmed
-        reservation = existing
-    else:
-        reservation = Reservation(workshop_id=workshop_id, user_id=current_user.id)
-        db.add(reservation)
+        # キャンセル済みの予約は主催者が取り消したもの。主催者の判断を覆さないよう、再予約させない
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="主催者により参加がキャンセルされたため、このワークショップは予約できません",
+        )
+    if _reserved_count(db, workshop_id) + payload.ticket_count > workshop.capacity:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="残席がチケット枚数に満たないため予約できません")
 
-    reservation.attendee_name = payload.attendee_name
-    reservation.contact = payload.contact
-    reservation.ticket_count = payload.ticket_count
+    reservation = Reservation(
+        workshop_id=workshop_id,
+        user_id=current_user.id,
+        attendee_name=payload.attendee_name,
+        contact=payload.contact,
+        ticket_count=payload.ticket_count,
+    )
+    db.add(reservation)
 
     try:
         db.commit()
@@ -310,3 +311,34 @@ def list_workshop_reservations(
         .order_by(Reservation.created_at.asc(), Reservation.id.asc())
     ).all()
     return to_reservation_reads(db, reservations, current_user)
+
+
+# 参加者は自分で予約をキャンセルできないので、キャンセルはワークショップの主催者(と運営)が行う
+@router.post("/{workshop_id}/reservations/{reservation_id}/cancel", response_model=ReservationRead)
+def cancel_workshop_reservation(
+    workshop_id: int,
+    reservation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+) -> ReservationRead:
+    # 予約の受付と同時に走っても残席の数が食い違わないよう、予約と同じくワークショップの行をロックする
+    workshop = _get_owned_workshop(db, workshop_id, current_user, for_update=True)
+    reservation = db.get(Reservation, reservation_id)
+    if reservation is None or reservation.workshop_id != workshop.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="予約が見つかりません")
+    if reservation.status == ReservationStatus.canceled:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="この予約は既にキャンセルされています")
+    if workshop.status == WorkshopStatus.canceled:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="中止したワークショップの予約はキャンセルできません")
+    if workshop.start_at <= utcnow_naive():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="開始済みのワークショップの予約はキャンセルできません",
+        )
+
+    reservation.status = ReservationStatus.canceled
+    # キャンセルと参加者への通知は、同じトランザクションでまとめて確定する
+    add_reservation_canceled_notice(db, reservation)
+    db.commit()
+    db.refresh(reservation)
+    return to_reservation_read(db, reservation, current_user)

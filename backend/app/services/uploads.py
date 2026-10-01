@@ -17,11 +17,14 @@ _READ_CHUNK_BYTES = 64 * 1024
 # multipart の区切りやヘッダーの分として、Content-Length には画像サイズの上限に加えてこれだけ許す
 _MULTIPART_OVERHEAD_BYTES = 64 * 1024
 
-WORKSHOP_IMAGE_URL_PREFIX = "/api/uploads/workshops"
+_UPLOAD_URL_PREFIX = "/api/uploads"
+# 画像の保存先(アップロード先ディレクトリの下のサブディレクトリ名)
+_WORKSHOP_IMAGE_DIR = "workshops"
+_AVATAR_IMAGE_DIR = "avatars"
 
 
-def _workshop_image_dir() -> Path:
-    path = settings.upload_path / "workshops"
+def _image_dir(subdir: str) -> Path:
+    path = settings.upload_path / subdir
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -66,7 +69,7 @@ def _read_limited(file: UploadFile) -> bytes:
     return b"".join(chunks)
 
 
-def save_workshop_image(file: UploadFile) -> str:
+def _save_image(file: UploadFile, subdir: str) -> str:
     contents = _read_limited(file)
     extension = _detect_image_extension(contents[:16])
     if extension is None:
@@ -76,12 +79,29 @@ def save_workshop_image(file: UploadFile) -> str:
         )
 
     filename = f"{uuid4().hex}{extension}"
-    (_workshop_image_dir() / filename).write_bytes(contents)
-    return f"{WORKSHOP_IMAGE_URL_PREFIX}/{filename}"
+    (_image_dir(subdir) / filename).write_bytes(contents)
+    return f"{_UPLOAD_URL_PREFIX}/{subdir}/{filename}"
+
+
+def _delete_image(image_url: str, subdir: str) -> None:
+    # このアプリが保存した画像以外(空文字や想定外の URL)は消さない
+    if not image_url.startswith(f"{_UPLOAD_URL_PREFIX}/{subdir}/"):
+        return
+    filename = Path(image_url).name
+    (_image_dir(subdir) / filename).unlink(missing_ok=True)
+
+
+def save_workshop_image(file: UploadFile) -> str:
+    return _save_image(file, _WORKSHOP_IMAGE_DIR)
 
 
 def delete_workshop_image(image_url: str) -> None:
-    if not image_url.startswith(f"{WORKSHOP_IMAGE_URL_PREFIX}/"):
-        return
-    filename = Path(image_url).name
-    (_workshop_image_dir() / filename).unlink(missing_ok=True)
+    _delete_image(image_url, _WORKSHOP_IMAGE_DIR)
+
+
+def save_avatar_image(file: UploadFile) -> str:
+    return _save_image(file, _AVATAR_IMAGE_DIR)
+
+
+def delete_avatar_image(image_url: str) -> None:
+    _delete_image(image_url, _AVATAR_IMAGE_DIR)

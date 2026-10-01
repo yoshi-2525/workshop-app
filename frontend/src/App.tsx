@@ -14,6 +14,9 @@ import { FacilitatorProfilePage } from './pages/FacilitatorProfilePage'
 import { MyReservationsPage } from './pages/MyReservationsPage'
 import { FavoritesPage } from './pages/FavoritesPage'
 import { NotificationsPage } from './pages/NotificationsPage'
+import { InquiriesPage } from './pages/InquiriesPage'
+import { InquiryThreadPage } from './pages/InquiryThreadPage'
+import { WorkshopInquiryPage } from './pages/WorkshopInquiryPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { ManageWorkshopsPage } from './pages/manage/ManageWorkshopsPage'
 import { WorkshopFormPage } from './pages/manage/WorkshopFormPage'
@@ -41,6 +44,9 @@ export default function App() {
           <Route path="reservations" element={<MyReservationsPage />} />
           <Route path="favorites" element={<FavoritesPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="workshops/:id/inquiry" element={<WorkshopInquiryPage />} />
+          <Route path="inquiries" element={<InquiriesPage />} />
+          <Route path="inquiries/:id" element={<InquiryThreadPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/profile" element={<ProfileEditPage />} />
         </Route>

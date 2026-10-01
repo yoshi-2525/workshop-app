@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { LocationType, Workshop, WorkshopInput } from '../types'
+import type { LocationType, RelatedWorkshops, Workshop, WorkshopInput } from '../types'
 
 // start: 開催日時の近い順 / newest: 公開日時の新しい順 / price: 価格の安い順
 export type WorkshopSort = 'start' | 'newest' | 'price'
@@ -61,6 +61,12 @@ export async function removeFavorite(workshopId: number): Promise<void> {
 
 export async function getWorkshop(id: number, signal?: AbortSignal): Promise<Workshop> {
   const { data } = await apiClient.get<Workshop>(`/workshops/${id}`, { signal })
+  return data
+}
+
+// 同じ主催者・類似・近くで開催する、開催予定のワークショップ
+export async function getRelatedWorkshops(id: number, signal?: AbortSignal): Promise<RelatedWorkshops> {
+  const { data } = await apiClient.get<RelatedWorkshops>(`/workshops/${id}/related`, { signal })
   return data
 }
 

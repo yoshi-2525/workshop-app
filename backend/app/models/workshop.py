@@ -10,6 +10,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.favorite import Favorite
+    from app.models.inquiry import Inquiry
     from app.models.notification import Notification
     from app.models.reservation import Reservation
     from app.models.user import User
@@ -60,6 +61,9 @@ class Workshop(Base):
         back_populates="workshop", cascade="all, delete-orphan"
     )
     notifications: Mapped[list["Notification"]] = relationship(
+        back_populates="workshop", cascade="all, delete-orphan"
+    )
+    inquiries: Mapped[list["Inquiry"]] = relationship(
         back_populates="workshop", cascade="all, delete-orphan"
     )
 

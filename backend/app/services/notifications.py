@@ -57,6 +57,14 @@ def add_cancellation_notices(db: Session, workshop: Workshop) -> int:
     )
 
 
+def add_reservation_canceled_notice(db: Session, reservation: Reservation) -> int:
+    """主催者が参加をキャンセルしたことを参加者に通知する。キャンセルと同じトランザクションで commit すること"""
+    message = f"「{reservation.workshop.title}」への参加は主催者によりキャンセルされました。"
+    return _add_missing(
+        db, reservation.workshop_id, [reservation.user_id], NotificationType.reservation_canceled, message
+    )
+
+
 def send_upcoming_reminders(db: Session) -> int:
     """開催が近いワークショップの予約者にリマインダーを作り、作った件数を返す"""
     # GET_LOCK は接続ごとに持つロック。セッションの接続は commit のたびにプールへ返るので、

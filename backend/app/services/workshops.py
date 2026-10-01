@@ -1,13 +1,13 @@
 from collections.abc import Sequence
 
 from fastapi import HTTPException, status
-from sqlalchemy import ColumnElement, Select, func, select
+from sqlalchemy import ColumnElement, Select, exists, func, select
 from sqlalchemy.orm import Session
 
 from app.core.timeutil import utcnow_naive
 from app.models.favorite import Favorite
 from app.models.reservation import Reservation, ReservationStatus
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.workshop import Workshop, WorkshopStatus
 from app.schemas.workshop import WorkshopInput, WorkshopRead, WorkshopViewer
 
@@ -101,6 +101,7 @@ def to_workshop_reads(
 
     favorited_ids: set[int] = set()
     reserved_ids: set[int] = set()
+    canceled_ids: set[int] = set()
     if current_user is not None:
         favorited_ids = set(
             db.scalars(
@@ -110,15 +111,17 @@ def to_workshop_reads(
                 )
             )
         )
-        reserved_ids = set(
-            db.scalars(
-                select(Reservation.workshop_id).where(
-                    Reservation.user_id == current_user.id,
-                    Reservation.status == ReservationStatus.confirmed,
-                    Reservation.workshop_id.in_(ids),
-                )
+        # 予約は1人1ワークショップ1件なので、状態ごとに振り分ける
+        for workshop_id, reservation_status in db.execute(
+            select(Reservation.workshop_id, Reservation.status).where(
+                Reservation.user_id == current_user.id,
+                Reservation.workshop_id.in_(ids),
             )
-        )
+        ).all():
+            if reservation_status == ReservationStatus.confirmed:
+                reserved_ids.add(workshop_id)
+            else:
+                canceled_ids.add(workshop_id)
 
     return [
         WorkshopRead(
@@ -136,10 +139,12 @@ def to_workshop_reads(
             status=w.status,
             facilitator_id=w.facilitator_id,
             facilitator_name=w.facilitator.name,
+            facilitator_avatar_url=w.facilitator.avatar_url,
             reserved_count=int(counts.get(w.id, 0)),
             viewer=WorkshopViewer(
                 is_favorited=w.id in favorited_ids,
                 is_reserved=w.id in reserved_ids,
+                is_reservation_canceled=w.id in canceled_ids,
             ),
         )
         for w in workshops
@@ -148,3 +153,28 @@ def to_workshop_reads(
 
 def to_workshop_read(db: Session, workshop: Workshop, current_user: User | None = None) -> WorkshopRead:
     return to_workshop_reads(db, [workshop], current_user)[0]
+
+
+def _has_reservation(db: Session, workshop_id: int, user_id: int) -> bool:
+    stmt = select(
+        exists().where(Reservation.workshop_id == workshop_id, Reservation.user_id == user_id)
+    )
+    return bool(db.scalar(stmt))
+
+
+def get_viewable_workshop(db: Session, workshop_id: int, user: User | None) -> Workshop:
+    """詳細ページを見てよいワークショップを取得する。見られないものは存在しないのと同じく 404 にする"""
+    workshop = db.get(Workshop, workshop_id)
+    if workshop is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
+    is_owner = user is not None and (user.role == UserRole.admin or user.id == workshop.facilitator_id)
+    # Participants keep access to a canceled workshop they booked, so links from
+    # the cancellation notice and their reservation list still resolve.
+    had_reservation = (
+        workshop.status == WorkshopStatus.canceled
+        and user is not None
+        and _has_reservation(db, workshop_id, user.id)
+    )
+    if workshop.status != WorkshopStatus.published and not (is_owner or had_reservation):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
+    return workshop
