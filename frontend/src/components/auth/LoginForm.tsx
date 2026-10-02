@@ -1,11 +1,11 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
-import { extractErrorMessage } from '../../api/client'
-import type { UserRole } from '../../types'
-import { authThemeStyles } from './theme'
-import type { AuthTheme } from './theme'
+import { useAuth } from '@/context/AuthContext'
+import { extractErrorMessage } from '@/api/client'
+import type { UserRole } from '@/types'
+import { authThemeStyles } from '@/components/auth/theme'
+import type { AuthTheme } from '@/components/auth/theme'
 
 interface LoginFormProps {
   theme: AuthTheme

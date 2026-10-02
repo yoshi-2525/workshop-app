@@ -1,5 +1,5 @@
-import type { LocationType } from '../types'
-import { LOCATION_TYPE_LABEL } from '../utils/workshop'
+import type { LocationType } from '@/types'
+import { LOCATION_TYPE_LABEL } from '@/utils/workshop'
 
 const BADGE_STYLE: Record<LocationType, string> = {
   online: 'bg-sky-100 text-sky-700',

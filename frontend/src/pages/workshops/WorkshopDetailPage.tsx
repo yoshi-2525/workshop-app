@@ -1,23 +1,24 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { getRelatedWorkshops, getWorkshop } from '../api/workshops'
-import { extractErrorMessage } from '../api/client'
-import { useAuth } from '../context/AuthContext'
-import { Avatar } from '../components/Avatar'
-import { FavoriteButton } from '../components/FavoriteButton'
-import { LocationTypeBadge } from '../components/LocationTypeBadge'
-import { MaterialIcon } from '../components/MaterialIcon'
-import { NoImage } from '../components/NoImage'
-import { RelatedWorkshopSection } from '../components/RelatedWorkshopSection'
-import { ShareButton } from '../components/ShareButton'
-import type { RelatedWorkshops, Workshop } from '../types'
-import { formatPrice } from '../utils/format'
-import { googleMapsSearchUrl } from '../utils/maps'
-import { parseIdParam } from '../utils/params'
-import { isWorkshopFull, isWorkshopStarted, priceTextClass } from '../utils/workshop'
-import { getLastListUrl } from '../utils/workshopListState'
-import { WorkshopDateTime } from '../components/WorkshopDateTime'
+import { getRelatedWorkshops, getWorkshop } from '@/api/workshops'
+import { extractErrorMessage } from '@/api/client'
+import { useAuth } from '@/context/AuthContext'
+import { Avatar } from '@/components/ui/Avatar'
+import { FavoriteButton } from '@/components/workshop/FavoriteButton'
+import { LocationTypeBadge } from '@/components/workshop/LocationTypeBadge'
+import { MaterialIcon } from '@/components/ui/MaterialIcon'
+import { NoImage } from '@/components/ui/NoImage'
+import { RelatedWorkshopSection } from '@/components/workshop/RelatedWorkshopSection'
+import { ShareButton } from '@/components/workshop/ShareButton'
+import type { RelatedWorkshops, Workshop } from '@/types'
+import { FewSeatsBadge, FullBadge } from '@/components/workshop/SeatStatusBadge'
+import { formatPriceYen } from '@/utils/format'
+import { googleMapsSearchUrl } from '@/utils/maps'
+import { parseIdParam } from '@/utils/params'
+import { isWorkshopFull, isWorkshopStarted, priceTextClass } from '@/utils/workshop'
+import { getLastListUrl } from '@/utils/workshopListState'
+import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 
 // 最後に見ていた一覧(検索条件・ページ番号つき)へ戻り、スクロール位置も復元させる
 function BackToListLink() {
@@ -125,6 +126,8 @@ export function WorkshopDetailPage() {
 
   const isFull = isWorkshopFull(workshop)
   const isStarted = isWorkshopStarted(workshop)
+  // 満員・残席僅かは予約を受け付けている(公開中で開始前の)ときだけ意味があるので、それ以外は出さない
+  const showSeatStatus = workshop.status === 'published' && !isStarted
   const isOwnWorkshop = user?.id === workshop.facilitator_id
 
   return (
@@ -147,8 +150,12 @@ export function WorkshopDetailPage() {
             このワークショップは中止になりました。
           </p>
         )}
-        <div className="flex items-start justify-between gap-2">
-          <h1 className="text-2xl font-semibold text-slate-900">{workshop.title}</h1>
+        <div className="flex items-center justify-between gap-2">
+          {/* 満員はタイトルの横に出す(残席僅かは定員の右) */}
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="text-2xl font-semibold text-slate-900">{workshop.title}</h1>
+            {showSeatStatus && <FullBadge workshop={workshop} />}
+          </div>
           {/* 共有とお気に入りは、それぞれ薄いグレーの丸で囲む */}
           <div className="mt-1 flex shrink-0 items-center gap-2">
             <ShareButton path={`/workshops/${workshop.id}`} title={workshop.title} className="rounded-full bg-slate-50" />
@@ -156,21 +163,24 @@ export function WorkshopDetailPage() {
               <FavoriteButton
                 workshopId={workshop.id}
                 isFavorited={workshop.viewer.is_favorited}
+                size="lg"
                 className="rounded-full bg-slate-50"
               />
             )}
           </div>
         </div>
         {/* アイコンと名前をまとめて主催者ページへのリンクにする */}
-        <p className="mt-2 flex items-center gap-2 text-sm text-slate-500">
-          主催:
-          <Link
-            to={`/facilitators/${workshop.facilitator_id}`}
-            className="flex items-center gap-2 text-slate-700 underline"
-          >
-            <Avatar url={workshop.facilitator_avatar_url} name={workshop.facilitator_name} className="h-8 w-8 text-sm" />
-            {workshop.facilitator_name}
-          </Link>
+        <div className="py-4 flex items-center gap-2 text-sm text-slate-500">
+          <p className="flex items-center gap-2 text-base">
+            主催者:
+            <Link
+              to={`/facilitators/${workshop.facilitator_id}`}
+              className="flex items-center gap-2 text-slate-700 underline"
+            >
+              <Avatar url={workshop.facilitator_avatar_url} name={workshop.facilitator_name} className="h-8 w-8 text-sm" />
+              {workshop.facilitator_name}
+            </Link>
+          </p>
           {/* 自分のワークショップなら届いた問い合わせへ、そうでなければ主催者への問い合わせへ。下書きは問い合わせの対象外 */}
           {isOwnWorkshop ? (
             <Link
@@ -192,7 +202,7 @@ export function WorkshopDetailPage() {
               </button>
             )
           )}
-        </p>
+        </div>
         <dl className="mt-6 space-y-2 rounded-md bg-slate-50 p-4 text-sm">
           <div className="flex gap-2">
             <dt className="w-20 font-medium text-slate-500">日時</dt>
@@ -218,15 +228,15 @@ export function WorkshopDetailPage() {
           <div className="flex gap-2">
             <dt className="w-20 font-medium text-slate-500">参加費</dt>
             <dd className={priceTextClass(workshop.price)}>
-              {formatPrice(workshop.price)}
+              {formatPriceYen(workshop.price)}
               {workshop.price > 0 && <span className="ml-1 text-xs font-normal text-slate-500">(当日会場にてお支払いください)</span>}
             </dd>
           </div>
           <div className="flex gap-2">
             <dt className="w-20 font-medium text-slate-500">定員</dt>
-            <dd className={isFull ? 'font-semibold text-red-600' : 'text-slate-900'}>
-              {workshop.reserved_count} / {workshop.capacity}
-              {isFull ? '(満員)' : ''}
+            <dd className="flex items-center gap-2 text-slate-900">
+              {workshop.capacity}名
+              {showSeatStatus && <FewSeatsBadge workshop={workshop} />}
             </dd>
           </div>
         </dl>

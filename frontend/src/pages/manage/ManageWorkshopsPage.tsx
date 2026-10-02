@@ -1,24 +1,29 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { deleteWorkshop, listManagedWorkshops } from '../../api/workshops'
-import { extractErrorMessage } from '../../api/client'
-import { ToggleGroup, type ToggleOption } from '../../components/ToggleGroup'
-import type { Workshop } from '../../types'
-import { isWorkshopFinished } from '../../utils/workshop'
-import { WorkshopDateTime } from '../../components/WorkshopDateTime'
+import { deleteWorkshop, listManagedWorkshops } from '@/api/workshops'
+import { extractErrorMessage } from '@/api/client'
+import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
+import type { Workshop } from '@/types'
+import { isWorkshopFinished } from '@/utils/workshop'
+import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 
-const statusLabel: Record<Workshop['status'], string> = {
-  draft: '下書き',
-  published: '公開中',
-  canceled: '中止',
-}
-
-type Tab = 'upcoming' | 'history'
+type Tab = 'upcoming' | 'draft' | 'history'
 
 const TAB_OPTIONS: ToggleOption<Tab>[] = [
   { value: 'upcoming', label: '開催予定' },
+  { value: 'draft', label: '下書き' },
   { value: 'history', label: '開催履歴' },
 ]
+
+const EMPTY_MESSAGE: Record<Tab, string> = {
+  upcoming: '開催予定のワークショップはありません。',
+  draft: '下書きのワークショップはありません。',
+  history: '開催履歴のワークショップはありません。',
+}
+
+function startTime(workshop: Workshop): number {
+  return new Date(workshop.start_at).getTime()
+}
 
 export function ManageWorkshopsPage() {
   const [tab, setTab] = useState<Tab>('upcoming')
@@ -36,12 +41,37 @@ export function ManageWorkshopsPage() {
 
   useEffect(load, [])
 
-  const filtered = useMemo(() => {
-    const upcoming = workshops.filter((w) => !isWorkshopFinished(w))
-    const history = workshops.filter(isWorkshopFinished)
-    upcoming.sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
-    history.sort((a, b) => new Date(b.start_at).getTime() - new Date(a.start_at).getTime())
-    return tab === 'upcoming' ? upcoming : history
+  // タブの中身を見出しごとに分ける。見出しのない最初のまとまりが、そのタブの本体
+  const sections = useMemo((): { heading?: string; items: Workshop[] }[] => {
+    // 中止したものは、公開中のものと混ざらないよう見出しを分けて下に並べる
+    function splitCanceled(items: Workshop[]) {
+      const canceled = items.filter((w) => w.status === 'canceled')
+      return [
+        { items: items.filter((w) => w.status !== 'canceled') },
+        ...(canceled.length > 0 ? [{ heading: '中止したワークショップ', items: canceled }] : []),
+      ]
+    }
+
+    switch (tab) {
+      // 開催予定・開催履歴は公開したもの(公開中・中止)だけ。終了日時を過ぎたかどうかで振り分ける
+      case 'upcoming':
+        return splitCanceled(
+          workshops
+            .filter((w) => w.status !== 'draft' && !isWorkshopFinished(w))
+            .sort((a, b) => startTime(a) - startTime(b)),
+        )
+      case 'history':
+        return splitCanceled(
+          workshops
+            .filter((w) => w.status !== 'draft' && isWorkshopFinished(w))
+            .sort((a, b) => startTime(b) - startTime(a)),
+        )
+      // 下書きは開催日時に関係なくここにまとめる
+      case 'draft':
+        return [
+          { items: workshops.filter((w) => w.status === 'draft').sort((a, b) => startTime(a) - startTime(b)) },
+        ]
+    }
   }, [workshops, tab])
 
   async function handleDelete(id: number) {
@@ -81,83 +111,86 @@ export function ManageWorkshopsPage() {
           {error}
         </p>
       )}
-      {!loading && filtered.length === 0 && (
-        <p className="mt-6 text-slate-500">
-          {tab === 'upcoming' ? '開催予定のワークショップはありません。' : '開催履歴のワークショップはありません。'}
-        </p>
-      )}
-      <ul className="mt-6 space-y-3">
-        {filtered.map((workshop) => (
-          <li
-            key={workshop.id}
-            className="flex items-center justify-between rounded-lg border border-border-muted bg-white p-4"
-          >
-            <div className="flex items-center gap-3">
-              {workshop.image_url ? (
-                <img
-                  src={workshop.image_url}
-                  alt=""
-                  className="aspect-video h-12 w-auto shrink-0 rounded-md object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-              ) : (
-                <div className="aspect-video h-12 shrink-0 rounded-md bg-slate-100" />
-              )}
-              <div>
-                <p className="font-medium text-slate-900">{workshop.title}</p>
-                <p className="text-sm text-slate-500"><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} /></p>
-                <p className="text-sm text-slate-500">
-                  {statusLabel[workshop.status]} ・ 予約{' '}
-                  {workshop.reserved_count} / {workshop.capacity}
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2 text-sm">
-              <Link
-                to={`/manage/workshops/${workshop.id}/reservations`}
-                className="rounded-md border border-border px-3 py-1.5 text-slate-700 hover:bg-slate-50"
-              >
-                予約状況
-              </Link>
-              <Link
-                to={`/inquiries?workshop_id=${workshop.id}`}
-                className="rounded-md border border-border px-3 py-1.5 text-slate-700 hover:bg-slate-50"
-              >
-                問い合わせ
-              </Link>
-              {/* 開催済み・中止のワークショップは編集できない */}
-              {tab === 'upcoming' && workshop.status !== 'canceled' && (
-                <Link
-                  to={`/manage/workshops/${workshop.id}/edit`}
-                  className="rounded-md border border-border px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+      {!loading && sections.map((section) => (
+        <section key={section.heading ?? 'main'} className="mt-6">
+          {section.heading && <h2 className="mb-3 text-base font-semibold text-slate-700">{section.heading}</h2>}
+          {section.items.length === 0 ? (
+            <p className="text-slate-500">{EMPTY_MESSAGE[tab]}</p>
+          ) : (
+            <ul className="space-y-3">
+              {section.items.map((workshop) => (
+                <li
+                  key={workshop.id}
+                  className="flex items-center justify-between rounded-lg border border-border-muted bg-white p-4"
                 >
-                  編集
-                </Link>
-              )}
-              {/* 開催予定で公開中のものは削除できない(取りやめるときは「中止」を使う)。
-                  予約者がいたものは参加者への記録として残すため、どの状態でも削除できない */}
-              {(tab === 'history' || workshop.status !== 'published') && (
-                <button
-                  onClick={() => handleDelete(workshop.id)}
-                  disabled={workshop.reserved_count > 0}
-                  title={
-                    workshop.reserved_count === 0
-                      ? undefined
-                      : workshop.status === 'canceled'
-                        ? '予約者がいた中止済みのワークショップは、記録として残すため削除できません'
-                        : '予約者がいるため削除できません。中止をご利用ください'
-                  }
-                  className="rounded-md border border-red-300 px-3 py-1.5 text-red-600 enabled:hover:bg-red-50 disabled:opacity-50"
-                >
-                  削除
-                </button>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+                  <div className="flex items-center gap-3">
+                    {workshop.image_url ? (
+                      <img
+                        src={workshop.image_url}
+                        alt=""
+                        className="aspect-video h-12 w-auto shrink-0 rounded-md object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                    ) : (
+                      <div className="aspect-video h-12 shrink-0 rounded-md bg-slate-100" />
+                    )}
+                    <div>
+                      <p className="font-medium text-slate-900">{workshop.title}</p>
+                      <p className="text-sm text-slate-500"><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} /></p>
+                      {/* 下書きは予約を受け付けていないので、定員・参加者数は出さない */}
+                      {workshop.status !== 'draft' && (
+                        <p className="text-sm text-slate-500">
+                          定員：{workshop.capacity}名・参加者数：{workshop.reserved_count}名
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 text-sm">
+                    {/* 下書きは参加者に公開されておらず、予約も問い合わせも受けないので出さない */}
+                    {workshop.status !== 'draft' && (
+                      <>
+                        <Link
+                          to={`/manage/workshops/${workshop.id}/reservations`}
+                          className="rounded-md border border-border px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+                        >
+                          予約状況
+                        </Link>
+                        <Link
+                          to={`/inquiries?workshop_id=${workshop.id}`}
+                          className="rounded-md border border-border px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+                        >
+                          問い合わせ
+                        </Link>
+                      </>
+                    )}
+                    {/* 開催済み・中止のワークショップは編集できない */}
+                    {!isWorkshopFinished(workshop) && workshop.status !== 'canceled' && (
+                      <Link
+                        to={`/manage/workshops/${workshop.id}/edit`}
+                        className="rounded-md border border-border px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+                      >
+                        編集
+                      </Link>
+                    )}
+                    {/* 削除できるのは下書きだけ。一度公開したもの(公開中・中止)は記録として残す
+                        (開催前に取りやめるときは「中止」を使う) */}
+                    {workshop.status === 'draft' && (
+                      <button
+                        onClick={() => handleDelete(workshop.id)}
+                        className="rounded-md border border-red-300 px-3 py-1.5 text-red-600 hover:bg-red-50"
+                      >
+                        削除
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ))}
     </div>
   )
 }

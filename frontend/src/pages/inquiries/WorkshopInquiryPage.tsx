@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { getWorkshopInquiry, sendWorkshopInquiry } from '../api/inquiries'
-import { getWorkshop } from '../api/workshops'
-import { extractErrorMessage } from '../api/client'
-import { Avatar } from '../components/Avatar'
-import { InquiryComposer } from '../components/InquiryComposer'
-import type { Workshop } from '../types'
-import { parseIdParam } from '../utils/params'
+import { getWorkshopInquiry, sendWorkshopInquiry } from '@/api/inquiries'
+import { getWorkshop } from '@/api/workshops'
+import { extractErrorMessage } from '@/api/client'
+import { Avatar } from '@/components/ui/Avatar'
+import { InquiryComposer } from '@/components/inquiry/InquiryComposer'
+import type { Workshop } from '@/types'
+import { parseIdParam } from '@/utils/params'
 
 // ワークショップの主催者に問い合わせる。既にやり取りがあればそのページへ移り、なければ最初のメッセージを書く
 export function WorkshopInquiryPage() {

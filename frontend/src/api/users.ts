@@ -1,5 +1,5 @@
-import { apiClient } from './client'
-import type { FacilitatorProfile, User } from '../types'
+import { apiClient } from '@/api/client'
+import type { FacilitatorProfile, User } from '@/types'
 
 export interface UpdateMePayload {
   name?: string

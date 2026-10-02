@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
-import { getFacilitatorProfile } from '../api/users'
-import { listWorkshops } from '../api/workshops'
-import { extractErrorMessage } from '../api/client'
-import { Avatar } from '../components/Avatar'
-import { WorkshopCard } from '../components/WorkshopCard'
-import type { FacilitatorProfile, Workshop } from '../types'
-import { parseIdParam } from '../utils/params'
+import { getFacilitatorProfile } from '@/api/users'
+import { listWorkshops } from '@/api/workshops'
+import { extractErrorMessage } from '@/api/client'
+import { Avatar } from '@/components/ui/Avatar'
+import { WorkshopCard } from '@/components/workshop/WorkshopCard'
+import type { FacilitatorProfile, Workshop } from '@/types'
+import { parseIdParam } from '@/utils/params'
 
 export function FacilitatorProfilePage() {
   const { id } = useParams<{ id: string }>()

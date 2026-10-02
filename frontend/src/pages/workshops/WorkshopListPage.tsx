@@ -1,25 +1,25 @@
 import { useEffect, useId, useMemo, useRef } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
-import type { WorkshopSort } from '../api/workshops'
-import { Pagination } from '../components/Pagination'
-import type { ToggleOption } from '../components/ToggleGroup'
-import { WorkshopCard } from '../components/WorkshopCard'
-import { WorkshopSearchForm, type WorkshopSearchConditions } from '../components/WorkshopSearchForm'
-import { useListScrollRestoration } from '../hooks/useListScrollRestoration'
-import { useWorkshopListPage } from '../hooks/useWorkshopListPage'
+import type { WorkshopSort } from '@/api/workshops'
+import { Pagination } from '@/components/ui/Pagination'
+import type { ToggleOption } from '@/components/ui/ToggleGroup'
+import { WorkshopCard } from '@/components/workshop/WorkshopCard'
+import { WorkshopSearchForm, type WorkshopSearchConditions } from '@/components/workshop/WorkshopSearchForm'
+import { useListScrollRestoration } from '@/hooks/useListScrollRestoration'
+import { useWorkshopListPage } from '@/hooks/useWorkshopListPage'
 import {
   readListState,
   saveLastListUrl,
   toSearchParams,
   type WorkshopListState,
-} from '../utils/workshopListState'
+} from '@/utils/workshopListState'
 
 const PER_PAGE = 30
 
 const SORT_OPTIONS: ToggleOption<WorkshopSort>[] = [
   { value: 'start', label: '開催日時の近い順' },
   { value: 'newest', label: '公開日時の新しい順' },
-  { value: 'price', label: '価格の安い順' },
+  { value: 'price', label: '参加費の安い順' },
 ]
 
 export function WorkshopListPage() {

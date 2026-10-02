@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { getInquiryUnreadCount } from '../api/inquiries'
-import { getUnreadNotificationCount } from '../api/notifications'
-import { useAuth } from './AuthContext'
+import { getInquiryUnreadCount } from '@/api/inquiries'
+import { getUnreadNotificationCount } from '@/api/notifications'
+import { useAuth } from '@/context/AuthContext'
 
 interface NotificationContextValue {
   unreadCount: number

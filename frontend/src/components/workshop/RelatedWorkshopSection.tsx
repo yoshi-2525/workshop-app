@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import type { Workshop } from '../types'
-import { formatPrice } from '../utils/format'
-import { isWorkshopFull, priceTextClass } from '../utils/workshop'
-import { LocationTypeBadge } from './LocationTypeBadge'
-import { MaterialIcon } from './MaterialIcon'
-import { NoImage } from './NoImage'
-import { WorkshopDateTime } from './WorkshopDateTime'
+import type { Workshop } from '@/types'
+import { formatPrice } from '@/utils/format'
+import { isWorkshopFull, priceTextClass } from '@/utils/workshop'
+import { LocationTypeBadge } from '@/components/workshop/LocationTypeBadge'
+import { MaterialIcon } from '@/components/ui/MaterialIcon'
+import { NoImage } from '@/components/ui/NoImage'
+import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 
 // 詳細ページの下に並べる、小さめのワークショップカード。
 // リンクはタイトルだけにして、当たり判定(::after)をカード全体に広げる(WorkshopCard と同じ作り)

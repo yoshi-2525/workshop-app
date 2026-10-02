@@ -6,15 +6,15 @@ import {
   getWorkshop,
   updateWorkshop,
   uploadWorkshopImage,
-} from '../../api/workshops'
-import { extractErrorMessage } from '../../api/client'
-import { useAuth } from '../../context/AuthContext'
-import type { Workshop, WorkshopInput, WorkshopStatus } from '../../types'
-import { toDateTimeInputValue } from '../../utils/date'
-import { parseIdParam } from '../../utils/params'
-import { isWorkshopFinished, WORKSHOP_IMAGE_MAX_BYTES, WORKSHOP_IMAGE_TYPES } from '../../utils/workshop'
-import { WorkshopFormFields } from './WorkshopFormFields'
-import { removeWorkshopDraft, useWorkshopDraft, workshopDraftKey } from './useWorkshopDraft'
+} from '@/api/workshops'
+import { extractErrorMessage } from '@/api/client'
+import { useAuth } from '@/context/AuthContext'
+import type { Workshop, WorkshopInput, WorkshopStatus } from '@/types'
+import { toDateTimeInputValue } from '@/utils/date'
+import { parseIdParam } from '@/utils/params'
+import { isWorkshopFinished, WORKSHOP_IMAGE_MAX_BYTES, WORKSHOP_IMAGE_TYPES } from '@/utils/workshop'
+import { WorkshopFormFields } from '@/pages/manage/WorkshopFormFields'
+import { removeWorkshopDraft, useWorkshopDraft, workshopDraftKey } from '@/pages/manage/useWorkshopDraft'
 
 const emptyForm: WorkshopInput = {
   title: '',
@@ -348,8 +348,9 @@ export function WorkshopFormPage() {
         </div>
       </form>
 
-      {/* 中止は保存とは別の操作なので、フォームのボタンから離して置く */}
-      {savedWorkshop && savedWorkshop.status !== 'canceled' && (
+      {/* 中止は保存とは別の操作なので、フォームのボタンから離して置く。
+          下書きは参加者の目に触れておらず予約もないので中止はできない(取りやめるときは一覧から削除する) */}
+      {savedWorkshop?.status === 'published' && (
         <section
           aria-labelledby="cancel-workshop-heading"
           className="mt-12 rounded-lg border border-amber-300 bg-amber-50 p-4"

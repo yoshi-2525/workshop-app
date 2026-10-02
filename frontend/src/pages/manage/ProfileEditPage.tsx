@@ -1,15 +1,15 @@
 import { useId, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
-import { useAuth } from '../../context/AuthContext'
-import { deleteMyAvatar, updateMe, uploadMyAvatar } from '../../api/users'
-import { extractErrorMessage } from '../../api/client'
-import { Avatar } from '../../components/Avatar'
+import { useAuth } from '@/context/AuthContext'
+import { deleteMyAvatar, updateMe, uploadMyAvatar } from '@/api/users'
+import { extractErrorMessage } from '@/api/client'
+import { Avatar } from '@/components/ui/Avatar'
 import {
   AVATAR_IMAGE_MAX_BYTES,
   AVATAR_IMAGE_TYPES,
   USER_BIO_MAX_LENGTH,
   USER_NAME_MAX_LENGTH,
-} from '../../utils/user'
+} from '@/utils/user'
 
 export function ProfileEditPage() {
   const { user, refreshUser } = useAuth()

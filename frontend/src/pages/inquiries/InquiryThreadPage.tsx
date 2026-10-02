@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link, useParams } from 'react-router-dom'
-import { getInquiry, markInquiryRead, replyInquiry } from '../api/inquiries'
-import { extractErrorMessage } from '../api/client'
-import { useNotifications } from '../context/NotificationContext'
-import { Avatar } from '../components/Avatar'
-import { InquiryComposer } from '../components/InquiryComposer'
-import { InquiryMessageList } from '../components/InquiryMessageList'
-import type { InquiryDetail } from '../types'
-import { parseIdParam } from '../utils/params'
+import { getInquiry, markInquiryRead, replyInquiry } from '@/api/inquiries'
+import { extractErrorMessage } from '@/api/client'
+import { useNotifications } from '@/context/NotificationContext'
+import { Avatar } from '@/components/ui/Avatar'
+import { InquiryComposer } from '@/components/inquiry/InquiryComposer'
+import { InquiryMessageList } from '@/components/inquiry/InquiryMessageList'
+import type { InquiryDetail } from '@/types'
+import { parseIdParam } from '@/utils/params'
 
 // 開いている間に相手から届いたメッセージを表示するため、一定間隔で読み込み直す
 const POLL_INTERVAL_MS = 15_000

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import axios from 'axios'
-import { listWorkshopsPage } from '../api/workshops'
-import { extractErrorMessage } from '../api/client'
-import type { Workshop } from '../types'
-import { toApiParams, type WorkshopListState } from '../utils/workshopListState'
+import { listWorkshopsPage } from '@/api/workshops'
+import { extractErrorMessage } from '@/api/client'
+import type { Workshop } from '@/types'
+import { toApiParams, type WorkshopListState } from '@/utils/workshopListState'
 
 interface UseWorkshopListPageOptions {
   perPage: number

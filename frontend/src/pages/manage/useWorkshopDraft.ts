@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { WorkshopInput } from '../../types'
+import type { WorkshopInput } from '@/types'
 
 // 入力が止まってから保存するまでの待ち時間
 const SAVE_DELAY_MS = 1000

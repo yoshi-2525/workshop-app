@@ -1,5 +1,5 @@
-import { apiClient } from './client'
-import type { Reservation, ReservationCreate } from '../types'
+import { apiClient } from '@/api/client'
+import type { Reservation, ReservationCreate } from '@/types'
 
 export async function listMyReservations(): Promise<Reservation[]> {
   const { data } = await apiClient.get<Reservation[]>('/reservations/me')

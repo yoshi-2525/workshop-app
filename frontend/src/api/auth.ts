@@ -1,5 +1,5 @@
-import { apiClient } from './client'
-import type { SelfRegisterRole, User } from '../types'
+import { apiClient } from '@/api/client'
+import type { SelfRegisterRole, User } from '@/types'
 
 export interface LoginPayload {
   email: string

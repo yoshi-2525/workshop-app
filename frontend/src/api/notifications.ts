@@ -1,5 +1,5 @@
-import { apiClient } from './client'
-import type { Notification } from '../types'
+import { apiClient } from '@/api/client'
+import type { Notification } from '@/types'
 
 export async function listNotifications(): Promise<Notification[]> {
   const { data } = await apiClient.get<Notification[]>('/notifications')

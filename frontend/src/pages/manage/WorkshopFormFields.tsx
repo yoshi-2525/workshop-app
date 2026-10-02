@@ -1,9 +1,9 @@
 import { useId, useState, type ChangeEvent, type Dispatch, type RefObject, type SetStateAction } from 'react'
-import { DateTimeField } from '../../components/DateTimeField'
-import { RequiredMark } from '../../components/RequiredMark'
-import { ToggleGroup } from '../../components/ToggleGroup'
-import type { WorkshopInput } from '../../types'
-import { googleMapsSearchUrl } from '../../utils/maps'
+import { DateTimeField } from '@/components/ui/DateTimeField'
+import { RequiredMark } from '@/components/ui/RequiredMark'
+import { ToggleGroup } from '@/components/ui/ToggleGroup'
+import type { WorkshopInput } from '@/types'
+import { googleMapsSearchUrl } from '@/utils/maps'
 import {
   LOCATION_TYPE_OPTIONS,
   WORKSHOP_CANCELLATION_POLICY_MAX_LENGTH,
@@ -13,7 +13,7 @@ import {
   WORKSHOP_LOCATION_MAX_LENGTH,
   WORKSHOP_PRICE_MAX,
   WORKSHOP_TITLE_MAX_LENGTH,
-} from '../../utils/workshop'
+} from '@/utils/workshop'
 
 const INPUT_CLASS =
   'w-full rounded-md border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none'

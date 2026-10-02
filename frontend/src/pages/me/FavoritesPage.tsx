@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
-import { listMyFavorites } from '../api/favorites'
-import { extractErrorMessage } from '../api/client'
-import { WorkshopCard } from '../components/WorkshopCard'
-import type { Workshop } from '../types'
+import { listMyFavorites } from '@/api/favorites'
+import { extractErrorMessage } from '@/api/client'
+import { WorkshopCard } from '@/components/workshop/WorkshopCard'
+import type { Workshop } from '@/types'
 
 export function FavoritesPage() {
   const [workshops, setWorkshops] = useState<Workshop[]>([])

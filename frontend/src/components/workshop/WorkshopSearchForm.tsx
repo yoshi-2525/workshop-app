@@ -1,5 +1,5 @@
 import { useId, useState, type SubmitEvent } from 'react'
-import { LOCATION_TYPE_OPTIONS, WORKSHOP_PRICE_MAX } from '../utils/workshop'
+import { LOCATION_TYPE_OPTIONS, WORKSHOP_PRICE_MAX } from '@/utils/workshop'
 import {
   KEYWORD_MAX_LENGTH,
   parseMaxPriceInput,
@@ -8,9 +8,9 @@ import {
   type LocationTypeFilter,
   type PriceFilter,
   type WorkshopListState,
-} from '../utils/workshopListState'
-import { DatePicker } from './DatePicker'
-import { ToggleGroup, type ToggleOption } from './ToggleGroup'
+} from '@/utils/workshopListState'
+import { DatePicker } from '@/components/ui/DatePicker'
+import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
 
 // 検索ボタンで確定する条件(参加可能・並び替え・ページは一覧の側で扱う)
 export type WorkshopSearchConditions = Pick<

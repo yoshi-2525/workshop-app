@@ -1,11 +1,11 @@
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
-import { extractErrorMessage } from '../../api/client'
-import type { SelfRegisterRole } from '../../types'
-import { PASSWORD_MAX_BYTES, PASSWORD_MIN_LENGTH, USER_NAME_MAX_LENGTH, utf8ByteLength } from '../../utils/user'
-import { authThemeStyles } from './theme'
+import { useAuth } from '@/context/AuthContext'
+import { extractErrorMessage } from '@/api/client'
+import type { SelfRegisterRole } from '@/types'
+import { PASSWORD_MAX_BYTES, PASSWORD_MIN_LENGTH, USER_NAME_MAX_LENGTH, utf8ByteLength } from '@/utils/user'
+import { authThemeStyles } from '@/components/auth/theme'
 
 interface RegisterFormProps {
   title: string

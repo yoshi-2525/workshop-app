@@ -2,20 +2,20 @@ import { useEffect, useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import axios from 'axios'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { getWorkshop } from '../api/workshops'
-import { reserveWorkshop } from '../api/reservations'
-import { extractErrorMessage } from '../api/client'
-import { useAuth } from '../context/AuthContext'
-import { formatPrice } from '../utils/format'
-import type { Workshop } from '../types'
-import { parseIdParam } from '../utils/params'
+import { getWorkshop } from '@/api/workshops'
+import { reserveWorkshop } from '@/api/reservations'
+import { extractErrorMessage } from '@/api/client'
+import { useAuth } from '@/context/AuthContext'
+import { formatPrice } from '@/utils/format'
+import type { Workshop } from '@/types'
+import { parseIdParam } from '@/utils/params'
 import {
   isWorkshopStarted,
   MAX_TICKETS_PER_RESERVATION,
   RESERVATION_EMAIL_MAX_LENGTH,
   RESERVATION_FIELD_MAX_LENGTH,
-} from '../utils/workshop'
-import { WorkshopDateTime } from '../components/WorkshopDateTime'
+} from '@/utils/workshop'
+import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 
 export function ReservationFormPage() {
   const { id } = useParams<{ id: string }>()

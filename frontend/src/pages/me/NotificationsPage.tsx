@@ -4,11 +4,11 @@ import {
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
-} from '../api/notifications'
-import { extractErrorMessage } from '../api/client'
-import { useNotifications } from '../context/NotificationContext'
-import type { Notification } from '../types'
-import { formatDateTime } from '../utils/format'
+} from '@/api/notifications'
+import { extractErrorMessage } from '@/api/client'
+import { useNotifications } from '@/context/NotificationContext'
+import type { Notification } from '@/types'
+import { formatDateTime } from '@/utils/format'
 
 const typeLabel: Record<Notification['type'], string> = {
   cancellation: '中止',

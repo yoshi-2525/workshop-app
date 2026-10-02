@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { DatePicker } from './DatePicker'
-import { RequiredMark } from './RequiredMark'
+import { DatePicker } from '@/components/ui/DatePicker'
+import { RequiredMark } from '@/components/ui/RequiredMark'
 
 // 時刻は「時」と「分」のセレクトで選ぶ。分は 5 分刻み
 const MINUTE_STEP = 5

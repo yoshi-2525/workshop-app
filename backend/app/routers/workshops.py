@@ -226,22 +226,23 @@ def delete_workshop(
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> None:
     workshop = _get_owned_workshop(db, workshop_id, current_user, for_update=True)
-    # 開催予定(終了日時前)で公開中のものは削除させない(取りやめる場合は中止にする)。
-    # 管理画面の「開催予定」タブと同じく終了日時で判定する
-    if workshop.status == WorkshopStatus.published and workshop.end_at >= utcnow_naive():
+    # 削除できるのは下書きだけ。一度公開したもの(公開中・中止)は、予約の有無や開催前後にかかわらず記録として残す。
+    # 削除すると予約・通知も消え、参加者の予約や中止のお知らせが失われるため。
+    # 下書きは公開できず予約も受け付けないので、終了日時を過ぎていても削除してよい(編集もできず、消せないと残り続ける)
+    if workshop.status == WorkshopStatus.published:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="開催予定のワークショップは削除できません。開催を取りやめる場合は中止にしてください",
+            detail=(
+                "開催済みのワークショップは、記録として残すため削除できません"
+                if workshop.end_at < utcnow_naive()
+                else "公開中のワークショップは削除できません。開催を取りやめる場合は中止にしてください"
+            ),
         )
-    # Deleting cascades to reservations and notifications, which would erase the
-    # participants' booking and cancellation notice. Keep such workshops as records.
-    if _reserved_count(db, workshop_id) > 0:
-        detail = (
-            "予約者がいた中止済みのワークショップは、参加者への記録として残すため削除できません"
-            if workshop.status == WorkshopStatus.canceled
-            else "予約者がいるワークショップは削除できません。開催を取りやめる場合は中止にしてください"
+    if workshop.status == WorkshopStatus.canceled:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="中止したワークショップは、記録として残すため削除できません",
         )
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
     db.delete(workshop)
     db.commit()
 

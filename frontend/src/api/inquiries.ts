@@ -1,5 +1,5 @@
-import { apiClient } from './client'
-import type { InquiryDetail, InquirySummary } from '../types'
+import { apiClient } from '@/api/client'
+import type { InquiryDetail, InquirySummary } from '@/types'
 
 export async function listInquiries(workshopId?: number, signal?: AbortSignal): Promise<InquirySummary[]> {
   const { data } = await apiClient.get<InquirySummary[]>('/inquiries', {

@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { fetchCurrentUser, login as loginRequest, register as registerRequest } from '../api/auth'
-import { AUTH_EXPIRED_EVENT, TOKEN_STORAGE_KEY } from '../api/client'
-import type { RegisterPayload } from '../api/auth'
-import type { User } from '../types'
+import { fetchCurrentUser, login as loginRequest, register as registerRequest } from '@/api/auth'
+import { AUTH_EXPIRED_EVENT, TOKEN_STORAGE_KEY } from '@/api/client'
+import type { RegisterPayload } from '@/api/auth'
+import type { User } from '@/types'
 
 interface AuthContextValue {
   user: User | null

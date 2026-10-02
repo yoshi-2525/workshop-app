@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { addFavorite, removeFavorite } from '../api/workshops'
-import { extractErrorMessage } from '../api/client'
-import { useAuth } from '../context/AuthContext'
-import { HoverLabel } from './HoverLabel'
+import { addFavorite, removeFavorite } from '@/api/workshops'
+import { extractErrorMessage } from '@/api/client'
+import { useAuth } from '@/context/AuthContext'
+import { HoverLabel } from '@/components/ui/HoverLabel'
 
 // 失敗したときのメッセージを表示しておく時間
 const ERROR_DISPLAY_MS = 4000
@@ -12,9 +12,11 @@ interface FavoriteButtonProps {
   isFavorited: boolean
   onChange?: (isFavorited: boolean) => void
   className?: string
+  // lg は詳細ページの見出し横など、目立たせたい場所で使う
+  size?: 'md' | 'lg'
 }
 
-export function FavoriteButton({ workshopId, isFavorited, onChange, className = '' }: FavoriteButtonProps) {
+export function FavoriteButton({ workshopId, isFavorited, onChange, className = '', size = 'md' }: FavoriteButtonProps) {
   const { user } = useAuth()
   const [favorited, setFavorited] = useState(isFavorited)
   const [submitting, setSubmitting] = useState(false)
@@ -73,7 +75,7 @@ export function FavoriteButton({ workshopId, isFavorited, onChange, className = 
           fill={favorited ? 'currentColor' : 'none'}
           stroke="currentColor"
           strokeWidth={2}
-          className="h-6 w-6"
+          className={size === 'lg' ? 'h-7 w-7' : 'h-6 w-6'}
           aria-hidden="true"
         >
           <path

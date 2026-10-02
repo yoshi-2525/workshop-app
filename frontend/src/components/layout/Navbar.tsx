@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { useNotifications } from '../context/NotificationContext'
-import { MaterialIcon } from './MaterialIcon'
+import { useAuth } from '@/context/AuthContext'
+import { useNotifications } from '@/context/NotificationContext'
+import { MaterialIcon } from '@/components/ui/MaterialIcon'
 
 export function Navbar() {
   const { user } = useAuth()

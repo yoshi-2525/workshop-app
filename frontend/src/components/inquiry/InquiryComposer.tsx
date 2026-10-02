@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
-import { INQUIRY_MESSAGE_MAX_LENGTH } from '../utils/inquiry'
+import { INQUIRY_MESSAGE_MAX_LENGTH } from '@/utils/inquiry'
 
 interface InquiryComposerProps {
   // 送信に成功したら resolve、失敗したら reject する。失敗したときは入力内容を残す

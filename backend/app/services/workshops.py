@@ -58,6 +58,10 @@ def check_workshop_input(db: Session, payload: WorkshopInput, workshop: Workshop
     if workshop.status == WorkshopStatus.published and payload.status == WorkshopStatus.draft:
         raise _conflict("公開済みのワークショップは下書きに戻せません。開催を取りやめる場合は中止にしてください")
 
+    # 下書きは参加者の目に触れておらず予約もないので、中止ではなく削除してもらう
+    if workshop.status == WorkshopStatus.draft and payload.status == WorkshopStatus.canceled:
+        raise _conflict("下書きのワークショップは中止できません。取りやめる場合は削除してください")
+
     booked = reserved_count(db, workshop.id)
     if payload.capacity < booked:
         raise _conflict(f"定員は予約済みのチケット枚数({booked}枚)以上にしてください")

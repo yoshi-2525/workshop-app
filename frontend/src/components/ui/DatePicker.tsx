@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { DayPicker, type Matcher } from '@daypicker/react'
 import { ja } from '@daypicker/react/locale'
 import '@daypicker/react/style.css'
-import { parseDateInput, toDateInputValue } from '../utils/date'
+import { parseDateInput, toDateInputValue } from '@/utils/date'
 
 
 // カレンダーの見た目。ライブラリの CSS は .rdp-root 自身に変数を定義しているため、

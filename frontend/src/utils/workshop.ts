@@ -1,4 +1,4 @@
-import type { LocationType, Workshop } from '../types'
+import type { LocationType, Workshop } from '@/types'
 
 // カードなどのバッジに出す短い表記
 export const LOCATION_TYPE_LABEL: Record<LocationType, string> = {
@@ -42,6 +42,15 @@ export function isWorkshopStarted(workshop: Pick<Workshop, 'start_at'>): boolean
 
 export function isWorkshopFull(workshop: Workshop): boolean {
   return workshop.reserved_count >= workshop.capacity
+}
+
+// 残りの席数がこの数以下になったら「残席僅か」と表示する
+export const FEW_SEATS_THRESHOLD = 5
+
+// 満員ではないが、残りの席が少ないかどうか
+export function hasFewSeats(workshop: Workshop): boolean {
+  const remaining = workshop.capacity - workshop.reserved_count
+  return remaining > 0 && remaining <= FEW_SEATS_THRESHOLD
 }
 
 // 無料は白背景でコントラスト比 4.5:1 以上になる emerald-700 を使う

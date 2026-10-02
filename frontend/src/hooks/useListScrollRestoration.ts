@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigationType } from 'react-router-dom'
-import { getListScroll, saveListScroll } from '../utils/workshopListState'
+import { getListScroll, saveListScroll } from '@/utils/workshopListState'
 
 /**
  * 一覧のスクロール位置を一覧の URL ごとに保存し、戻ってきたときに復元する。

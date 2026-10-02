@@ -1,5 +1,5 @@
-import { apiClient } from './client'
-import type { LocationType, RelatedWorkshops, Workshop, WorkshopInput } from '../types'
+import { apiClient } from '@/api/client'
+import type { LocationType, RelatedWorkshops, Workshop, WorkshopInput } from '@/types'
 
 // start: 開催日時の近い順 / newest: 公開日時の新しい順 / price: 価格の安い順
 export type WorkshopSort = 'start' | 'newest' | 'price'

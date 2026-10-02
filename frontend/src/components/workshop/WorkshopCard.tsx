@@ -1,16 +1,29 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { Workshop } from '../types'
-import { formatPrice } from '../utils/format'
-import { isWorkshopFull, priceTextClass } from '../utils/workshop'
-import { FavoriteButton } from './FavoriteButton'
-import { LocationTypeBadge } from './LocationTypeBadge'
-import { NoImage } from './NoImage'
-import { ShareButton } from './ShareButton'
-import { WorkshopDateTime } from './WorkshopDateTime'
+import type { Workshop } from '@/types'
+import { formatPriceYen } from '@/utils/format'
+import { priceTextClass } from '@/utils/workshop'
+import { FavoriteButton } from '@/components/workshop/FavoriteButton'
+import { LocationTypeBadge } from '@/components/workshop/LocationTypeBadge'
+import { FewSeatsBadge, FullBadge } from '@/components/workshop/SeatStatusBadge'
+import { Avatar } from '@/components/ui/Avatar'
+import { MaterialIcon } from '@/components/ui/MaterialIcon'
+import { NoImage } from '@/components/ui/NoImage'
+import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
+
+// 項目名はアイコンで見せ、読み上げ用に文字のラベルも残す。
+// 高さを文字1行分(1lh)にして、その中でアイコンを上下中央に置く。文字サイズを変えても1行目とそろい、
+// 内容が折り返してもアイコンは1行目の横に並ぶ
+function FieldIcon({ icon, label, className = '' }: { icon: string; label: string; className?: string }) {
+  return (
+    <dt className={`flex h-[1lh] shrink-0 items-center text-slate-400 ${className}`} title={label}>
+      <MaterialIcon name={icon} className="text-lg" />
+      <span className="sr-only">{label}</span>
+    </dt>
+  )
+}
 
 export function WorkshopCard({ workshop }: { workshop: Workshop }) {
-  const isFull = isWorkshopFull(workshop)
   // 画像の読み込みに失敗したときも、画像なしと同じ表示にしてカードの高さをそろえる
   const [imageFailed, setImageFailed] = useState(false)
 
@@ -41,13 +54,14 @@ export function WorkshopCard({ workshop }: { workshop: Workshop }) {
             </Link>
           </h3>
           <div className="relative z-10 flex shrink-0 items-center gap-1">
+            {/* 満員はタイトルの横(予約済みと同じ並び)に出す。残席僅かは定員の右 */}
+            <FullBadge workshop={workshop} />
             {workshop.viewer.is_reserved && (
-              <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+              <span className="shrink-0 whitespace-nowrap rounded-full bg-indigo-100 px-2.5 py-0.5 text-sm font-medium text-indigo-700">
                 予約済み
               </span>
             )}
             {/* 共有とお気に入りは、それぞれ薄いグレーの丸で囲む */}
-            <ShareButton path={`/workshops/${workshop.id}`} title={workshop.title} className="rounded-full bg-slate-50" />
             <FavoriteButton
               workshopId={workshop.id}
               isFavorited={workshop.viewer.is_favorited}
@@ -55,31 +69,33 @@ export function WorkshopCard({ workshop }: { workshop: Workshop }) {
             />
           </div>
         </div>
-        <p className="text-xs text-slate-500">主催: {workshop.facilitator_name}</p>
+        <p className="flex items-center gap-2 text-sm text-slate-500">
+          <Avatar url={workshop.facilitator_avatar_url} name={workshop.facilitator_name} className="h-6 w-6 text-xs" />
+          {workshop.facilitator_name}
+        </p>
       </div>
-      <dl className="mt-3 space-y-1 text-sm text-slate-500">
+      <dl className="mt-2 space-y-2 text-sm text-slate-500">
         <div className="flex gap-2">
-          <dt className="font-medium">日時:</dt>
+          <FieldIcon icon="schedule" label="日時" />
           <dd><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} /></dd>
         </div>
         <div className="flex gap-2">
-          <dt className="font-medium">場所:</dt>
+          <FieldIcon icon="location_on" label="場所" />
           <dd>
             <LocationTypeBadge type={workshop.location_type} className="mr-1" />
             {workshop.location}
           </dd>
         </div>
+        {/* 参加費と定員は短いので1行に並べる(dl の中の div には dt・dd の組を複数入れられる) */}
         <div className="flex gap-2">
-          <dt className="font-medium">参加費:</dt>
+          <FieldIcon icon="currency_yen" label="参加費" />
           <dd className={priceTextClass(workshop.price)}>
-            {formatPrice(workshop.price)}
+            {formatPriceYen(workshop.price)}
           </dd>
-        </div>
-        <div className="flex gap-2">
-          <dt className="font-medium">定員:</dt>
-          <dd className={isFull ? 'font-semibold text-red-600' : ''}>
-            {workshop.reserved_count} / {workshop.capacity}
-            {isFull ? '(満員)' : ''}
+          <FieldIcon icon="person" label="定員" className="ml-3" />
+          <dd className="flex items-center gap-2">
+            {workshop.capacity}名
+            <FewSeatsBadge workshop={workshop} />
           </dd>
         </div>
       </dl>

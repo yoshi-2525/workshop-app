@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link, useSearchParams } from 'react-router-dom'
-import { listInquiries } from '../api/inquiries'
-import { extractErrorMessage } from '../api/client'
-import { Avatar } from '../components/Avatar'
-import type { InquirySummary } from '../types'
-import { formatDateTime } from '../utils/format'
-import { parseIdParam } from '../utils/params'
+import { listInquiries } from '@/api/inquiries'
+import { extractErrorMessage } from '@/api/client'
+import { Avatar } from '@/components/ui/Avatar'
+import type { InquirySummary } from '@/types'
+import { formatDateTime } from '@/utils/format'
+import { parseIdParam } from '@/utils/params'
 
 // 自分が関わる問い合わせの一覧。?workshop_id= を付けると1つのワークショップへの問い合わせだけを表示する
 export function InquiriesPage() {

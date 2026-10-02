@@ -1,7 +1,7 @@
-import type { ListWorkshopsParams, WorkshopSort } from '../api/workshops'
-import type { LocationType } from '../types'
-import { parseDateInput } from './date'
-import { WORKSHOP_PRICE_MAX } from './workshop'
+import type { ListWorkshopsParams, WorkshopSort } from '@/api/workshops'
+import type { LocationType } from '@/types'
+import { parseDateInput } from '@/utils/date'
+import { WORKSHOP_PRICE_MAX } from '@/utils/workshop'
 
 // ワークショップ一覧の検索条件・並び替え・ページ番号は URL のクエリに持たせる。
 // 詳細ページから戻ったときやブラウザの「戻る」、再読み込みでも同じ状態を表示できるようにするため

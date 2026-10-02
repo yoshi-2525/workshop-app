@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { HoverLabel } from './HoverLabel'
-import { MaterialIcon } from './MaterialIcon'
+import { HoverLabel } from '@/components/ui/HoverLabel'
+import { MaterialIcon } from '@/components/ui/MaterialIcon'
 
 // コピーできたこと(または失敗したこと)を表示しておく時間
 const MESSAGE_DISPLAY_MS = 2000
@@ -88,7 +88,7 @@ export function ShareButton({ path, title, className = '' }: { path: string; tit
         aria-controls={open ? menuId : undefined}
         className="peer inline-flex items-center justify-center rounded-full p-2 text-slate-400 transition hover:text-slate-700"
       >
-        <MaterialIcon name="share" className="text-[24px]" />
+        <MaterialIcon name="share" className="text-[28px]" />
       </button>
       {/* メニューを開いている間は、ラベルがメニューの邪魔にならないよう出さない */}
       <HoverLabel text="共有" hidden={open} />

@@ -1,4 +1,4 @@
-import { getDayInfo, toDateInputValue, type DayInfo } from '../utils/date'
+import { getDayInfo, toDateInputValue, type DayInfo } from '@/utils/date'
 
 // 白背景でコントラスト比 4.5:1 以上になる色を使う
 const DAY_TEXT_CLASS: Record<DayInfo['kind'], string> = {

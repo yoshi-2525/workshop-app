@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import type { InquiryMessage } from '../types'
-import { formatDateTime } from '../utils/format'
+import type { InquiryMessage } from '@/types'
+import { formatDateTime } from '@/utils/format'
 
 // 問い合わせのやり取りを、自分のメッセージは右、相手のメッセージは左に並べて表示する
 export function InquiryMessageList({ messages }: { messages: InquiryMessage[] }) {
