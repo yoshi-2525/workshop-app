@@ -95,6 +95,16 @@ participant / facilitator は画面から自己登録できます。admin だけ
 
 パスワードはすべて `password123` です。
 
+#### テスト
+
+API のテストは pytest で実行します。テストごとに SQLite のインメモリ DB を作るので、MySQL は不要です
+(SQLite では行ロックが効かないため、同時実行の検証は含みません)。
+
+```
+./venv/Scripts/pip install -r requirements-dev.txt
+./venv/Scripts/python -m pytest
+```
+
 ### フロントエンド (React)
 
 ```
