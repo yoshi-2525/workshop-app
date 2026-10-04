@@ -29,7 +29,7 @@ export const WORKSHOP_PRICE_MAX = 100_000
 export const WORKSHOP_PARTICIPANT_GUIDE_MAX_LENGTH = 2000
 export const WORKSHOP_EMERGENCY_CONTACT_MAX_LENGTH = 255
 
-// 出欠は開始日時のこの時間前から記録できる。バックエンドの routers/workshops.py の ATTENDANCE_OPEN_BEFORE と揃える
+// 出欠は開始日時のこの時間前から記録できる。バックエンドの services/reservations.py の ATTENDANCE_OPEN_BEFORE と揃える
 export const ATTENDANCE_OPEN_HOURS_BEFORE = 24
 
 // 出欠を記録できる時間になったか
@@ -51,7 +51,7 @@ export function isWorkshopStarted(workshop: Pick<Workshop, 'start_at'>): boolean
 // バックエンドの services/workshops.py の RESERVATION_DEADLINE_BEFORE と揃える
 export const RESERVATION_DEADLINE_HOURS_BEFORE = 24
 
-// 予約の締め切り日時(開始日時の24時間前)。ISO 8601 形式
+// 予約の締め切り日時(開始日時の RESERVATION_DEADLINE_HOURS_BEFORE 時間前)。ISO 8601 形式
 export function reservationDeadline(workshop: Pick<Workshop, 'start_at'>): string {
   return new Date(new Date(workshop.start_at).getTime() - RESERVATION_DEADLINE_HOURS_BEFORE * HOUR_MS).toISOString()
 }
@@ -63,6 +63,27 @@ export function isReservationClosed(workshop: Pick<Workshop, 'start_at'>): boole
 
 export function isWorkshopFull(workshop: Workshop): boolean {
   return workshop.reserved_count >= workshop.capacity
+}
+
+// 予約できない理由。判定の順番は、画面に出す理由の優先順(先に当てはまったものを出す)
+export type ReservationBlocker =
+  | 'not_published' // 下書き・中止
+  | 'reserved' // 予約済み
+  | 'reservation_canceled' // 主催者に参加をキャンセルされた(再予約できない)
+  | 'started' // 開始済み
+  | 'closed' // 予約の締め切り後
+  | 'full' // 満員
+
+// 閲覧中のユーザーがこのワークショップを予約できない理由。予約できるなら null。
+// ワークショップ詳細の予約ボタンと予約フォームで同じ判定を使う(バックエンドの create_reservation と同じ条件)
+export function getReservationBlocker(workshop: Workshop): ReservationBlocker | null {
+  if (workshop.status !== 'published') return 'not_published'
+  if (workshop.viewer.is_reserved) return 'reserved'
+  if (workshop.viewer.is_reservation_canceled) return 'reservation_canceled'
+  if (isWorkshopStarted(workshop)) return 'started'
+  if (isReservationClosed(workshop)) return 'closed'
+  if (isWorkshopFull(workshop)) return 'full'
+  return null
 }
 
 // 残りの席数がこの数以下になったら「残席僅か」と表示する

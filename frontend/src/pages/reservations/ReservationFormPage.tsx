@@ -10,10 +10,9 @@ import { formatPrice } from '@/utils/format'
 import type { Workshop } from '@/types'
 import { parseIdParam } from '@/utils/params'
 import {
-  isReservationClosed,
-  RESERVATION_DEADLINE_HOURS_BEFORE,
-  isWorkshopStarted,
+  getReservationBlocker,
   MAX_TICKETS_PER_RESERVATION,
+  RESERVATION_DEADLINE_HOURS_BEFORE,
   RESERVATION_EMAIL_MAX_LENGTH,
 } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
@@ -28,40 +27,37 @@ interface UnavailableReason {
   link?: { to: string; label: string }
 }
 
-// 予約フォームを出せない理由。予約できるなら null
-function getUnavailableReason(workshop: Workshop, remaining: number): UnavailableReason | null {
-  if (workshop.status !== 'published') {
-    return {
-      message:
-        workshop.status === 'canceled'
-          ? 'このワークショップは中止になったため予約できません。'
-          : 'このワークショップは公開されていないため予約できません。',
-      isError: true,
-    }
+// 予約フォームを出せない理由と、代わりに出すメッセージ。予約できるなら null
+function getUnavailableReason(workshop: Workshop): UnavailableReason | null {
+  switch (getReservationBlocker(workshop)) {
+    case null:
+      return null
+    case 'not_published':
+      return {
+        message:
+          workshop.status === 'canceled'
+            ? 'このワークショップは中止になったため予約できません。'
+            : 'このワークショップは公開されていないため予約できません。',
+        isError: true,
+      }
+    case 'reserved':
+      return {
+        message: 'このワークショップは既に予約済みです。',
+        isError: false,
+        link: { to: '/reservations', label: '参加予定のワークショップを見る' },
+      }
+    case 'reservation_canceled':
+      return { message: '主催者により参加がキャンセルされたため、このワークショップは予約できません。', isError: true }
+    case 'started':
+      return { message: 'このワークショップは開始済みのため予約できません。', isError: true }
+    case 'closed':
+      return {
+        message: `予約の受付は開始日時の${RESERVATION_DEADLINE_HOURS_BEFORE}時間前で締め切りました。`,
+        isError: true,
+      }
+    case 'full':
+      return { message: 'このワークショップは満員のため予約できません。', isError: true }
   }
-  if (workshop.viewer.is_reserved) {
-    return {
-      message: 'このワークショップは既に予約済みです。',
-      isError: false,
-      link: { to: '/reservations', label: '参加予定のワークショップを見る' },
-    }
-  }
-  if (workshop.viewer.is_reservation_canceled) {
-    return { message: '主催者により参加がキャンセルされたため、このワークショップは予約できません。', isError: true }
-  }
-  if (isWorkshopStarted(workshop)) {
-    return { message: 'このワークショップは開始済みのため予約できません。', isError: true }
-  }
-  if (isReservationClosed(workshop)) {
-    return {
-      message: `予約の受付は開始日時の${RESERVATION_DEADLINE_HOURS_BEFORE}時間前で締め切りました。`,
-      isError: true,
-    }
-  }
-  if (remaining <= 0) {
-    return { message: 'このワークショップは満員のため予約できません。', isError: true }
-  }
-  return null
 }
 
 export function ReservationFormPage() {
@@ -126,7 +122,7 @@ export function ReservationFormPage() {
   }
 
   // 予約できない場合は、理由と戻り先のリンクだけを出す
-  const unavailable = getUnavailableReason(workshop, remaining)
+  const unavailable = getUnavailableReason(workshop)
   if (unavailable) {
     const detailLink = { to: `/workshops/${workshop.id}`, label: 'ワークショップ詳細に戻る' }
     const link = unavailable.link ?? detailLink

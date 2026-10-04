@@ -14,12 +14,29 @@ import { FewSeatsBadge, FullBadge } from '@/components/workshop/SeatStatusBadge'
 import { formatPriceYen } from '@/utils/format'
 import { googleMapsSearchUrl } from '@/utils/maps'
 import { parseIdParam } from '@/utils/params'
-import { isReservationClosed, isWorkshopFull, isWorkshopStarted, reservationDeadline } from '@/utils/workshop'
+import {
+  getReservationBlocker,
+  isReservationClosed,
+  isWorkshopStarted,
+  RESERVATION_DEADLINE_HOURS_BEFORE,
+  reservationDeadline,
+  type ReservationBlocker,
+} from '@/utils/workshop'
 import { getLastListUrl } from '@/utils/workshopListState'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+
+// 予約できないときの予約ボタンの文言(予約ボタンは公開中のときだけ出すので、not_published は出ない)
+const RESERVE_BUTTON_BLOCKED_LABEL: Record<ReservationBlocker, string> = {
+  not_published: '予約できません',
+  reserved: '予約済みです',
+  reservation_canceled: '予約できません',
+  started: '開始済みのため予約できません',
+  closed: '予約の受付は終了しました',
+  full: '空席がないため予約できません',
+}
 
 // 最後に見ていた一覧(検索条件・ページ番号つき)へ戻り、スクロール位置も復元させる
 function BackToListLink() {
@@ -56,9 +73,8 @@ export function WorkshopDetailPage() {
   // 読み込めなかった画像の URL。一致する間は画像なしと同じ表示にする(別のワークショップへ移れば URL が変わる)
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
 
-  function handleInquiryClick() {
-    if (!workshop) return
-    const path = `/workshops/${workshop.id}/inquiry`
+  // ログインが必要なページへ移る。未ログインならログイン画面を挟み、ログイン後にそのページへ戻す
+  function navigateWithLogin(path: string) {
     if (!user) {
       navigate('/login/participant', { state: { from: path } })
       return
@@ -66,19 +82,7 @@ export function WorkshopDetailPage() {
     navigate(path)
   }
 
-  function handleReserveClick() {
-    if (!workshop) return
-    if (!user) {
-      navigate('/login/participant', { state: { from: `/workshops/${workshop.id}/reserve` } })
-      return
-    }
-    navigate(`/workshops/${workshop.id}/reserve`)
-  }
-
-  if (loading)
-    return (
-      <LoadingMessage />
-    )
+  if (loading) return <LoadingMessage />
   if (!workshop)
     return (
       <div>
@@ -88,7 +92,7 @@ export function WorkshopDetailPage() {
     )
   const imageFailed = workshop.image_url === failedImageUrl
 
-  const isFull = isWorkshopFull(workshop)
+  const reservationBlocker = getReservationBlocker(workshop)
   const isStarted = isWorkshopStarted(workshop)
   const isClosed = isReservationClosed(workshop)
   // 満員・残席僅かは予約を受け付けている(公開中で開始前の)ときだけ意味があるので、それ以外は出さない
@@ -159,7 +163,7 @@ export function WorkshopDetailPage() {
             workshop.status !== 'draft' && (
               <button
                 type="button"
-                onClick={handleInquiryClick}
+                onClick={() => navigateWithLogin(`/workshops/${workshop.id}/inquiry`)}
                 className="ml-auto inline-flex items-center gap-1 rounded-md bg-surface px-3 py-1.5 text-fg-secondary shadow-sm hover:bg-white"
               >
                 <MaterialIcon name="chat" className="text-[18px]" />
@@ -180,7 +184,7 @@ export function WorkshopDetailPage() {
               <dd className="text-fg">
                 <WorkshopDateTime start={reservationDeadline(workshop)} />
                 <span className="ml-1 text-xs text-fg-muted">
-                  ({isClosed ? '受付は終了しました' : '開始日時の24時間前まで'})
+                  ({isClosed ? '受付は終了しました' : `開始日時の${RESERVATION_DEADLINE_HOURS_BEFORE}時間前まで`})
                 </span>
               </dd>
             </div>
@@ -230,23 +234,16 @@ export function WorkshopDetailPage() {
             {/* 予約ボタンと、その下の案内はカードの右下(予約フォームと同じ位置)に右寄せで置く */}
             <div className="mt-6 flex justify-end">
               <button
-                onClick={handleReserveClick}
-                disabled={isClosed || isFull || workshop.viewer.is_reserved || workshop.viewer.is_reservation_canceled}
+                type="button"
+                onClick={() => navigateWithLogin(`/workshops/${workshop.id}/reserve`)}
+                disabled={reservationBlocker !== null}
                 className={PRIMARY_BUTTON_CLASS}
               >
-                {workshop.viewer.is_reserved
-                  ? '予約済みです'
-                  : workshop.viewer.is_reservation_canceled
-                    ? '予約できません'
-                    : isStarted
-                    ? '開始済みのため予約できません'
-                    : isClosed
-                    ? '予約の受付は終了しました'
-                    : isFull
-                      ? '空席がないため予約できません'
-                      : !user
-                        ? 'ログインして予約する'
-                        : `予約する`}
+                {reservationBlocker !== null
+                  ? RESERVE_BUTTON_BLOCKED_LABEL[reservationBlocker]
+                  : user
+                    ? '予約する'
+                    : 'ログインして予約する'}
               </button>
             </div>
             {workshop.viewer.is_reserved && (
