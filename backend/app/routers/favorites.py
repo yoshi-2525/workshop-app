@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.deps import get_current_user
+from app.core.errors import conflict
 from app.database import get_db
 from app.models.favorite import Favorite
-from app.models.user import User, UserRole
-from app.models.workshop import Workshop, WorkshopStatus
+from app.models.user import User
+from app.models.workshop import Workshop
 from app.schemas.workshop import WorkshopRead
-from app.services.workshops import to_workshop_read, to_workshop_reads
+from app.services.workshops import get_viewable_workshop, to_workshop_read, to_workshop_reads
 
 # お気に入りの一覧・追加・削除。追加と削除はワークショップ単位の URL(/workshops/{id}/favorite)に置く
 router = APIRouter(tags=["favorites"])
@@ -35,12 +36,8 @@ def add_favorite(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> WorkshopRead:
-    workshop = db.get(Workshop, workshop_id)
-    is_owner = current_user.role == UserRole.admin or (
-        workshop is not None and current_user.id == workshop.facilitator_id
-    )
-    if workshop is None or (workshop.status != WorkshopStatus.published and not is_owner):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
+    # 詳細ページを見られるワークショップは、お気に入りにも追加できる
+    workshop = get_viewable_workshop(db, workshop_id, current_user)
 
     existing = (
         db.query(Favorite)
@@ -53,7 +50,7 @@ def add_favorite(
             db.commit()
         except IntegrityError as exc:
             db.rollback()
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="既にお気に入り登録済みです") from exc
+            raise conflict("既にお気に入り登録済みです") from exc
     return to_workshop_read(db, workshop, current_user)
 
 

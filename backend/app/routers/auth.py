@@ -5,13 +5,14 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.deps import get_current_user, require_roles
+from app.core.errors import conflict
 from app.core.rate_limit import FailureLimiter
 from app.core.security import burn_password_check, create_access_token, hash_password, verify_password
 from app.database import get_db
 from app.models.user import User, UserRole
 from app.schemas.auth import Token
 from app.schemas.user import UserRead, UserRegister, UserUpdate
-from app.services.uploads import delete_avatar_image, save_avatar_image
+from app.services.uploads import AVATAR_IMAGES, replace_image
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -32,10 +33,7 @@ def register(payload: UserRegister, db: Session = Depends(get_db)) -> User:
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="このメールアドレスは既に登録されています",
-        ) from exc
+        raise conflict("このメールアドレスは既に登録されています") from exc
     db.refresh(user)
     return user
 
@@ -106,19 +104,7 @@ def upload_my_avatar(
 ) -> User:
     # 同時に差し替えられても古い画像を確実に消せるよう、行をロックしてから今の画像を読む
     db.refresh(current_user, with_for_update=True)
-    new_avatar_url = save_avatar_image(file)
-    old_avatar_url = current_user.avatar_url
-    current_user.avatar_url = new_avatar_url
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        # DB に記録できなかった画像はどこからも参照されないので消す
-        delete_avatar_image(new_avatar_url)
-        raise
-    db.refresh(current_user)
-    if old_avatar_url:
-        delete_avatar_image(old_avatar_url)
+    replace_image(db, current_user, "avatar_url", AVATAR_IMAGES, file)
     return current_user
 
 
@@ -128,10 +114,5 @@ def remove_my_avatar(
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> User:
     db.refresh(current_user, with_for_update=True)
-    old_avatar_url = current_user.avatar_url
-    current_user.avatar_url = ""
-    db.commit()
-    db.refresh(current_user)
-    if old_avatar_url:
-        delete_avatar_image(old_avatar_url)
+    replace_image(db, current_user, "avatar_url", AVATAR_IMAGES, None)
     return current_user

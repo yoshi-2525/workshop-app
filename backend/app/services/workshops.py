@@ -1,10 +1,10 @@
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 
-from fastapi import HTTPException, status
 from sqlalchemy import ColumnElement, Select, exists, func, select
 from sqlalchemy.orm import Session
 
+from app.core.errors import WORKSHOP_NOT_FOUND, conflict, forbidden, not_found
 from app.core.timeutil import utcnow_naive
 from app.models.favorite import Favorite
 from app.models.reservation import Reservation, ReservationStatus
@@ -33,18 +33,32 @@ def lock_workshop(db: Session, workshop_id: int) -> Workshop | None:
     return db.execute(stmt).scalar_one_or_none()
 
 
-def _conflict(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+def can_manage(user: User | None, workshop: Workshop) -> bool:
+    """ワークショップを管理できるか(運営か、そのワークショップの主催者本人)"""
+    return user is not None and (user.role == UserRole.admin or workshop.facilitator_id == user.id)
+
+
+def get_managed_workshop(db: Session, workshop_id: int, user: User, *, for_update: bool = False) -> Workshop:
+    """管理する(編集・予約の管理などをする)ワークショップを取得する。
+
+    for_update=True なら lock_workshop と同じく行をロックする。存在しなければ 404、管理できなければ 403
+    """
+    workshop = lock_workshop(db, workshop_id) if for_update else db.get(Workshop, workshop_id)
+    if workshop is None:
+        raise not_found(WORKSHOP_NOT_FOUND)
+    if not can_manage(user, workshop):
+        raise forbidden()
+    return workshop
 
 
 def ensure_editable(workshop: Workshop) -> None:
     """内容・画像を変更してよい状態かを確かめる"""
     # 中止は取り消せない。参加者には中止の通知が届いており、再開すると予約・通知と食い違うため
     if workshop.status == WorkshopStatus.canceled:
-        raise _conflict("中止したワークショップは編集できません")
+        raise conflict("中止したワークショップは編集できません")
     # 開催済み(終了日時を過ぎた)ものは変更させない。管理画面の「開催履歴」と同じく終了日時で判定する
     if workshop.end_at < utcnow_naive():
-        raise _conflict("開催済みのワークショップは編集できません")
+        raise conflict("開催済みのワークショップは編集できません")
 
 
 def check_workshop_input(db: Session, payload: WorkshopInput, workshop: Workshop | None = None) -> None:
@@ -56,27 +70,27 @@ def check_workshop_input(db: Session, payload: WorkshopInput, workshop: Workshop
 
     if workshop is None:
         if payload.status == WorkshopStatus.canceled:
-            raise _conflict("中止の状態でワークショップを作成することはできません")
+            raise conflict("中止の状態でワークショップを作成することはできません")
         if payload.start_at < now:
-            raise _conflict("開始日時には現在より後の日時を指定してください")
+            raise conflict("開始日時には現在より後の日時を指定してください")
         return
 
     # 開催中のものは開始日時をそのままにして他の項目を直せるよう、変更したときだけ確かめる。
     # ただし新たに公開するときは、開始済みのまま公開しないよう変更の有無にかかわらず確かめる
     is_publishing = workshop.status != WorkshopStatus.published and payload.status == WorkshopStatus.published
     if (is_publishing or payload.start_at != workshop.start_at) and payload.start_at < now:
-        raise _conflict("開始日時には現在より後の日時を指定してください")
+        raise conflict("開始日時には現在より後の日時を指定してください")
     # 終了日時を過去にすると、編集で「開催済み」にできてしまう
     if payload.end_at != workshop.end_at and payload.end_at < now:
-        raise _conflict("終了日時には現在より後の日時を指定してください")
+        raise conflict("終了日時には現在より後の日時を指定してください")
 
     # 一度公開したものは、予約の有無にかかわらず下書きに戻させない(参加者の目に触れているため)
     if workshop.status == WorkshopStatus.published and payload.status == WorkshopStatus.draft:
-        raise _conflict("公開済みのワークショップは下書きに戻せません。開催を取りやめる場合は中止にしてください")
+        raise conflict("公開済みのワークショップは下書きに戻せません。開催を取りやめる場合は中止にしてください")
 
     # 下書きは参加者の目に触れておらず予約もないので、中止ではなく削除してもらう
     if workshop.status == WorkshopStatus.draft and payload.status == WorkshopStatus.canceled:
-        raise _conflict("下書きのワークショップは中止できません。取りやめる場合は削除してください")
+        raise conflict("下書きのワークショップは中止できません。取りやめる場合は削除してください")
 
     # 公開中のものは、参加者が予約したときの条件(参加費・日時・場所)を変えさせない。
     # 中止にするときも、これらは保存済みの値のまま送られてくる
@@ -93,12 +107,12 @@ def check_workshop_input(db: Session, payload: WorkshopInput, workshop: Workshop
             if new != old
         ]
         if changed:
-            raise _conflict(f"公開中のワークショップは{'・'.join(changed)}を変更できません")
+            raise conflict(f"公開中のワークショップは{'・'.join(changed)}を変更できません")
 
     # 定員は、すでに予約されているチケット枚数(参加人数)を下回らせない
     booked = reserved_count(db, workshop.id)
     if payload.capacity < booked:
-        raise _conflict(f"定員は予約済みのチケット枚数({booked}枚)以上にしてください")
+        raise conflict(f"定員は予約済みのチケット枚数({booked}枚)以上にしてください")
 
 
 def confirmed_tickets_select(*criteria: ColumnElement[bool]) -> Select[tuple[int]]:
@@ -118,9 +132,7 @@ def reserved_count(db: Session, workshop_id: int) -> int:
 
 def _can_see_participant_info(workshop: Workshop, user: User | None, reserved_ids: set[int]) -> bool:
     """参加者向けの案内(当日の詳細・緊急連絡先)を見せてよいか。予約が確定している参加者と主催者・運営だけ"""
-    if user is None:
-        return False
-    return user.role == UserRole.admin or workshop.facilitator_id == user.id or workshop.id in reserved_ids
+    return can_manage(user, workshop) or workshop.id in reserved_ids
 
 
 def to_workshop_reads(
@@ -216,8 +228,7 @@ def get_viewable_workshop(db: Session, workshop_id: int, user: User | None) -> W
     """詳細ページを見てよいワークショップを取得する。見られないものは存在しないのと同じく 404 にする"""
     workshop = db.get(Workshop, workshop_id)
     if workshop is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
-    is_owner = user is not None and (user.role == UserRole.admin or user.id == workshop.facilitator_id)
+        raise not_found(WORKSHOP_NOT_FOUND)
     # Participants keep access to a canceled workshop they booked, so links from
     # the cancellation notice and their reservation list still resolve.
     had_reservation = (
@@ -225,6 +236,6 @@ def get_viewable_workshop(db: Session, workshop_id: int, user: User | None) -> W
         and user is not None
         and _has_reservation(db, workshop_id, user.id)
     )
-    if workshop.status != WorkshopStatus.published and not (is_owner or had_reservation):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
+    if workshop.status != WorkshopStatus.published and not (can_manage(user, workshop) or had_reservation):
+        raise not_found(WORKSHOP_NOT_FOUND)
     return workshop

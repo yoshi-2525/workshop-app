@@ -1,7 +1,9 @@
 """お気に入り・認証・一覧検索"""
 
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
+from app.models.reservation import Reservation
 from app.models.user import UserRole
 from app.models.workshop import LocationType, WorkshopStatus
 from tests.conftest import auth_headers
@@ -35,6 +37,21 @@ class TestFavorites:
 
     def test_missing_is_404(self, client: TestClient, make_user):
         assert client.post("/api/workshops/9999/favorite", headers=auth_headers(make_user())).status_code == 404
+
+    def test_follows_detail_page_visibility_for_canceled(
+        self, client: TestClient, db: Session, make_user, make_workshop
+    ):
+        # 詳細ページを見られる(予約していた)中止のワークショップは、お気に入りにも追加できる
+        workshop = make_workshop(make_user(UserRole.facilitator), status=WorkshopStatus.canceled)
+        reserved = make_user()
+        db.add(
+            Reservation(
+                workshop_id=workshop.id, user_id=reserved.id, attendee_name="x", contact="a@example.com", ticket_count=1
+            )
+        )
+        db.commit()
+        assert client.post(f"/api/workshops/{workshop.id}/favorite", headers=auth_headers(reserved)).status_code == 201
+        assert client.post(f"/api/workshops/{workshop.id}/favorite", headers=auth_headers(make_user())).status_code == 404
 
 
 class TestAuth:

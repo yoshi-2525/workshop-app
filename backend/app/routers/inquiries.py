@@ -1,12 +1,13 @@
 from collections.abc import Sequence
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.deps import get_current_user, require_roles
+from app.core.errors import WORKSHOP_NOT_FOUND, conflict, not_found
 from app.core.timeutil import utcnow_naive
 from app.database import get_db
 from app.models.inquiry import Inquiry, InquiryMessage
@@ -125,7 +126,7 @@ def _get_my_inquiry(db: Session, inquiry_id: int, user: User) -> Inquiry:
     if inquiry is None or not (
         inquiry.participant_id == user.id or inquiry.workshop.facilitator_id == user.id
     ):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
+        raise not_found(_NOT_FOUND)
     return inquiry
 
 
@@ -216,11 +217,9 @@ def _get_inquirable_workshop(db: Session, workshop_id: int, user: User) -> Works
     workshop = get_viewable_workshop(db, workshop_id, user)
     # 下書きは主催者・管理者しか見られないので、問い合わせの対象にしない
     if workshop.status == WorkshopStatus.draft:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
+        raise not_found(WORKSHOP_NOT_FOUND)
     if workshop.facilitator_id == user.id:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="自分が主催するワークショップには問い合わせできません"
-        )
+        raise conflict("自分が主催するワークショップには問い合わせできません")
     return workshop
 
 
@@ -269,7 +268,7 @@ def send_workshop_inquiry(
             db.rollback()
         inquiry = _find_workshop_inquiry(db, workshop_id, current_user)
         if inquiry is None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="問い合わせを作成できませんでした")
+            raise conflict("問い合わせを作成できませんでした")
     add_message(db, inquiry, current_user, payload.body)
     db.commit()
     db.refresh(inquiry)
@@ -295,12 +294,10 @@ def broadcast_workshop_inquiry(
     # 一斉送信と予約の受付が同時に走っても、送信対象の参加者が食い違わないよう行をロックする
     workshop = lock_workshop(db, workshop_id)
     if workshop is None or workshop.facilitator_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
+        raise not_found(WORKSHOP_NOT_FOUND)
     # 下書きは予約を受け付けておらず、中止したものには中止のお知らせが届いているので、公開中のものだけ
     if workshop.status != WorkshopStatus.published:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="お知らせを送れるのは公開中のワークショップだけです"
-        )
+        raise conflict("お知らせを送れるのは公開中のワークショップだけです")
 
     participant_ids = db.scalars(
         select(Reservation.user_id)
@@ -313,13 +310,13 @@ def broadcast_workshop_inquiry(
         .distinct()
     ).all()
     if not participant_ids:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="お知らせを送る参加者がいません")
+        raise conflict("お知らせを送る参加者がいません")
 
     # 全員分をまとめて確定する(途中で失敗したら誰にも届かない)
     for participant_id in participant_ids:
         inquiry = get_or_create_inquiry(db, workshop.id, participant_id)
         if inquiry is None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="お知らせを送信できませんでした")
+            raise conflict("お知らせを送信できませんでした")
         add_message(db, inquiry, current_user, payload.body, is_broadcast=True)
     db.commit()
     return InquiryBroadcastResult(sent_count=len(participant_ids))

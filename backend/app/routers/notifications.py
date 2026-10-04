@@ -1,10 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.deps import get_current_user
+from app.core.errors import not_found
 from app.database import get_db
 from app.models.notification import Notification
 from app.models.user import User
@@ -64,7 +65,7 @@ def mark_notification_read(
 ) -> NotificationRead:
     notification = db.get(Notification, notification_id)
     if notification is None or notification.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="通知が見つかりません")
+        raise not_found("通知が見つかりません")
     notification.is_read = True
     db.commit()
     db.refresh(notification)

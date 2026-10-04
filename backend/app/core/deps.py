@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
+from app.core.errors import forbidden
 from app.core.security import decode_access_token
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -43,10 +44,7 @@ def get_current_user_optional(
 def require_roles(*roles: UserRole):
     def dependency(user: User = Depends(get_current_user)) -> User:
         if user.role not in roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="この操作を行う権限がありません",
-            )
+            raise forbidden()
         return user
 
     return dependency

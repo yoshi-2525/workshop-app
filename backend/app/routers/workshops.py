@@ -1,12 +1,13 @@
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 from sqlalchemy import exists, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.deps import get_current_user, get_current_user_optional, require_roles
+from app.core.errors import RESERVATION_NOT_FOUND, WORKSHOP_NOT_FOUND, conflict, not_found
 from app.core.timeutil import utcnow_naive
 from app.database import get_db
 from app.models.reservation import Reservation, ReservationStatus
@@ -18,19 +19,20 @@ from app.services.notifications import add_cancellation_notices, add_reservation
 from app.services.pagination import PageQuery, paginate
 from app.services.related import related_workshops
 from app.services.reservations import to_reservation_read, to_reservation_reads
-from app.services.uploads import delete_workshop_image, save_workshop_image
+from app.services.uploads import WORKSHOP_IMAGES, replace_image
 from app.services.workshops import (
     RESERVATION_DEADLINE_BEFORE,
     check_workshop_input,
     confirmed_tickets_select,
     ensure_editable,
+    get_managed_workshop,
     get_viewable_workshop,
     lock_workshop,
     reservation_deadline,
+    reserved_count,
+    to_workshop_read,
+    to_workshop_reads,
 )
-from app.services.workshops import reserved_count as _reserved_count
-from app.services.workshops import to_workshop_read as _to_read
-from app.services.workshops import to_workshop_reads as _to_reads
 
 router = APIRouter(prefix="/workshops", tags=["workshops"])
 
@@ -39,13 +41,12 @@ router = APIRouter(prefix="/workshops", tags=["workshops"])
 ATTENDANCE_OPEN_BEFORE = timedelta(hours=24)
 
 
-def _get_owned_workshop(db: Session, workshop_id: int, user: User, *, for_update: bool = False) -> Workshop:
-    workshop = lock_workshop(db, workshop_id) if for_update else db.get(Workshop, workshop_id)
-    if workshop is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
-    if user.role != UserRole.admin and workshop.facilitator_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="この操作を行う権限がありません")
-    return workshop
+def _get_workshop_reservation(db: Session, workshop: Workshop, reservation_id: int) -> Reservation:
+    """ワークショップの予約を1件取得する。別のワークショップの予約は存在しないのと同じく 404 にする"""
+    reservation = db.get(Reservation, reservation_id)
+    if reservation is None or reservation.workshop_id != workshop.id:
+        raise not_found(RESERVATION_NOT_FOUND)
+    return reservation
 
 
 # 公開一覧の並び順。同じ値のときの順序が毎回変わらないよう、最後に id を付ける
@@ -123,7 +124,7 @@ def list_workshops(
     # ページネーション時は絞り込み後の総件数をヘッダーで返す
     stmt = paginate(db, stmt, PageQuery(limit=query.limit, offset=query.offset), response)
     workshops = db.scalars(stmt.options(selectinload(Workshop.facilitator))).all()
-    return _to_reads(db, workshops, current_user)
+    return to_workshop_reads(db, workshops, current_user)
 
 
 @router.get("/{workshop_id}", response_model=WorkshopRead)
@@ -133,7 +134,7 @@ def get_workshop(
     current_user: User | None = Depends(get_current_user_optional),
 ) -> WorkshopRead:
     workshop = get_viewable_workshop(db, workshop_id, current_user)
-    return _to_read(db, workshop, current_user)
+    return to_workshop_read(db, workshop, current_user)
 
 
 @router.get("/{workshop_id}/related", response_model=RelatedWorkshops)
@@ -158,7 +159,7 @@ def create_workshop(
     db.add(workshop)
     db.commit()
     db.refresh(workshop)
-    return _to_read(db, workshop, current_user)
+    return to_workshop_read(db, workshop, current_user)
 
 
 @router.put("/{workshop_id}", response_model=WorkshopRead)
@@ -169,7 +170,7 @@ def update_workshop(
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> WorkshopRead:
     # 予約の受付と同時に定員・状態を変えても食い違わないよう、行をロックしてから確かめる
-    workshop = _get_owned_workshop(db, workshop_id, current_user, for_update=True)
+    workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
     ensure_editable(workshop)
     check_workshop_input(db, payload, workshop)
     for field, value in payload.model_dump().items():
@@ -179,7 +180,7 @@ def update_workshop(
         add_cancellation_notices(db, workshop)
     db.commit()
     db.refresh(workshop)
-    return _to_read(db, workshop, current_user)
+    return to_workshop_read(db, workshop, current_user)
 
 
 # 同期 DB セッションとファイル書き込みでイベントループを止めないよう、async にせずスレッドプールで動かす。
@@ -192,22 +193,10 @@ def upload_workshop_image(
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> WorkshopRead:
     # 同時に差し替えられても古い画像を確実に消せるよう、行をロックしてから今の画像を読む
-    workshop = _get_owned_workshop(db, workshop_id, current_user, for_update=True)
+    workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
     ensure_editable(workshop)
-    new_image_url = save_workshop_image(file)
-    old_image_url = workshop.image_url
-    workshop.image_url = new_image_url
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        # DB に記録できなかった画像はどこからも参照されないので消す
-        delete_workshop_image(new_image_url)
-        raise
-    db.refresh(workshop)
-    if old_image_url:
-        delete_workshop_image(old_image_url)
-    return _to_read(db, workshop, current_user)
+    replace_image(db, workshop, "image_url", WORKSHOP_IMAGES, file)
+    return to_workshop_read(db, workshop, current_user)
 
 
 @router.delete("/{workshop_id}/image", response_model=WorkshopRead)
@@ -216,15 +205,10 @@ def remove_workshop_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> WorkshopRead:
-    workshop = _get_owned_workshop(db, workshop_id, current_user, for_update=True)
+    workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
     ensure_editable(workshop)
-    old_image_url = workshop.image_url
-    workshop.image_url = ""
-    db.commit()
-    db.refresh(workshop)
-    if old_image_url:
-        delete_workshop_image(old_image_url)
-    return _to_read(db, workshop, current_user)
+    replace_image(db, workshop, "image_url", WORKSHOP_IMAGES, None)
+    return to_workshop_read(db, workshop, current_user)
 
 
 @router.delete("/{workshop_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -233,29 +217,23 @@ def delete_workshop(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> None:
-    workshop = _get_owned_workshop(db, workshop_id, current_user, for_update=True)
+    workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
     # 削除できるのは下書きだけ。一度公開したもの(公開中・中止)は、予約の有無や開催前後にかかわらず記録として残す。
     # 削除すると予約・通知も消え、参加者の予約や中止のお知らせが失われるため。
     # 下書きは公開できず予約も受け付けないので、終了日時を過ぎていても削除してよい(編集もできず、消せないと残り続ける)
     if workshop.status == WorkshopStatus.published:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "開催済みのワークショップは、記録として残すため削除できません"
-                if workshop.end_at < utcnow_naive()
-                else "公開中のワークショップは削除できません。開催を取りやめる場合は中止にしてください"
-            ),
+        raise conflict(
+            "開催済みのワークショップは、記録として残すため削除できません"
+            if workshop.end_at < utcnow_naive()
+            else "公開中のワークショップは削除できません。開催を取りやめる場合は中止にしてください"
         )
     if workshop.status == WorkshopStatus.canceled:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="中止したワークショップは、記録として残すため削除できません",
-        )
+        raise conflict("中止したワークショップは、記録として残すため削除できません")
     image_url = workshop.image_url
     db.delete(workshop)
     db.commit()
     if image_url:
-        delete_workshop_image(image_url)
+        WORKSHOP_IMAGES.delete(image_url)
 
 
 @router.post("/{workshop_id}/reservations", response_model=ReservationRead, status_code=status.HTTP_201_CREATED)
@@ -268,14 +246,11 @@ def reserve_workshop(
     # 同時に申し込まれても定員を超えないよう、行をロックしてから予約数を数える(commit まで保持)
     workshop = lock_workshop(db, workshop_id)
     if workshop is None or workshop.status != WorkshopStatus.published:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
+        raise not_found(WORKSHOP_NOT_FOUND)
     if utcnow_naive() >= reservation_deadline(workshop.start_at):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="予約の受付は開始日時の24時間前で締め切りました",
-        )
+        raise conflict("予約の受付は開始日時の24時間前で締め切りました")
     if workshop.facilitator_id == current_user.id:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="自分が主催するワークショップは予約できません")
+        raise conflict("自分が主催するワークショップは予約できません")
 
     existing = (
         db.query(Reservation)
@@ -284,14 +259,11 @@ def reserve_workshop(
     )
     if existing is not None:
         if existing.status == ReservationStatus.confirmed:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="既に予約済みです")
+            raise conflict("既に予約済みです")
         # キャンセル済みの予約は主催者が取り消したもの。主催者の判断を覆さないよう、再予約させない
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="主催者により参加がキャンセルされたため、このワークショップは予約できません",
-        )
-    if _reserved_count(db, workshop_id) + payload.ticket_count > workshop.capacity:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="残席がチケット枚数に満たないため予約できません")
+        raise conflict("主催者により参加がキャンセルされたため、このワークショップは予約できません")
+    if reserved_count(db, workshop_id) + payload.ticket_count > workshop.capacity:
+        raise conflict("残席がチケット枚数に満たないため予約できません")
 
     reservation = Reservation(
         workshop_id=workshop_id,
@@ -307,7 +279,7 @@ def reserve_workshop(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="既に予約済みです") from exc
+        raise conflict("既に予約済みです") from exc
     db.refresh(reservation)
     return to_reservation_read(db, reservation, current_user)
 
@@ -318,7 +290,7 @@ def list_workshop_reservations(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> list[ReservationRead]:
-    _get_owned_workshop(db, workshop_id, current_user)
+    get_managed_workshop(db, workshop_id, current_user)
     reservations = db.scalars(
         select(Reservation)
         .options(
@@ -340,19 +312,14 @@ def cancel_workshop_reservation(
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> ReservationRead:
     # 予約の受付と同時に走っても残席の数が食い違わないよう、予約と同じくワークショップの行をロックする
-    workshop = _get_owned_workshop(db, workshop_id, current_user, for_update=True)
-    reservation = db.get(Reservation, reservation_id)
-    if reservation is None or reservation.workshop_id != workshop.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="予約が見つかりません")
+    workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
+    reservation = _get_workshop_reservation(db, workshop, reservation_id)
     if reservation.status == ReservationStatus.canceled:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="この予約は既にキャンセルされています")
+        raise conflict("この予約は既にキャンセルされています")
     if workshop.status == WorkshopStatus.canceled:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="中止したワークショップの予約はキャンセルできません")
+        raise conflict("中止したワークショップの予約はキャンセルできません")
     if workshop.start_at <= utcnow_naive():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="開始済みのワークショップの予約はキャンセルできません",
-        )
+        raise conflict("開始済みのワークショップの予約はキャンセルできません")
 
     reservation.status = ReservationStatus.canceled
     # キャンセルと参加者への通知は、同じトランザクションでまとめて確定する
@@ -371,19 +338,14 @@ def update_reservation_attendance(
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> ReservationRead:
     """開催当日の出欠を記録する。記録の誤りを直せるよう、開催後も変更できる"""
-    workshop = _get_owned_workshop(db, workshop_id, current_user)
-    reservation = db.get(Reservation, reservation_id)
-    if reservation is None or reservation.workshop_id != workshop.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="予約が見つかりません")
+    workshop = get_managed_workshop(db, workshop_id, current_user)
+    reservation = _get_workshop_reservation(db, workshop, reservation_id)
     if workshop.status != WorkshopStatus.published:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="公開中のワークショップだけ出欠を記録できます")
+        raise conflict("公開中のワークショップだけ出欠を記録できます")
     if reservation.status != ReservationStatus.confirmed:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="キャンセルされた予約の出欠は記録できません")
+        raise conflict("キャンセルされた予約の出欠は記録できません")
     if utcnow_naive() < workshop.start_at - ATTENDANCE_OPEN_BEFORE:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="出欠は開始日時の24時間前から記録できます",
-        )
+        raise conflict("出欠は開始日時の24時間前から記録できます")
 
     reservation.attendance = payload.attendance
     db.commit()
