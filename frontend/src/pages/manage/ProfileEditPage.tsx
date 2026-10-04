@@ -8,7 +8,7 @@ import { useImageSelection } from '@/hooks/useImageSelection'
 import { UPLOAD_IMAGE_ACCEPT } from '@/utils/image'
 import { canManageWorkshops, USER_BIO_MAX_LENGTH, USER_NAME_MAX_LENGTH } from '@/utils/user'
 import { ErrorMessage } from '@/components/ui/StatusMessage'
-import { FILE_INPUT_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { FILE_INPUT_CLASS, INPUT_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 import { PaperCard } from '@/components/ui/PaperCard'
 
 export function ProfileEditPage() {
@@ -121,7 +121,7 @@ export function ProfileEditPage() {
               maxLength={USER_NAME_MAX_LENGTH}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none"
+              className={INPUT_CLASS}
             />
           </div>
           <div>
@@ -135,7 +135,7 @@ export function ProfileEditPage() {
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               placeholder="経歴や大切にしていること、対話へのスタンスなどを書いてみましょう。"
-              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none"
+              className={INPUT_CLASS}
             />
             <p className="mt-1 text-right text-xs text-fg-muted">
               {bio.length} / {USER_BIO_MAX_LENGTH}文字

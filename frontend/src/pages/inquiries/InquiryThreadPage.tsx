@@ -12,6 +12,7 @@ import type { InquiryDetail } from '@/types'
 import { parseIdParam } from '@/utils/params'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { BackLink } from '@/components/ui/BackLink'
 
 // 開いている間に相手から届いたメッセージを表示するため、一定間隔で読み込み直す
 const POLL_INTERVAL_MS = 15_000
@@ -90,13 +91,7 @@ export function InquiryThreadPage() {
   }
 
   const backLink = (
-    <Link
-      to="/inquiries"
-      className="mb-4 inline-flex items-center gap-1 text-sm text-fg-secondary hover:text-fg hover:underline"
-    >
-      <span aria-hidden="true">←</span>
-      問い合わせ一覧に戻る
-    </Link>
+    <BackLink to="/inquiries">問い合わせ一覧に戻る</BackLink>
   )
 
   if (loading)

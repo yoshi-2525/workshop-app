@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { INQUIRY_MESSAGE_MAX_LENGTH } from '@/utils/inquiry'
-import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { INPUT_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 interface InquiryComposerProps {
   // 送信に成功したら resolve、失敗したら reject する。失敗したときは入力内容を残す
@@ -68,7 +68,7 @@ export function InquiryComposer({ onSend, label = 'メッセージ', placeholder
         placeholder={placeholder}
         aria-describedby={emptyError ? `${errorId} ${helpId}` : helpId}
         aria-invalid={emptyError}
-        className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none"
+        className={INPUT_CLASS}
       />
       {emptyError && (
         <p id={errorId} role="alert" className="mt-1 text-sm text-red-300">

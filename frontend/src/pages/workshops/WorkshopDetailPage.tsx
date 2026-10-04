@@ -27,6 +27,8 @@ import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { BackLink } from '@/components/ui/BackLink'
+import { CancellationPolicy } from '@/components/workshop/CancellationPolicy'
 
 // 予約できないときの予約ボタンの文言(予約ボタンは公開中のときだけ出すので、not_published は出ない)
 const RESERVE_BUTTON_BLOCKED_LABEL: Record<ReservationBlocker, string> = {
@@ -41,14 +43,7 @@ const RESERVE_BUTTON_BLOCKED_LABEL: Record<ReservationBlocker, string> = {
 // 最後に見ていた一覧(検索条件・ページ番号つき)へ戻り、スクロール位置も復元させる
 function BackToListLink() {
   return (
-    <Link
-      to={getLastListUrl()}
-      state={{ restoreScroll: true }}
-      className="mb-4 inline-flex items-center gap-1 text-sm text-fg-secondary hover:text-fg hover:underline"
-    >
-      <span aria-hidden="true">←</span>
-      ワークショップ一覧に戻る
-    </Link>
+    <BackLink to={getLastListUrl()} state={{ restoreScroll: true }}>ワークショップ一覧に戻る</BackLink>
   )
 }
 
@@ -222,12 +217,11 @@ export function WorkshopDetailPage() {
           </div>
         </dl>
         {/* キャンセルポリシーは日時などの欄のすぐ下に置く。見た目は予約フォームのキャンセルポリシーとそろえる */}
-        {workshop.price > 0 && workshop.cancellation_policy && (
-          <div className="mt-4 rounded-lg bg-surface/70 p-4">
-            <h2 className="text-xs font-semibold text-fg-secondary">キャンセルポリシー</h2>
-            <p className="mt-1 whitespace-pre-wrap text-xs text-fg-muted">{workshop.cancellation_policy}</p>
-          </div>
-        )}
+        <CancellationPolicy
+          price={workshop.price}
+          policy={workshop.cancellation_policy}
+          className="mt-4 rounded-lg bg-surface/70 p-4"
+        />
         <p className="mt-6 whitespace-pre-wrap text-fg-secondary">{workshop.description}</p>
         {workshop.status === 'published' && (
           <>

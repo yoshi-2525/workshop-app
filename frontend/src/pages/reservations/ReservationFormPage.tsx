@@ -18,7 +18,8 @@ import {
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
-import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { INPUT_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { CancellationPolicy } from '@/components/workshop/CancellationPolicy'
 
 interface UnavailableReason {
   message: string
@@ -162,7 +163,7 @@ export function ReservationFormPage() {
               onChange={(e) => setContact(e.target.value)}
               placeholder="例: example@mail.com"
               aria-describedby={contactHelpId}
-              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none"
+              className={INPUT_CLASS}
             />
             <p id={contactHelpId} className="mt-1 text-xs text-fg-muted">
               主催者からの連絡に使います。
@@ -177,7 +178,7 @@ export function ReservationFormPage() {
               value={ticketCount}
               onChange={(e) => setTicketCount(Number(e.target.value))}
               aria-describedby={ticketCountHelpId}
-              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none"
+              className={INPUT_CLASS}
             >
               {Array.from({ length: maxTickets }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n}>
@@ -195,12 +196,12 @@ export function ReservationFormPage() {
               <span className="text-fg-secondary">お支払い金額(当日会場にてお支払いください)</span>
               <span className="font-semibold text-fg">{formatPrice(totalPrice)}</span>
             </div>
-            {workshop.price > 0 && workshop.cancellation_policy && (
-              <div className="mt-3 border-t border-border-muted pt-3">
-                <p className="text-xs font-semibold text-fg-secondary">キャンセルポリシー</p>
-                <p className="mt-1 whitespace-pre-wrap text-xs text-fg-muted">{workshop.cancellation_policy}</p>
-              </div>
-            )}
+            <CancellationPolicy
+              price={workshop.price}
+              policy={workshop.cancellation_policy}
+              headingAs="p"
+              className="mt-3 border-t border-border-muted pt-3"
+            />
           </div>
 
           <ErrorMessage message={submitAction.error} className="text-sm" />

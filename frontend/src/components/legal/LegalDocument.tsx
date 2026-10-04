@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { BackLink } from '@/components/ui/BackLink'
 
 // 規約・ガイドラインなどの文書ページの共通レイアウト。見出しの番号は呼び出し側で title に含める
 export function LegalDocument({
@@ -15,13 +15,7 @@ export function LegalDocument({
 }) {
   return (
     <div className="mx-auto max-w-3xl">
-      <Link
-        to="/help"
-        className="mb-4 inline-flex items-center gap-1 text-sm text-fg-secondary hover:text-fg hover:underline"
-      >
-        <span aria-hidden="true">←</span>
-        ヘルプ・規約の一覧に戻る
-      </Link>
+      <BackLink to="/help">ヘルプ・規約の一覧に戻る</BackLink>
       <PaperCard as="article" cornerFold={false} className="p-6 sm:p-8">
         <h1 className="text-2xl font-semibold text-fg">{title}</h1>
         <p className="mt-1 text-sm text-fg-muted">最終改定日: {updatedAt}</p>

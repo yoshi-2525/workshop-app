@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { getWorkshopInquiry, sendWorkshopInquiry } from '@/api/inquiries'
 import { getWorkshop } from '@/api/workshops'
 import { Avatar } from '@/components/ui/Avatar'
@@ -9,6 +9,7 @@ import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { parseIdParam } from '@/utils/params'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { BackLink } from '@/components/ui/BackLink'
 
 // ワークショップの主催者に問い合わせる。既にやり取りがあればそのページへ移り、なければ最初のメッセージを書く
 export function WorkshopInquiryPage() {
@@ -38,13 +39,7 @@ export function WorkshopInquiryPage() {
   }
 
   const backLink = (
-    <Link
-      to={id ? `/workshops/${id}` : '/'}
-      className="mb-4 inline-flex items-center gap-1 text-sm text-fg-secondary hover:text-fg hover:underline"
-    >
-      <span aria-hidden="true">←</span>
-      ワークショップに戻る
-    </Link>
+    <BackLink to={id ? `/workshops/${id}` : '/'}>ワークショップに戻る</BackLink>
   )
 
   // 既存のやり取りへ移るまでの間も、読み込み中として表示する
