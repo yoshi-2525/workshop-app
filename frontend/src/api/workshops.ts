@@ -80,6 +80,12 @@ export async function updateWorkshop(id: number, payload: WorkshopInput): Promis
   return data
 }
 
+// 公開中のワークショップを中止にする。予約済みの参加者には中止のお知らせが届く
+export async function cancelWorkshop(id: number): Promise<Workshop> {
+  const { data } = await apiClient.post<Workshop>(`/workshops/${id}/cancel`)
+  return data
+}
+
 export async function deleteWorkshop(id: number): Promise<void> {
   await apiClient.delete(`/workshops/${id}`)
 }

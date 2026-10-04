@@ -17,6 +17,7 @@ import {
   WORKSHOP_TITLE_MAX_LENGTH,
 } from '@/utils/workshop'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { FILE_INPUT_CLASS } from '@/components/ui/styles'
 
 const INPUT_CLASS =
   'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-fg-muted'
@@ -128,7 +129,7 @@ export function WorkshopFormFields({
           accept={UPLOAD_IMAGE_ACCEPT}
           onChange={onImageChange}
           aria-describedby={imageHelpId}
-          className="mt-1 block w-full text-sm text-fg-secondary file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-foreground hover:file:bg-accent-hover"
+          className={`mt-1 ${FILE_INPUT_CLASS}`}
         />
         <p id={imageHelpId} className="mt-1 text-xs text-fg-muted">
           一覧・詳細ページに16:9で表示される画像をアップロードしてください(推奨サイズ: 1280×720 / jpg, png, webp, gif / 5MBまで)。比率が異なる画像は中央を基準に切り抜いて表示されます。

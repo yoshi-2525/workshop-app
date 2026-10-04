@@ -14,6 +14,7 @@ import {
   toSearchParams,
   type WorkshopListState,
 } from '@/utils/workshopListState'
+import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 
 const PER_PAGE = 30
 
@@ -114,7 +115,7 @@ export function WorkshopListPage() {
       </div>
       {/* 検索結果の更新をスクリーンリーダーに通知する */}
       <div ref={resultsRef} aria-live="polite" className="scroll-mt-4">
-        {loading && <p className="mt-6 text-fg-muted">読み込み中...</p>}
+        {loading && <LoadingMessage className="mt-6" />}
         {!loading && !error && workshops.length === 0 && (
           <p className="mt-6 text-fg-muted">
             {hasActiveFilter
@@ -128,11 +129,7 @@ export function WorkshopListPage() {
           </p>
         )}
       </div>
-      {error && (
-        <p role="alert" className="mt-6 text-red-300">
-          {error}
-        </p>
-      )}
+      <ErrorMessage message={error} className="mt-6" />
       <Pagination page={page} totalPages={totalPages} onChange={changePage} disabled={loading} />
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {workshops.map((workshop) => (

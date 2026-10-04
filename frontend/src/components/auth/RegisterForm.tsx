@@ -6,6 +6,7 @@ import { extractErrorMessage } from '@/api/client'
 import type { SelfRegisterRole } from '@/types'
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_PATTERN, USER_NAME_MAX_LENGTH } from '@/utils/user'
 import { authThemeStyles } from '@/components/auth/theme'
+import { ErrorMessage } from '@/components/ui/StatusMessage'
 
 const PASSWORD_CHARS_MESSAGE = 'パスワードは半角英数字と記号で入力してください(全角文字・スペースは使えません)'
 
@@ -182,11 +183,7 @@ export function RegisterForm({
               </p>
             )}
           </div>
-          {error && (
-            <p role="alert" className="text-sm text-red-300">
-              {error}
-            </p>
-          )}
+          <ErrorMessage message={error} className="text-sm" />
           {/* 規約は入力中の内容を消さないよう、新しいタブで開く */}
           <p id={agreementId} className="text-xs leading-relaxed text-fg-secondary">
             <LegalLink to="/help/terms">利用規約</LegalLink>

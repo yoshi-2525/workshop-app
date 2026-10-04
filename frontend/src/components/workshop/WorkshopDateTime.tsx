@@ -1,8 +1,7 @@
 import { getDayInfo, toDateInputValue } from '@/utils/date'
+import { formatTime } from '@/utils/format'
 
 type DateStyle = 'long' | 'medium'
-
-const formatTime = (date: Date) => date.toLocaleTimeString('ja-JP', { timeStyle: 'short' })
 
 // 日付と曜日。色を使いすぎないよう、土曜・日曜・祝日も平日と同じ色で表示する
 function DatePart({ date, dateStyle }: { date: Date; dateStyle: DateStyle }) {

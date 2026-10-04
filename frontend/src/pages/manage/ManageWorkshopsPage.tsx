@@ -7,6 +7,8 @@ import { useApiResource } from '@/hooks/useApiResource'
 import type { Workshop } from '@/types'
 import { isWorkshopFinished } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
+import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
+import { PaperCard } from '@/components/ui/PaperCard'
 
 type Tab = 'upcoming' | 'draft' | 'history'
 
@@ -102,12 +104,8 @@ export function ManageWorkshopsPage() {
         className="mt-4"
       />
 
-      {loading && <p className="mt-6 text-fg-muted">読み込み中...</p>}
-      {error && (
-        <p role="alert" className="mt-6 text-red-300">
-          {error}
-        </p>
-      )}
+      {loading && <LoadingMessage className="mt-6" />}
+      <ErrorMessage message={error} className="mt-6" />
       {!loading && sections.map((section) => (
         <section key={section.heading ?? 'main'} className="mt-6">
           {section.heading && <h2 className="mb-3 text-base font-semibold text-fg-secondary">{section.heading}</h2>}
@@ -116,9 +114,11 @@ export function ManageWorkshopsPage() {
           ) : (
             <ul className="space-y-3">
               {section.items.map((workshop) => (
-                <li
+                <PaperCard
+                  as="li"
                   key={workshop.id}
-                  className="flex items-center justify-between rounded-lg border border-border-muted bg-surface p-4"
+                  cornerFold={false}
+                  className="flex items-center justify-between p-4"
                 >
                   <div className="flex items-center gap-3">
                     {workshop.image_url ? (
@@ -151,14 +151,14 @@ export function ManageWorkshopsPage() {
                         <Link
                           to={`/manage/workshops/${workshop.id}/reservations`}
                           aria-label={`${workshop.title}の予約・出欠`}
-                          className="rounded-md border border-border px-3 py-1.5 text-fg-secondary hover:bg-surface-muted"
+                          className="rounded-md bg-surface px-3 py-1.5 text-fg-secondary shadow-sm hover:bg-white"
                         >
                           予約・出欠
                         </Link>
                         <Link
                           to={`/inquiries?workshop_id=${workshop.id}`}
                           aria-label={`${workshop.title}への問い合わせ・お知らせ`}
-                          className="rounded-md border border-border px-3 py-1.5 text-fg-secondary hover:bg-surface-muted"
+                          className="rounded-md bg-surface px-3 py-1.5 text-fg-secondary shadow-sm hover:bg-white"
                         >
                           問い合わせ・お知らせ
                         </Link>
@@ -169,7 +169,7 @@ export function ManageWorkshopsPage() {
                       <Link
                         to={`/manage/workshops/${workshop.id}/edit`}
                         aria-label={`${workshop.title}を編集`}
-                        className="rounded-md border border-border px-3 py-1.5 text-fg-secondary hover:bg-surface-muted"
+                        className="rounded-md bg-surface px-3 py-1.5 text-fg-secondary shadow-sm hover:bg-white"
                       >
                         編集
                       </Link>
@@ -187,7 +187,7 @@ export function ManageWorkshopsPage() {
                       </button>
                     )}
                   </div>
-                </li>
+                </PaperCard>
               ))}
             </ul>
           )}

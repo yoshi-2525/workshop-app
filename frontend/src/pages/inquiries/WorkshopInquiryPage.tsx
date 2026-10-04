@@ -7,6 +7,8 @@ import { Avatar } from '@/components/ui/Avatar'
 import { InquiryComposer } from '@/components/inquiry/InquiryComposer'
 import { useApiResource } from '@/hooks/useApiResource'
 import { parseIdParam } from '@/utils/params'
+import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
+import { PaperCard } from '@/components/ui/PaperCard'
 
 // ワークショップの主催者に問い合わせる。既にやり取りがあればそのページへ移り、なければ最初のメッセージを書く
 export function WorkshopInquiryPage() {
@@ -52,17 +54,13 @@ export function WorkshopInquiryPage() {
   // 既存のやり取りへ移るまでの間も、読み込み中として表示する
   if (loading || existingInquiryId !== undefined)
     return (
-      <p role="status" className="text-fg-muted">
-        読み込み中...
-      </p>
+      <LoadingMessage />
     )
   if (error || !workshop)
     return (
       <div className="mx-auto max-w-2xl">
         {backLink}
-        <p role="alert" className="text-red-300">
-          {error ?? 'ワークショップが見つかりませんでした'}
-        </p>
+        <ErrorMessage message={error ?? 'ワークショップが見つかりませんでした'} />
       </div>
     )
 
@@ -70,22 +68,18 @@ export function WorkshopInquiryPage() {
     <div className="mx-auto max-w-2xl">
       {backLink}
       <h1 className="text-xl font-semibold text-fg">主催者に問い合わせる</h1>
-      <div className="mt-4 flex items-center gap-3 rounded-lg border border-border-muted bg-surface p-4">
+      <PaperCard cornerFold={false} className="mt-4 flex items-center gap-3 p-4">
         <Avatar url={workshop.facilitator_avatar_url} name={workshop.facilitator_name} />
         <div className="min-w-0">
           <p className="font-medium text-fg">{workshop.facilitator_name}</p>
           <p className="truncate text-sm text-fg-secondary">{workshop.title}</p>
         </div>
-      </div>
+      </PaperCard>
       <p className="mt-4 text-sm text-fg-secondary">
         ワークショップの内容や当日のことなど、気になることを主催者に質問できます。返信はナビゲーションの「問い合わせ」から確認できます。
       </p>
       <div className="mt-4">
-        {sendError && (
-          <p role="alert" className="mb-2 text-sm text-red-300">
-            {sendError}
-          </p>
-        )}
+        <ErrorMessage message={sendError} className="mb-2 text-sm" />
         <InquiryComposer onSend={handleSend} label="問い合わせ内容" placeholder="例: 初めてでも参加できますか?" />
       </div>
     </div>

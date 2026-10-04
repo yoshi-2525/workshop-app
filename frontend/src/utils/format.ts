@@ -14,3 +14,10 @@ export function formatDateTime(value: string, dateStyle: 'full' | 'medium' = 'me
   if (Number.isNaN(date.getTime())) return '-'
   return date.toLocaleString('ja-JP', { dateStyle, timeStyle: 'short' })
 }
+
+// 「14:00」の形式。端末の時間帯で表示する
+export function formatTime(value: string | Date): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleTimeString('ja-JP', { timeStyle: 'short' })
+}

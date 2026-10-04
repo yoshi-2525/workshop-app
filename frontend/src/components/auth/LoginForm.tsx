@@ -6,6 +6,7 @@ import { extractErrorMessage } from '@/api/client'
 import type { UserRole } from '@/types'
 import { authThemeStyles } from '@/components/auth/theme'
 import type { AuthTheme } from '@/components/auth/theme'
+import { ErrorMessage } from '@/components/ui/StatusMessage'
 
 interface LoginFormProps {
   theme: AuthTheme
@@ -99,11 +100,7 @@ export function LoginForm({
               className={`mt-1 w-full rounded-md border border-border px-3 py-2 text-sm focus:outline-none ${style.focusRing}`}
             />
           </div>
-          {error && (
-            <p role="alert" className="text-sm text-red-300">
-              {error}
-            </p>
-          )}
+          <ErrorMessage message={error} className="text-sm" />
           <button
             type="submit"
             disabled={submitting}

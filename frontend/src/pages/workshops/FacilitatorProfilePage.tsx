@@ -5,6 +5,8 @@ import { Avatar } from '@/components/ui/Avatar'
 import { WorkshopCard } from '@/components/workshop/WorkshopCard'
 import { useApiResource } from '@/hooks/useApiResource'
 import { parseIdParam } from '@/utils/params'
+import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
+import { PaperCard } from '@/components/ui/PaperCard'
 
 export function FacilitatorProfilePage() {
   const { id } = useParams<{ id: string }>()
@@ -19,19 +21,17 @@ export function FacilitatorProfilePage() {
     '主催者情報の取得に失敗しました',
   )
 
-  if (loading) return <p className="text-fg-muted">読み込み中...</p>
+  if (loading) return <LoadingMessage />
   if (facilitatorId === null || error)
     return (
-      <p role="alert" className="text-red-300">
-        {error ?? '主催者が見つかりませんでした'}
-      </p>
+      <ErrorMessage message={error ?? '主催者が見つかりませんでした'} />
     )
   if (!data) return null
   const [profile, workshops] = data
 
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="rounded-lg border border-border-muted bg-surface p-6">
+      <PaperCard cornerFold={false} className="p-6">
         <div className="flex items-center gap-4">
           <Avatar url={profile.avatar_url} name={profile.name} className="h-16 w-16 text-2xl" />
           <div>
@@ -46,7 +46,7 @@ export function FacilitatorProfilePage() {
         ) : (
           <p className="mt-4 text-sm text-fg-subtle">自己紹介はまだ登録されていません。</p>
         )}
-      </div>
+      </PaperCard>
 
       <h2 className="mt-8 text-lg font-semibold text-fg">開催予定のワークショップ</h2>
       {workshops.length === 0 ? (

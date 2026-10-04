@@ -7,6 +7,8 @@ import { Avatar } from '@/components/ui/Avatar'
 import { useImageSelection } from '@/hooks/useImageSelection'
 import { UPLOAD_IMAGE_ACCEPT } from '@/utils/image'
 import { canManageWorkshops, USER_BIO_MAX_LENGTH, USER_NAME_MAX_LENGTH } from '@/utils/user'
+import { ErrorMessage } from '@/components/ui/StatusMessage'
+import { FILE_INPUT_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 export function ProfileEditPage() {
   const { user, refreshUser } = useAuth()
@@ -84,7 +86,7 @@ export function ProfileEditPage() {
                   accept={UPLOAD_IMAGE_ACCEPT}
                   onChange={avatar.select}
                   aria-describedby={avatarHelpId}
-                  className="block w-full text-sm text-fg-secondary file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-foreground hover:file:bg-accent-hover"
+                  className={FILE_INPUT_CLASS}
                 />
                 {avatar.file ? (
                   <button type="button" onClick={avatar.clearSelection} className="mt-2 text-xs text-red-300 underline">
@@ -136,11 +138,7 @@ export function ProfileEditPage() {
             {bio.length} / {USER_BIO_MAX_LENGTH}文字
           </p>
         </div>
-        {error && (
-          <p role="alert" className="text-sm text-red-300">
-            {error}
-          </p>
-        )}
+        <ErrorMessage message={error} className="text-sm" />
         {saved && (
           <p role="status" className="text-sm text-emerald-300">
             保存しました。
@@ -149,7 +147,7 @@ export function ProfileEditPage() {
         <button
           type="submit"
           disabled={saving}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+          className={PRIMARY_BUTTON_CLASS}
         >
           {saving ? '保存中...' : '保存する'}
         </button>

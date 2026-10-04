@@ -1,5 +1,7 @@
 import type { LocationType, Workshop } from '@/types'
 
+const HOUR_MS = 60 * 60 * 1000
+
 // カードなどのバッジに出す短い表記
 export const LOCATION_TYPE_LABEL: Record<LocationType, string> = {
   online: 'オンライン',
@@ -32,7 +34,7 @@ export const ATTENDANCE_OPEN_HOURS_BEFORE = 24
 
 // 出欠を記録できる時間になったか
 export function isAttendanceOpen(workshop: Pick<Workshop, 'start_at'>): boolean {
-  return Date.now() >= new Date(workshop.start_at).getTime() - ATTENDANCE_OPEN_HOURS_BEFORE * 60 * 60 * 1000
+  return Date.now() >= new Date(workshop.start_at).getTime() - ATTENDANCE_OPEN_HOURS_BEFORE * HOUR_MS
 }
 
 // 開催済み(終了日時を過ぎた)かどうか。開催済みは編集できない(バックエンドの ensure_editable と同じ基準)
@@ -51,7 +53,7 @@ export const RESERVATION_DEADLINE_HOURS_BEFORE = 24
 
 // 予約の締め切り日時(開始日時の24時間前)。ISO 8601 形式
 export function reservationDeadline(workshop: Pick<Workshop, 'start_at'>): string {
-  return new Date(new Date(workshop.start_at).getTime() - RESERVATION_DEADLINE_HOURS_BEFORE * 60 * 60 * 1000).toISOString()
+  return new Date(new Date(workshop.start_at).getTime() - RESERVATION_DEADLINE_HOURS_BEFORE * HOUR_MS).toISOString()
 }
 
 // 予約の締め切りを過ぎたかどうか。開始済みのものも含む

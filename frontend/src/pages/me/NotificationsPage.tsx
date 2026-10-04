@@ -10,6 +10,7 @@ import { useNotifications } from '@/context/NotificationContext'
 import { useApiResource } from '@/hooks/useApiResource'
 import type { Notification } from '@/types'
 import { formatDateTime } from '@/utils/format'
+import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 
 const typeLabel: Record<Notification['type'], string> = {
   cancellation: '中止',
@@ -81,12 +82,8 @@ export function NotificationsPage() {
         )}
       </div>
 
-      {loading && <p className="mt-6 text-fg-muted">読み込み中...</p>}
-      {error && (
-        <p role="alert" className="mt-6 text-red-300">
-          {error}
-        </p>
-      )}
+      {loading && <LoadingMessage className="mt-6" />}
+      <ErrorMessage message={error} className="mt-6" />
       {!loading && notifications.length === 0 && (
         <p className="mt-6 text-fg-muted">通知はまだありません。</p>
       )}

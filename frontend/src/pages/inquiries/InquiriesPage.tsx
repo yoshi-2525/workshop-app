@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useApiResource } from '@/hooks/useApiResource'
 import { formatDateTime } from '@/utils/format'
 import { parseIdParam } from '@/utils/params'
+import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 
 // 自分が関わる問い合わせの一覧。?workshop_id= を付けると1つのワークショップへの問い合わせだけを表示する
 export function InquiriesPage() {
@@ -47,12 +48,8 @@ export function InquiriesPage() {
 
       {canBroadcast && <BroadcastComposer workshop={workshop} onSent={reload} />}
 
-      {loading && <p className="mt-6 text-fg-muted">読み込み中...</p>}
-      {error && (
-        <p role="alert" className="mt-6 text-red-300">
-          {error}
-        </p>
-      )}
+      {loading && <LoadingMessage className="mt-6" />}
+      <ErrorMessage message={error} className="mt-6" />
       {!loading && !error && inquiries.length === 0 && (
         <p className="mt-6 text-fg-muted">問い合わせはまだありません。</p>
       )}

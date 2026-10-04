@@ -13,6 +13,8 @@ import type { AttendanceStatus, Reservation, Workshop } from '@/types'
 import { formatDateTime } from '@/utils/format'
 import { parseIdParam } from '@/utils/params'
 import { ATTENDANCE_OPEN_HOURS_BEFORE, isAttendanceOpen, isWorkshopStarted } from '@/utils/workshop'
+import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
+import { PaperCard } from '@/components/ui/PaperCard'
 
 const ATTENDANCE_OPTIONS: ToggleOption<AttendanceStatus>[] = [
   { value: 'unconfirmed', label: '未確認' },
@@ -40,12 +42,10 @@ export function WorkshopReservationsPage() {
     '取得に失敗しました',
   )
 
-  if (loading) return <p className="text-fg-muted">読み込み中...</p>
+  if (loading) return <LoadingMessage />
   if (workshopId === null || error || !data)
     return (
-      <p role="alert" className="text-red-300">
-        {error ?? 'ワークショップが見つかりませんでした'}
-      </p>
+      <ErrorMessage message={error ?? 'ワークショップが見つかりませんでした'} />
     )
   const { workshop, reservations } = data
 
@@ -118,7 +118,7 @@ export function WorkshopReservationsPage() {
         参加人数 {confirmedTickets} / {workshop.capacity}名（予約件数：{confirmed.length}件）
       </p>
       {workshop.status === 'published' && confirmed.length > 0 && (
-        <div className="mt-4 rounded-lg border border-border-muted bg-surface p-3 text-sm">
+        <PaperCard cornerFold={false} className="mt-4 p-3 text-sm">
           <h2 className="font-semibold text-fg">出欠確認</h2>
           {attendanceOpen ? (
             <p className="mt-1 text-fg-muted" aria-live="polite">
@@ -130,26 +130,20 @@ export function WorkshopReservationsPage() {
               出欠は開始日時の{ATTENDANCE_OPEN_HOURS_BEFORE}時間前から、各予約の「出欠」で記録できます。
             </p>
           )}
-        </div>
+        </PaperCard>
       )}
-      {attendanceError && (
-        <p role="alert" className="mt-4 text-sm text-red-300">
-          {attendanceError}
-        </p>
-      )}
-      {cancelError && (
-        <p role="alert" className="mt-4 text-sm text-red-300">
-          {cancelError}
-        </p>
-      )}
+      <ErrorMessage message={attendanceError} className="mt-4 text-sm" />
+      <ErrorMessage message={cancelError} className="mt-4 text-sm" />
       {reservations.length === 0 ? (
         <p className="mt-6 text-fg-muted">まだ予約はありません。</p>
       ) : (
         <ul className="mt-6 space-y-2">
           {reservations.map((reservation) => (
-            <li
+            <PaperCard
+              as="li"
               key={reservation.id}
-              className="rounded-lg border border-border-muted bg-surface p-3 text-sm"
+              cornerFold={false}
+              className="p-3 text-sm"
             >
               <div className="flex items-center justify-between">
                 <span className="font-medium text-fg">{reservation.user_name}</span>
@@ -189,7 +183,7 @@ export function WorkshopReservationsPage() {
                   className="mt-2"
                 />
               )}
-            </li>
+            </PaperCard>
           ))}
         </ul>
       )}

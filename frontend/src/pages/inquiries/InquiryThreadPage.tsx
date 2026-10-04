@@ -9,6 +9,8 @@ import { InquiryComposer } from '@/components/inquiry/InquiryComposer'
 import { InquiryMessageList } from '@/components/inquiry/InquiryMessageList'
 import type { InquiryDetail } from '@/types'
 import { parseIdParam } from '@/utils/params'
+import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
+import { PaperCard } from '@/components/ui/PaperCard'
 
 // 開いている間に相手から届いたメッセージを表示するため、一定間隔で読み込み直す
 const POLL_INTERVAL_MS = 15_000
@@ -101,17 +103,13 @@ export function InquiryThreadPage() {
 
   if (loading)
     return (
-      <p role="status" className="text-fg-muted">
-        読み込み中...
-      </p>
+      <LoadingMessage />
     )
   if (error || !inquiry)
     return (
       <div className="mx-auto max-w-2xl">
         {backLink}
-        <p role="alert" className="text-red-300">
-          {error ?? '問い合わせが見つかりません'}
-        </p>
+        <ErrorMessage message={error ?? '問い合わせが見つかりません'} />
       </div>
     )
 
@@ -120,7 +118,7 @@ export function InquiryThreadPage() {
   return (
     <div className="mx-auto max-w-2xl">
       {backLink}
-      <div className="flex items-center gap-3 rounded-lg border border-border-muted bg-surface p-4">
+      <PaperCard cornerFold={false} className="flex items-center gap-3 p-4">
         <Avatar url={inquiry.counterpart_avatar_url} name={inquiry.counterpart_name} />
         <div className="min-w-0">
           <h1 className="font-semibold text-fg">
@@ -140,18 +138,14 @@ export function InquiryThreadPage() {
             {inquiry.workshop_title}
           </Link>
         </div>
-      </div>
+      </PaperCard>
 
       <div className="mt-6">
         <InquiryMessageList messages={inquiry.messages} />
       </div>
 
       <div className="mt-6 border-t border-border-muted pt-4">
-        {sendError && (
-          <p role="alert" className="mb-2 text-sm text-red-300">
-            {sendError}
-          </p>
-        )}
+        <ErrorMessage message={sendError} className="mb-2 text-sm" />
         <InquiryComposer onSend={handleSend} label={isParticipant ? '主催者へのメッセージ' : '参加者への返信'} />
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { WorkshopInput } from '@/types'
+import { readStorage, writeStorage } from '@/utils/storage'
 
 // 入力が止まってから保存するまでの待ち時間
 const SAVE_DELAY_MS = 1000
@@ -38,30 +39,12 @@ function parseDraft(raw: string | null, fallback: WorkshopInput): WorkshopDraft 
   }
 }
 
-// localStorage は無効化されている環境もあるので、失敗しても画面は動かし続ける
-function readStorage(key: string): string | null {
-  try {
-    return localStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-function writeStorage(key: string, value: string | null) {
-  try {
-    if (value === null) localStorage.removeItem(key)
-    else localStorage.setItem(key, value)
-  } catch {
-    // 保存できなくても入力は続けられる
-  }
-}
-
 export function workshopDraftKey(userId: number, workshopId: number | null): string {
   return `${KEY_PREFIX}:${userId}:${workshopId ?? 'new'}`
 }
 
 export function removeWorkshopDraft(key: string) {
-  writeStorage(key, null)
+  writeStorage('local', key, null)
 }
 
 interface UseWorkshopDraftOptions {
@@ -82,7 +65,7 @@ export function useWorkshopDraft({ storageKey, form, baseline }: UseWorkshopDraf
   // 保存済みの下書きを探す(キーごとに1回だけ)
   if (storageKey !== null && checkedKey !== storageKey) {
     setCheckedKey(storageKey)
-    const draft = parseDraft(readStorage(storageKey), baseline)
+    const draft = parseDraft(readStorage('local', storageKey), baseline)
     setPendingDraft(draft && !isSameForm(draft.form, baseline) ? draft : null)
   }
   const ready = storageKey !== null && checkedKey === storageKey
@@ -91,12 +74,12 @@ export function useWorkshopDraft({ storageKey, form, baseline }: UseWorkshopDraf
     if (!ready || storageKey === null || pendingDraft) return
     const timer = setTimeout(() => {
       if (isSameForm(form, baseline)) {
-        writeStorage(storageKey, null)
+        writeStorage('local', storageKey, null)
         setLastSavedAt(null)
         return
       }
       const savedAt = new Date().toISOString()
-      writeStorage(storageKey, JSON.stringify({ form, savedAt } satisfies WorkshopDraft))
+      writeStorage('local', storageKey, JSON.stringify({ form, savedAt } satisfies WorkshopDraft))
       setLastSavedAt(savedAt)
     }, SAVE_DELAY_MS)
     return () => clearTimeout(timer)
@@ -110,13 +93,13 @@ export function useWorkshopDraft({ storageKey, form, baseline }: UseWorkshopDraf
   }, [pendingDraft])
 
   const discardPendingDraft = useCallback(() => {
-    if (storageKey !== null) writeStorage(storageKey, null)
+    if (storageKey !== null) writeStorage('local', storageKey, null)
     setPendingDraft(null)
   }, [storageKey])
 
   // 保存に成功したときや、入力を破棄してページを離れるときに呼ぶ
   const clearDraft = useCallback(() => {
-    if (storageKey !== null) writeStorage(storageKey, null)
+    if (storageKey !== null) writeStorage('local', storageKey, null)
     setLastSavedAt(null)
   }, [storageKey])
 

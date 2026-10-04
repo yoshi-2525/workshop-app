@@ -2,6 +2,7 @@ import type { ListWorkshopsParams, WorkshopSort } from '@/api/workshops'
 import type { LocationType } from '@/types'
 import { parseDateInput } from '@/utils/date'
 import { WORKSHOP_PRICE_MAX } from '@/utils/workshop'
+import { readStorage, writeStorage } from '@/utils/storage'
 
 // ワークショップ一覧の検索条件・並び替え・ページ番号は URL のクエリに持たせる。
 // 詳細ページから戻ったときやブラウザの「戻る」、再読み込みでも同じ状態を表示できるようにするため
@@ -175,35 +176,19 @@ const SCROLL_KEY = 'workshop_list:scroll'
 // 保存しておく一覧 URL の数の上限(古いものから捨てる)
 const MAX_SCROLL_ENTRIES = 20
 
-function readSession(key: string): string | null {
-  try {
-    return sessionStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-function writeSession(key: string, value: string) {
-  try {
-    sessionStorage.setItem(key, value)
-  } catch {
-    // 保存できなくても一覧は使える(戻ったときに状態が復元されないだけ)
-  }
-}
-
 export function saveLastListUrl(url: string) {
-  writeSession(LAST_LIST_URL_KEY, url)
+  writeStorage('session', LAST_LIST_URL_KEY, url)
 }
 
 // 最後に表示していた一覧の URL。一覧を開いていなければトップ
 export function getLastListUrl(): string {
-  const url = readSession(LAST_LIST_URL_KEY)
+  const url = readStorage('session', LAST_LIST_URL_KEY)
   return url && url.startsWith('/') && !url.startsWith('//') ? url : '/'
 }
 
 function readScrollMap(): Record<string, number> {
   try {
-    const data: unknown = JSON.parse(readSession(SCROLL_KEY) ?? '{}')
+    const data: unknown = JSON.parse(readStorage('session', SCROLL_KEY) ?? '{}')
     return typeof data === 'object' && data !== null ? (data as Record<string, number>) : {}
   } catch {
     return {}
@@ -216,7 +201,7 @@ export function saveListScroll(url: string, y: number) {
   map[url] = Math.max(0, Math.round(y))
   const keys = Object.keys(map)
   for (const key of keys.slice(0, Math.max(0, keys.length - MAX_SCROLL_ENTRIES))) delete map[key]
-  writeSession(SCROLL_KEY, JSON.stringify(map))
+  writeStorage('session', SCROLL_KEY, JSON.stringify(map))
 }
 
 export function getListScroll(url: string): number | null {

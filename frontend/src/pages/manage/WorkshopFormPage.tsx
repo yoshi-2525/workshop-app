@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
+  cancelWorkshop,
   createWorkshop,
   deleteWorkshopImage,
   getWorkshop,
@@ -8,14 +9,18 @@ import {
   uploadWorkshopImage,
 } from '@/api/workshops'
 import { extractErrorMessage } from '@/api/client'
+import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { useAuth } from '@/context/AuthContext'
+import { useApiResource } from '@/hooks/useApiResource'
 import { useImageSelection } from '@/hooks/useImageSelection'
 import type { Workshop, WorkshopInput, WorkshopStatus } from '@/types'
 import { toDateTimeInputValue } from '@/utils/date'
+import { formatDateTime, formatTime } from '@/utils/format'
 import { parseIdParam } from '@/utils/params'
 import { isWorkshopFinished } from '@/utils/workshop'
 import { WorkshopFormFields } from '@/pages/manage/WorkshopFormFields'
 import { removeWorkshopDraft, useWorkshopDraft, workshopDraftKey } from '@/pages/manage/useWorkshopDraft'
+import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 // 公開中のワークショップで変更できない項目(参加者が予約したときの条件)。バックエンドの check_workshop_input と揃える
 const LOCKED_WHEN_PUBLISHED = ['price', 'start_at', 'end_at', 'location_type', 'location'] as const
@@ -35,6 +40,31 @@ const emptyForm: WorkshopInput = {
   status: 'draft',
 }
 
+// 保存済みのワークショップを、フォームの入力値(日時は端末の時間帯の YYYY-MM-DDTHH:mm)にする
+function toWorkshopInput(workshop: Workshop): WorkshopInput {
+  return {
+    title: workshop.title,
+    description: workshop.description,
+    location_type: workshop.location_type,
+    location: workshop.location,
+    start_at: toDateTimeInputValue(new Date(workshop.start_at)),
+    end_at: toDateTimeInputValue(new Date(workshop.end_at)),
+    capacity: workshop.capacity,
+    price: workshop.price,
+    cancellation_policy: workshop.cancellation_policy,
+    participant_guide: workshop.participant_info?.guide ?? '',
+    emergency_contact: workshop.participant_info?.emergency_contact ?? '',
+    status: workshop.status,
+  }
+}
+
+// 開催済み・中止のワークショップは編集できない。編集できるなら null
+function notEditableReason(workshop: Workshop): string | null {
+  if (workshop.status === 'canceled') return '中止したワークショップは編集できません。'
+  if (isWorkshopFinished(workshop)) return '開催済みのワークショップは編集できません。'
+  return null
+}
+
 export function WorkshopFormPage() {
   const { id } = useParams<{ id: string }>()
   const isEdit = Boolean(id)
@@ -43,7 +73,6 @@ export function WorkshopFormPage() {
   const formRef = useRef<HTMLFormElement>(null)
   const [form, setForm] = useState<WorkshopInput>(emptyForm)
   const [initialForm, setInitialForm] = useState<WorkshopInput>(emptyForm)
-  const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // 開催済み・中止のワークショップは編集できない(URL を直接開いた場合もフォームを出さない)。
@@ -63,11 +92,36 @@ export function WorkshopFormPage() {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const image = useImageSelection(imageInputRef, setError)
 
-  // 入力内容をこのブラウザに自動保存する。編集画面では、読み込みが終わってから始める
+  // 編集画面では、保存済みのワークショップを読み込む(ID が不正なら読み込まない)
+  const {
+    data: loadedWorkshop,
+    loading,
+    error: loadError,
+  } = useApiResource(
+    isEdit && workshopId !== null ? `workshop-form:${workshopId}` : null,
+    (signal) => getWorkshop(workshopId!, signal),
+    '取得に失敗しました',
+  )
+  // 読み込んだ内容をフォームに反映する(読み込みごとに1回だけ)
+  const [appliedWorkshop, setAppliedWorkshop] = useState<Workshop | null>(null)
+  if (loadedWorkshop && loadedWorkshop !== appliedWorkshop) {
+    setAppliedWorkshop(loadedWorkshop)
+    const message = notEditableReason(loadedWorkshop)
+    setNotEditableMessage(message)
+    if (message === null) {
+      const loaded = toWorkshopInput(loadedWorkshop)
+      setForm(loaded)
+      setInitialForm(loaded)
+      setCurrentImageUrl(loadedWorkshop.image_url)
+      setSavedWorkshop(loadedWorkshop)
+    }
+  }
+
+  // 入力内容をこのブラウザに自動保存する。編集画面では、読み込んだ内容をフォームに反映してから始める
+  // (反映前に始めると、空のフォームと比べて下書きの有無を判断してしまう)
+  const formReady = !isEdit || (loadedWorkshop !== undefined && loadedWorkshop === appliedWorkshop)
   const draftKey =
-    user && !loading && !finished && !(isEdit && workshopId === null)
-      ? workshopDraftKey(user.id, isEdit ? workshopId : null)
-      : null
+    user && formReady && !finished ? workshopDraftKey(user.id, isEdit ? workshopId : null) : null
   const { pendingDraft, lastSavedAt, takePendingDraft, discardPendingDraft, clearDraft } =
     useWorkshopDraft({ storageKey: draftKey, form, baseline: initialForm })
 
@@ -87,46 +141,6 @@ export function WorkshopFormPage() {
       return next
     })
   }
-
-  useEffect(() => {
-    if (!isEdit) return
-    if (workshopId === null) {
-      setError('ワークショップが見つかりませんでした')
-      setLoading(false)
-      return
-    }
-    getWorkshop(workshopId)
-      .then((workshop) => {
-        if (workshop.status === 'canceled') {
-          setNotEditableMessage('中止したワークショップは編集できません。')
-          return
-        }
-        if (isWorkshopFinished(workshop)) {
-          setNotEditableMessage('開催済みのワークショップは編集できません。')
-          return
-        }
-        const loaded: WorkshopInput = {
-          title: workshop.title,
-          description: workshop.description,
-          location_type: workshop.location_type,
-          location: workshop.location,
-          start_at: toDateTimeInputValue(new Date(workshop.start_at)),
-          end_at: toDateTimeInputValue(new Date(workshop.end_at)),
-          capacity: workshop.capacity,
-          price: workshop.price,
-          cancellation_policy: workshop.cancellation_policy,
-          participant_guide: workshop.participant_info?.guide ?? '',
-          emergency_contact: workshop.participant_info?.emergency_contact ?? '',
-          status: workshop.status,
-        }
-        setForm(loaded)
-        setInitialForm(loaded)
-        setCurrentImageUrl(workshop.image_url)
-        setSavedWorkshop(workshop)
-      })
-      .catch((err) => setError(extractErrorMessage(err, '取得に失敗しました')))
-      .finally(() => setLoading(false))
-  }, [isEdit, workshopId])
 
   // 読み込んだ内容(新規なら空のフォーム)から変更があるか。画像の選択・削除も変更に含める
   const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm) || Boolean(image.file) || image.removed
@@ -149,20 +163,7 @@ export function WorkshopFormPage() {
     setError(null)
     setCanceling(true)
     try {
-      await updateWorkshop(savedWorkshop.id, {
-        title: savedWorkshop.title,
-        description: savedWorkshop.description,
-        location_type: savedWorkshop.location_type,
-        location: savedWorkshop.location,
-        start_at: savedWorkshop.start_at,
-        end_at: savedWorkshop.end_at,
-        capacity: savedWorkshop.capacity,
-        price: savedWorkshop.price,
-        cancellation_policy: savedWorkshop.cancellation_policy,
-        participant_guide: savedWorkshop.participant_info?.guide ?? '',
-        emergency_contact: savedWorkshop.participant_info?.emergency_contact ?? '',
-        status: 'canceled',
-      })
+      await cancelWorkshop(savedWorkshop.id)
       clearDraft()
       navigate('/manage')
     } catch (err) {
@@ -239,9 +240,10 @@ export function WorkshopFormPage() {
     navigate('/manage')
   }
 
-  if (loading) return <p className="text-fg-muted">読み込み中...</p>
-  // 不正な ID のまま保存すると新規作成扱いになるため、フォームを出さない
-  if (isEdit && workshopId === null) return <p className="text-red-300">{error}</p>
+  if (loading) return <LoadingMessage />
+  // 不正な ID や読み込めなかったまま保存すると新規作成扱いになるため、フォームを出さない
+  if (isEdit && workshopId === null) return <ErrorMessage message="ワークショップが見つかりませんでした" />
+  if (loadError) return <ErrorMessage message={loadError} />
   if (finished) {
     return (
       <div className="mx-auto max-w-xl">
@@ -264,10 +266,7 @@ export function WorkshopFormPage() {
           className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200"
         >
           <p>
-            {new Date(pendingDraft.savedAt).toLocaleString('ja-JP', {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-            })}
+            {formatDateTime(pendingDraft.savedAt)}
             に自動保存された入力内容があります。復元しますか?(画像は復元されません)
           </p>
           <div className="mt-3 flex gap-2">
@@ -302,14 +301,10 @@ export function WorkshopFormPage() {
           reservedCount={reservedCount}
         />
 
-        {error && (
-          <p role="alert" className="mt-4 text-sm text-red-300">
-            {error}
-          </p>
-        )}
+        <ErrorMessage message={error} className="mt-4 text-sm" />
         <p className="mt-3 text-right text-xs text-fg-muted" aria-live="polite">
           {lastSavedAt
-            ? `入力内容をこのブラウザに自動保存しました(${new Date(lastSavedAt).toLocaleTimeString('ja-JP', { timeStyle: 'short' })})`
+            ? `入力内容をこのブラウザに自動保存しました(${formatTime(lastSavedAt)})`
             : '入力内容はこのブラウザに自動保存されます'}
         </p>
         {/* 入力欄のカードとボタンの間は広めに空ける */}
@@ -336,7 +331,7 @@ export function WorkshopFormPage() {
             type="button"
             onClick={() => handleSave('published')}
             disabled={saving}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+            className={PRIMARY_BUTTON_CLASS}
           >
             {saving ? '保存中...' : '公開する'}
           </button>

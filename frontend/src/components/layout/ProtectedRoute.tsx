@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import type { UserRole } from '@/types'
+import { LoadingMessage } from '@/components/ui/StatusMessage'
 
 interface ProtectedRouteProps {
   roles?: UserRole[]
@@ -12,7 +13,7 @@ export function ProtectedRoute({ roles, loginPath = '/login/participant' }: Prot
   const location = useLocation()
 
   if (loading) {
-    return <div className="py-16 text-center text-fg-muted">読み込み中...</div>
+    return <LoadingMessage className="py-16 text-center" />
   }
 
   if (!user) {

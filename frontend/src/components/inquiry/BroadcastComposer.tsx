@@ -3,6 +3,8 @@ import { broadcastWorkshopInquiry } from '@/api/inquiries'
 import { extractErrorMessage } from '@/api/client'
 import { InquiryComposer } from '@/components/inquiry/InquiryComposer'
 import type { Workshop } from '@/types'
+import { ErrorMessage } from '@/components/ui/StatusMessage'
+import { PaperCard } from '@/components/ui/PaperCard'
 
 interface BroadcastComposerProps {
   workshop: Workshop
@@ -34,7 +36,7 @@ export function BroadcastComposer({ workshop, onSent }: BroadcastComposerProps) 
   }
 
   return (
-    <section aria-labelledby="broadcast-heading" className="mt-6 rounded-lg border border-border-muted bg-surface p-4">
+    <PaperCard as="section" aria-labelledby="broadcast-heading" cornerFold={false} className="mt-6 p-4">
       <h2 id="broadcast-heading" className="text-base font-semibold text-fg">
         参加者全員へのお知らせ
       </h2>
@@ -43,11 +45,7 @@ export function BroadcastComposer({ workshop, onSent }: BroadcastComposerProps) 
         参加者は「問い合わせ」から確認・返信できます。
       </p>
       <div className="mt-3">
-        {error && (
-          <p role="alert" className="mb-2 text-sm text-red-300">
-            {error}
-          </p>
-        )}
+        <ErrorMessage message={error} className="mb-2 text-sm" />
         {result && (
           <p role="status" className="mb-2 text-sm text-emerald-300">
             {result}
@@ -59,6 +57,6 @@ export function BroadcastComposer({ workshop, onSent }: BroadcastComposerProps) 
           placeholder="例: 当日は筆記用具をお持ちください。会場の入口は建物の東側です。"
         />
       </div>
-    </section>
+    </PaperCard>
   )
 }
