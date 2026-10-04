@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.core.timeutil import utcnow_naive
 from app.models.notification import Notification, NotificationType
-from app.models.reservation import Reservation, ReservationStatus
+from app.models.reservation import Reservation
 from app.models.workshop import Workshop, WorkshopStatus
 from app.services.inquiries import add_message, get_or_create_inquiry
+from app.services.participants import confirmed_participant_ids
 
 # リマインダーは、ワークショップごと・参加者ごとに1回だけ送る。定期実行のたびに
 # REMINDER_LOOKAHEAD 以内に始まる公開中のワークショップをすべて見るので、開始の1日前を切ってから
@@ -17,13 +18,6 @@ REMINDER_LOOKAHEAD = timedelta(hours=25)
 
 # 複数のワーカー・プロセスで同時にリマインダーを作らないための MySQL の名前付きロック
 _REMINDER_LOCK_NAME = "workshop_app_reminder_job"
-
-
-def _confirmed_participant_ids(db: Session, workshop_id: int) -> list[int]:
-    stmt = select(Reservation.user_id).where(
-        Reservation.workshop_id == workshop_id, Reservation.status == ReservationStatus.confirmed
-    )
-    return list(db.scalars(stmt))
 
 
 def _add_missing(
@@ -54,7 +48,7 @@ def add_cancellation_notices(db: Session, workshop: Workshop) -> int:
     message = f"「{workshop.title}」は主催者により中止になりました。"
     return len(
         _add_missing(
-            db, workshop.id, _confirmed_participant_ids(db, workshop.id), NotificationType.cancellation, message
+            db, workshop.id, confirmed_participant_ids(db, workshop), NotificationType.cancellation, message
         )
     )
 
@@ -135,7 +129,7 @@ def _send_upcoming_reminders(db: Session) -> int:
         added = _add_missing(
             db,
             workshop.id,
-            _confirmed_participant_ids(db, workshop.id),
+            confirmed_participant_ids(db, workshop),
             NotificationType.reminder,
             reminder_message(workshop),
         )
