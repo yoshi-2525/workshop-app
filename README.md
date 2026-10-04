@@ -115,6 +115,14 @@ npm run dev
 
 `http://localhost:5173` で起動し、`/api` へのリクエストは Vite の proxy 経由でバックエンド(`http://localhost:8000`)に転送されます。
 
+#### テスト
+
+`src/utils` などのロジックのテストは Vitest で実行します(テストは対象のファイルの隣に `*.test.ts` で置く)。
+
+```
+npm test
+```
+
 ## ロールと機能
 
 - **participant**: ワークショップ一覧の閲覧、予約、予約のキャンセル
