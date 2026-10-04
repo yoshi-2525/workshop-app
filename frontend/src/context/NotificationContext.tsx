@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { getInquiryUnreadCount } from '@/api/inquiries'
 import { getUnreadNotificationCount } from '@/api/notifications'
 import { useAuth } from '@/context/AuthContext'
+import type { User } from '@/types'
 
 interface NotificationContextValue {
   unreadCount: number
@@ -17,50 +18,44 @@ const NotificationContext = createContext<NotificationContextValue | undefined>(
 
 const POLL_INTERVAL_MS = 60_000
 
+// ログイン中のユーザーの未読数を取得する。未ログインなら 0
+function useUnreadCount(user: User | null, fetchCount: () => Promise<number>) {
+  const [count, setCount] = useState(0)
+  const refresh = useCallback(async () => {
+    if (!user) {
+      setCount(0)
+      return
+    }
+    try {
+      setCount(await fetchCount())
+    } catch {
+      // 一時的な通信エラーなどでは、前回の値を表示し続ける
+    }
+  }, [user, fetchCount])
+  return [count, setCount, refresh] as const
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [inquiryUnreadCount, setInquiryUnreadCount] = useState(0)
+  const [unreadCount, setUnreadCount, refreshUnreadCount] = useUnreadCount(user, getUnreadNotificationCount)
+  const [inquiryUnreadCount, , refreshInquiryUnreadCount] = useUnreadCount(user, getInquiryUnreadCount)
 
-  const refreshUnreadCount = useCallback(async () => {
-    if (!user) {
-      setUnreadCount(0)
-      return
-    }
-    try {
-      setUnreadCount(await getUnreadNotificationCount())
-    } catch {
-      // transient network error: keep the previous count
-    }
-  }, [user])
-
-  const refreshInquiryUnreadCount = useCallback(async () => {
-    if (!user) {
-      setInquiryUnreadCount(0)
-      return
-    }
-    try {
-      setInquiryUnreadCount(await getInquiryUnreadCount())
-    } catch {
-      // transient network error: keep the previous count
-    }
-  }, [user])
-
+  // ログイン状態が変わったら取り直し、ログイン中は一定間隔で取り直す
   useEffect(() => {
-    refreshUnreadCount()
-    refreshInquiryUnreadCount()
-    if (!user) return
-    const interval = setInterval(() => {
+    function refreshAll() {
       refreshUnreadCount()
       refreshInquiryUnreadCount()
-    }, POLL_INTERVAL_MS)
+    }
+    refreshAll()
+    if (!user) return
+    const interval = setInterval(refreshAll, POLL_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [user, refreshUnreadCount, refreshInquiryUnreadCount])
 
   // 値が変わったときだけ、通知を使うコンポーネントを再描画させる
   const value = useMemo(
     () => ({ unreadCount, refreshUnreadCount, setUnreadCount, inquiryUnreadCount, refreshInquiryUnreadCount }),
-    [unreadCount, refreshUnreadCount, inquiryUnreadCount, refreshInquiryUnreadCount],
+    [unreadCount, refreshUnreadCount, setUnreadCount, inquiryUnreadCount, refreshInquiryUnreadCount],
   )
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>
