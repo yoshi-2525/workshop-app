@@ -18,6 +18,8 @@ import {
 } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
+import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 interface UnavailableReason {
   message: string
@@ -95,12 +97,10 @@ export function ReservationFormPage() {
     navigate(`/workshops/${workshop.id}`)
   }
 
-  if (loading) return <p className="text-fg-muted">読み込み中...</p>
+  if (loading) return <LoadingMessage />
   if (!workshop)
     return (
-      <p role="alert" className="text-red-300">
-        {loadError ?? 'ワークショップが見つかりませんでした'}
-      </p>
+      <ErrorMessage message={loadError ?? 'ワークショップが見つかりませんでした'} />
     )
 
   const remaining = workshop.capacity - workshop.reserved_count
@@ -216,11 +216,7 @@ export function ReservationFormPage() {
             )}
           </div>
 
-          {error && (
-            <p role="alert" className="text-sm text-red-300">
-              {error}
-            </p>
-          )}
+          <ErrorMessage message={error} className="text-sm" />
 
           <div className="flex gap-3 justify-end">
             <button
@@ -233,7 +229,7 @@ export function ReservationFormPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+              className={PRIMARY_BUTTON_CLASS}
             >
               {submitting ? '登録中...' : 'この内容で予約を確定する'}
             </button>

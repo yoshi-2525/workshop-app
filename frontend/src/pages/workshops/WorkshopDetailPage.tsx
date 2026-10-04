@@ -18,6 +18,8 @@ import { isReservationClosed, isWorkshopFull, isWorkshopStarted, reservationDead
 import { getLastListUrl } from '@/utils/workshopListState'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
+import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 // 最後に見ていた一覧(検索条件・ページ番号つき)へ戻り、スクロール位置も復元させる
 function BackToListLink() {
@@ -75,17 +77,13 @@ export function WorkshopDetailPage() {
 
   if (loading)
     return (
-      <p role="status" className="text-fg-muted">
-        読み込み中...
-      </p>
+      <LoadingMessage />
     )
   if (!workshop)
     return (
       <div>
         <BackToListLink />
-        <p role="alert" className="text-red-300">
-          {error ?? 'ワークショップが見つかりませんでした'}
-        </p>
+        <ErrorMessage message={error ?? 'ワークショップが見つかりませんでした'} />
       </div>
     )
   const imageFailed = workshop.image_url === failedImageUrl
@@ -234,7 +232,7 @@ export function WorkshopDetailPage() {
               <button
                 onClick={handleReserveClick}
                 disabled={isClosed || isFull || workshop.viewer.is_reserved || workshop.viewer.is_reservation_canceled}
-                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground enabled:hover:bg-accent-hover disabled:opacity-50"
+                className={PRIMARY_BUTTON_CLASS}
               >
                 {workshop.viewer.is_reserved
                   ? '予約済みです'

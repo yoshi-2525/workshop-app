@@ -8,6 +8,7 @@ import { formatDateTime } from '@/utils/format'
 import { isWorkshopFinished } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 
 // 予約履歴での状態の表示。ワークショップ自体が中止になったものは、予約の状態より中止を優先して伝える
 function reservationStatusView(reservation: Reservation): { label: string; className: string } {
@@ -70,12 +71,8 @@ function ReservationList({ kind }: { kind: ListKind }) {
 
   return (
     <>
-      {loading && <p className="mt-6 text-fg-muted">読み込み中...</p>}
-      {error && (
-        <p role="alert" className="mt-6 text-red-300">
-          {error}
-        </p>
-      )}
+      {loading && <LoadingMessage className="mt-6" />}
+      <ErrorMessage message={error} className="mt-6" />
       {!loading && filtered.length === 0 && (
         <p className="mt-6 text-fg-muted">{EMPTY_MESSAGE[kind]}</p>
       )}
