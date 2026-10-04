@@ -1,13 +1,21 @@
 import axios from 'axios'
+import { readStorage, writeStorage } from '@/utils/storage'
 
-export const TOKEN_STORAGE_KEY = 'workshop_app_token'
+const TOKEN_STORAGE_KEY = 'workshop_app_token'
+
+// ログイン中のトークン。このブラウザの localStorage に保存する
+export const tokenStore = {
+  get: (): string | null => readStorage('local', TOKEN_STORAGE_KEY),
+  set: (token: string) => writeStorage('local', TOKEN_STORAGE_KEY, token),
+  clear: () => writeStorage('local', TOKEN_STORAGE_KEY, null),
+}
 
 export const apiClient = axios.create({
   baseURL: '/api',
 })
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_STORAGE_KEY)
+  const token = tokenStore.get()
   // 呼び出し側で指定済み(ログイン直後の役割確認など)なら、保存済みのトークンで上書きしない
   if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`
@@ -25,15 +33,23 @@ apiClient.interceptors.response.use(
       // トークンを付けて送ったリクエストだけが対象(ログイン失敗の 401 は含めない)。
       // 送信後に別のアカウントでログインし直していた場合は、新しいトークンを消さない
       const sentAuth = error.config?.headers?.Authorization
-      const currentToken = localStorage.getItem(TOKEN_STORAGE_KEY)
+      const currentToken = tokenStore.get()
       if (currentToken && sentAuth === `Bearer ${currentToken}`) {
-        localStorage.removeItem(TOKEN_STORAGE_KEY)
+        tokenStore.clear()
         window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
       }
     }
     return Promise.reject(error)
   },
 )
+
+// ファイルを1つ送る multipart の本文(フィールド名は file)。
+// Content-Type は指定しない(FormData なら、ブラウザが境界文字列つきで自動で付ける)
+export function fileFormData(file: File): FormData {
+  const formData = new FormData()
+  formData.append('file', file)
+  return formData
+}
 
 export function extractErrorMessage(error: unknown, fallback = 'エラーが発生しました'): string {
   if (axios.isAxiosError(error)) {

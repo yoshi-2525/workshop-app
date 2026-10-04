@@ -1,4 +1,4 @@
-import { apiClient } from '@/api/client'
+import { apiClient, fileFormData } from '@/api/client'
 import type { LocationType, RelatedWorkshops, Workshop, WorkshopInput } from '@/types'
 
 // start: 開催日時の近い順 / newest: 公開日時の新しい順 / price: 価格の安い順
@@ -50,15 +50,6 @@ export async function listWorkshopsPage(
   return { items: data, total: Number.isFinite(total) ? total : data.length }
 }
 
-export async function addFavorite(workshopId: number): Promise<Workshop> {
-  const { data } = await apiClient.post<Workshop>(`/workshops/${workshopId}/favorite`)
-  return data
-}
-
-export async function removeFavorite(workshopId: number): Promise<void> {
-  await apiClient.delete(`/workshops/${workshopId}/favorite`)
-}
-
 export async function getWorkshop(id: number, signal?: AbortSignal): Promise<Workshop> {
   const { data } = await apiClient.get<Workshop>(`/workshops/${id}`, { signal })
   return data
@@ -91,10 +82,7 @@ export async function deleteWorkshop(id: number): Promise<void> {
 }
 
 export async function uploadWorkshopImage(id: number, file: File): Promise<Workshop> {
-  const formData = new FormData()
-  formData.append('file', file)
-  // Content-Type は指定しない(FormData なら、ブラウザが境界文字列つきで自動で付ける)
-  const { data } = await apiClient.post<Workshop>(`/workshops/${id}/image`, formData)
+  const { data } = await apiClient.post<Workshop>(`/workshops/${id}/image`, fileFormData(file))
   return data
 }
 

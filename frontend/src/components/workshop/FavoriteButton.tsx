@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { addFavorite, removeFavorite } from '@/api/workshops'
+import { addFavorite, removeFavorite } from '@/api/favorites'
 import { useAuth } from '@/context/AuthContext'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { HoverLabel } from '@/components/ui/HoverLabel'

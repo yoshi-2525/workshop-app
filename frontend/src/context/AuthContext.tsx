@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { fetchCurrentUser, login as loginRequest, register as registerRequest } from '@/api/auth'
-import { AUTH_EXPIRED_EVENT, TOKEN_STORAGE_KEY } from '@/api/client'
+import { AUTH_EXPIRED_EVENT, tokenStore } from '@/api/client'
 import type { RegisterPayload } from '@/api/auth'
 import type { User, UserRole } from '@/types'
 
@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const loadUser = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_STORAGE_KEY)
+    const token = tokenStore.get()
     if (!token) {
       setUser(null)
       setLoading(false)
@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = await loginRequest({ email, password })
     const current = await fetchCurrentUser(token)
     if (allowedRoles && !allowedRoles.includes(current.role)) return null
-    localStorage.setItem(TOKEN_STORAGE_KEY, token)
+    tokenStore.set(token)
     setUser(current)
     return current
   }, [])
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [login])
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_STORAGE_KEY)
+    tokenStore.clear()
     setUser(null)
   }, [])
 

@@ -1,4 +1,4 @@
-import { apiClient } from '@/api/client'
+import { apiClient, fileFormData } from '@/api/client'
 import type { FacilitatorProfile, User } from '@/types'
 
 export interface UpdateMePayload {
@@ -17,9 +17,7 @@ export async function updateMe(payload: UpdateMePayload): Promise<User> {
 }
 
 export async function uploadMyAvatar(file: File): Promise<User> {
-  const formData = new FormData()
-  formData.append('file', file)
-  const { data } = await apiClient.post<User>('/auth/me/avatar', formData)
+  const { data } = await apiClient.post<User>('/auth/me/avatar', fileFormData(file))
   return data
 }
 
