@@ -7,9 +7,13 @@ from app.config import settings
 
 # Pin the session time zone so CURRENT_TIMESTAMP defaults are UTC, matching
 # the naive-UTC datetimes the app writes itself.
+# MySQL は wait_timeout を超えて使われなかった接続を切るので、使う前に生きているか確かめ、
+# 一定時間ごとに張り直す
 engine = create_engine(
     settings.database_url,
     connect_args={"init_command": "SET time_zone = '+00:00'"},
+    pool_pre_ping=True,
+    pool_recycle=3600,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

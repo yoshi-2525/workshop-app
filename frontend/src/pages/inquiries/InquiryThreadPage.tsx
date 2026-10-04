@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import { Link, useParams } from 'react-router-dom'
 import { getInquiry, markInquiryRead, replyInquiry } from '@/api/inquiries'
@@ -20,6 +20,8 @@ export function InquiryThreadPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sendError, setSendError] = useState<string | null>(null)
+  // 送信するたびに増やす。読み込み直しの途中で送信した場合、その読み込みの結果(送信前の内容)で上書きしないため
+  const sendVersionRef = useRef(0)
 
   // 未読があれば既読にして、ナビバーの未読数も更新する
   const markReadIfNeeded = useCallback(
@@ -49,8 +51,10 @@ export function InquiryThreadPage() {
 
     const controller = new AbortController()
     function load(initial: boolean) {
+      const version = sendVersionRef.current
       getInquiry(inquiryId!, controller.signal)
         .then((detail) => {
+          if (version !== sendVersionRef.current) return
           setInquiry(detail)
           markReadIfNeeded(detail)
         })
@@ -76,6 +80,7 @@ export function InquiryThreadPage() {
   async function handleSend(body: string) {
     if (!inquiry) return
     setSendError(null)
+    sendVersionRef.current += 1
     try {
       setInquiry(await replyInquiry(inquiry.id, body))
     } catch (err) {
@@ -87,7 +92,7 @@ export function InquiryThreadPage() {
   const backLink = (
     <Link
       to="/inquiries"
-      className="mb-4 inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 hover:underline"
+      className="mb-4 inline-flex items-center gap-1 text-sm text-fg-secondary hover:text-fg hover:underline"
     >
       <span aria-hidden="true">←</span>
       問い合わせ一覧に戻る
@@ -96,7 +101,7 @@ export function InquiryThreadPage() {
 
   if (loading)
     return (
-      <p role="status" className="text-slate-500">
+      <p role="status" className="text-fg-muted">
         読み込み中...
       </p>
     )
@@ -104,7 +109,7 @@ export function InquiryThreadPage() {
     return (
       <div className="mx-auto max-w-2xl">
         {backLink}
-        <p role="alert" className="text-red-600">
+        <p role="alert" className="text-red-300">
           {error ?? '問い合わせが見つかりません'}
         </p>
       </div>
@@ -115,10 +120,10 @@ export function InquiryThreadPage() {
   return (
     <div className="mx-auto max-w-2xl">
       {backLink}
-      <div className="flex items-center gap-3 rounded-lg border border-border-muted bg-white p-4">
+      <div className="flex items-center gap-3 rounded-lg border border-border-muted bg-surface p-4">
         <Avatar url={inquiry.counterpart_avatar_url} name={inquiry.counterpart_name} />
         <div className="min-w-0">
-          <h1 className="font-semibold text-slate-900">
+          <h1 className="font-semibold text-fg">
             {isParticipant ? (
               <Link to={`/facilitators/${inquiry.counterpart_id}`} className="hover:underline">
                 {inquiry.counterpart_name}
@@ -126,11 +131,11 @@ export function InquiryThreadPage() {
             ) : (
               inquiry.counterpart_name
             )}
-            <span className="ml-2 text-xs font-normal text-slate-500">{isParticipant ? '主催者' : '参加者'}</span>
+            <span className="ml-2 text-xs font-normal text-fg-muted">{isParticipant ? '主催者' : '参加者'}</span>
           </h1>
           <Link
             to={`/workshops/${inquiry.workshop_id}`}
-            className="block truncate text-sm text-slate-600 underline hover:text-slate-900"
+            className="block truncate text-sm text-fg-secondary underline hover:text-fg"
           >
             {inquiry.workshop_title}
           </Link>
@@ -143,7 +148,7 @@ export function InquiryThreadPage() {
 
       <div className="mt-6 border-t border-border-muted pt-4">
         {sendError && (
-          <p role="alert" className="mb-2 text-sm text-red-600">
+          <p role="alert" className="mb-2 text-sm text-red-300">
             {sendError}
           </p>
         )}

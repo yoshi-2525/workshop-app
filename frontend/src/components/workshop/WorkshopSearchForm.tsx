@@ -135,10 +135,10 @@ export function WorkshopSearchForm({ listState, disabled = false, onSearch }: Wo
     <form
       noValidate
       onSubmit={handleSubmit}
-      className="mt-4 space-y-4 rounded-lg border border-border-muted bg-white p-4"
+      className="mt-4 space-y-4 rounded-lg border border-border-muted bg-surface p-4"
     >
       <div>
-        <label htmlFor={keywordId} className="block text-sm font-medium text-slate-700">
+        <label htmlFor={keywordId} className="block text-sm font-medium text-fg-secondary">
           キーワードで検索
         </label>
         <input
@@ -171,7 +171,7 @@ export function WorkshopSearchForm({ listState, disabled = false, onSearch }: Wo
                 size="sm"
                 className="w-44"
               />
-              <span aria-hidden="true" className="text-sm text-slate-500">
+              <span aria-hidden="true" className="text-sm text-fg-muted">
                 〜
               </span>
               <DatePicker
@@ -189,7 +189,7 @@ export function WorkshopSearchForm({ listState, disabled = false, onSearch }: Wo
               />
             </div>
             {rangeError && (
-              <p id={rangeErrorId} role="alert" className="mt-1 text-xs text-red-600">
+              <p id={rangeErrorId} role="alert" className="mt-1 text-xs text-red-300">
                 {rangeError}
               </p>
             )}
@@ -209,7 +209,7 @@ export function WorkshopSearchForm({ listState, disabled = false, onSearch }: Wo
 
         {priceFilter === 'paid' && (
           <div>
-            <label htmlFor={maxPriceId} className="mb-1 block text-sm font-medium text-slate-700">
+            <label htmlFor={maxPriceId} className="mb-1 block text-sm font-medium text-fg-secondary">
               上限金額(円)
             </label>
             <input
@@ -229,7 +229,7 @@ export function WorkshopSearchForm({ listState, disabled = false, onSearch }: Wo
               }`}
             />
             {maxPriceError && (
-              <p id={maxPriceErrorId} role="alert" className="mt-1 text-xs text-red-600">
+              <p id={maxPriceErrorId} role="alert" className="mt-1 text-xs text-red-300">
                 {maxPriceError}
               </p>
             )}

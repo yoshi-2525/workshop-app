@@ -1,0 +1,46 @@
+// トップページの冒頭。サービスの空気感(夜・静けさ・寄り添い)を伝える。
+// 月と星は装飾なので読み上げない
+export function HomeHero() {
+  return (
+    <section aria-labelledby="home-hero-heading" className="relative overflow-hidden py-12 sm:py-20">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 200 120"
+        className="pointer-events-none absolute -right-6 top-4 w-56 text-accent opacity-80 sm:right-4 sm:w-72"
+      >
+        {/* 細い三日月。円から少しずらした円をくり抜いて作る */}
+        <defs>
+          <mask id="home-hero-moon">
+            <rect width="200" height="120" fill="white" />
+            <circle cx="160" cy="38" r="22" fill="black" />
+          </mask>
+        </defs>
+        <circle cx="150" cy="46" r="24" fill="currentColor" opacity="0.85" mask="url(#home-hero-moon)" />
+        {/* 遠くの星 */}
+        <g fill="currentColor" className="text-fg">
+          <circle cx="40" cy="30" r="1" opacity="0.6" />
+          <circle cx="92" cy="12" r="0.8" opacity="0.4" />
+          <circle cx="110" cy="70" r="1.2" opacity="0.5" />
+          <circle cx="60" cy="95" r="0.8" opacity="0.35" />
+          <circle cx="190" cy="100" r="1" opacity="0.45" />
+        </g>
+      </svg>
+
+      <p className="text-sm tracking-[0.25em] text-fg-muted">夜、ひとりで考えていたこと。</p>
+      <h1
+        id="home-hero-heading"
+        className="mt-5 font-brand text-3xl font-semibold leading-snug tracking-widest text-fg sm:text-5xl sm:leading-tight"
+      >
+        その違和感は、
+        <br />
+        話していい。
+      </h1>
+      <p className="mt-8 max-w-2xl leading-loose text-fg-secondary">
+        うまく言葉にならなくても、答えが出なくても、かまいません。
+        <br className="hidden sm:inline" />
+        仕事帰りに、同じように立ち止まっている誰かと、少しだけ話してみませんか。
+      </p>
+      <div aria-hidden="true" className="mt-12 h-px w-16 bg-accent/60" />
+    </section>
+  )
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   listNotifications,
@@ -7,6 +7,7 @@ import {
 } from '@/api/notifications'
 import { extractErrorMessage } from '@/api/client'
 import { useNotifications } from '@/context/NotificationContext'
+import { useApiResource } from '@/hooks/useApiResource'
 import type { Notification } from '@/types'
 import { formatDateTime } from '@/utils/format'
 
@@ -17,29 +18,26 @@ const typeLabel: Record<Notification['type'], string> = {
 }
 
 const typeColor: Record<Notification['type'], string> = {
-  cancellation: 'bg-red-100 text-red-700',
-  reminder: 'bg-sky-100 text-sky-700',
-  reservation_canceled: 'bg-amber-100 text-amber-800',
+  cancellation: 'bg-red-400/15 text-red-200',
+  reminder: 'bg-sky-400/15 text-sky-200',
+  reservation_canceled: 'bg-amber-400/15 text-amber-200',
 }
 
 export function NotificationsPage() {
   const { unreadCount, refreshUnreadCount } = useNotifications()
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  function load() {
-    setLoading(true)
-    listNotifications()
-      .then(setNotifications)
-      .catch((err) => setError(extractErrorMessage(err, '通知の取得に失敗しました')))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(load, [])
+  const {
+    data,
+    loading,
+    error: loadError,
+    setData: setNotifications,
+  } = useApiResource('notifications', listNotifications, '通知の取得に失敗しました')
+  const notifications = data ?? []
+  const [markError, setMarkError] = useState<string | null>(null)
+  const error = loadError ?? markError
 
   async function handleOpen(notification: Notification) {
     if (notification.is_read) return
+    setMarkError(null)
     setNotifications((prev) =>
       prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)),
     )
@@ -47,42 +45,50 @@ export function NotificationsPage() {
       await markNotificationRead(notification.id)
       refreshUnreadCount()
     } catch (err) {
-      setError(extractErrorMessage(err, '既読にできませんでした'))
+      // 先に既読として表示したので、失敗したら未読に戻す
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notification.id ? { ...n, is_read: false } : n)),
+      )
+      setMarkError(extractErrorMessage(err, '既読にできませんでした'))
     }
   }
 
   async function handleMarkAllRead() {
+    // 失敗したときに戻せるよう、未読だったものを覚えておく
+    const unreadIds = new Set(notifications.filter((n) => !n.is_read).map((n) => n.id))
+    setMarkError(null)
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
     try {
       await markAllNotificationsRead()
       refreshUnreadCount()
     } catch (err) {
-      setError(extractErrorMessage(err, '既読にできませんでした'))
+      setNotifications((prev) => prev.map((n) => (unreadIds.has(n.id) ? { ...n, is_read: false } : n)))
+      setMarkError(extractErrorMessage(err, '既読にできませんでした'))
     }
   }
 
   return (
     <div className="mx-auto max-w-2xl">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">通知</h1>
+        <h1 className="text-xl font-semibold text-fg">通知</h1>
         {unreadCount > 0 && (
           <button
             onClick={handleMarkAllRead}
-            className="rounded-md border border-border px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            className="rounded-md border border-border px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-muted"
           >
             すべて既読にする
           </button>
         )}
       </div>
 
-      {loading && <p className="mt-6 text-slate-500">読み込み中...</p>}
+      {loading && <p className="mt-6 text-fg-muted">読み込み中...</p>}
       {error && (
-        <p role="alert" className="mt-6 text-red-600">
+        <p role="alert" className="mt-6 text-red-300">
           {error}
         </p>
       )}
       {!loading && notifications.length === 0 && (
-        <p className="mt-6 text-slate-500">通知はまだありません。</p>
+        <p className="mt-6 text-fg-muted">通知はまだありません。</p>
       )}
 
       <ul className="mt-6 space-y-3">
@@ -93,8 +99,8 @@ export function NotificationsPage() {
               onClick={() => handleOpen(notification)}
               className={`flex items-start gap-3 rounded-lg border p-4 transition hover:shadow-md ${
                 notification.is_read
-                  ? 'border-border-muted bg-white'
-                  : 'border-border bg-slate-50'
+                  ? 'border-border-muted bg-surface'
+                  : 'border-border bg-surface-muted'
               }`}
             >
               <span
@@ -110,16 +116,16 @@ export function NotificationsPage() {
                   >
                     {typeLabel[notification.type]}
                   </span>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-fg-muted">
                     {formatDateTime(notification.created_at)}
                   </span>
                 </div>
                 <p
-                  className={`mt-1 text-sm ${notification.is_read ? 'text-slate-600' : 'font-medium text-slate-900'}`}
+                  className={`mt-1 whitespace-pre-wrap break-words text-sm ${notification.is_read ? 'text-fg-secondary' : 'font-medium text-fg'}`}
                 >
                   {notification.message}
                 </p>
-                <p className="mt-1 truncate text-xs text-slate-400">{notification.workshop_title}</p>
+                <p className="mt-1 truncate text-xs text-fg-subtle">{notification.workshop_title}</p>
               </div>
             </Link>
           </li>

@@ -20,7 +20,14 @@ class InquiryMessageRead(BaseModel):
     # 閲覧しているユーザー自身が送ったメッセージか
     is_mine: bool
     body: str
+    # 主催者が参加者全員に一斉送信したお知らせか
+    is_broadcast: bool
     created_at: UTCDateTime
+
+
+class InquiryBroadcastResult(BaseModel):
+    # お知らせを届けた参加者の人数
+    sent_count: int
 
 
 class InquirySummary(BaseModel):

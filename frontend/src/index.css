@@ -1,23 +1,122 @@
 @import "tailwindcss";
 
-/* アプリ全体の配色トークン。bg-background / bg-accent / border-border / ring-ring などで参照する */
+/* アプリ全体の配色トークン。コンセプトは「夜の余白」:
+   仕事帰りの夜の静けさをイメージした深い紺を地に、手元の灯りのような琥珀色を差し色にする。
+   色はクラスに直接書かず、bg-surface / text-fg / bg-accent / border-border / ring-ring などのトークンで参照する */
 @theme {
-  --color-background: #f8fafc; /* slate-50 */
-  --color-accent: #0f172b; /* slate-900 */
-  --color-accent-hover: #314158; /* slate-700 */
-  --color-accent-foreground: #fff;
-  --color-border: #cad5e2; /* slate-300: 入力欄・ボタンの枠線 */
-  --color-border-muted: #e2e8f0; /* slate-200: カード・区切り線 */
-  --color-ring: #62748e; /* slate-500: フォーカスリング・フォーカス時の枠線 */
+  /* 地と面。background(ページの地) < surface(カード・入力欄) < surface-muted(ホバー・薄い面) < surface-strong(バッジ・アイコンの地) の順に明るくなる */
+  --color-background: #0b1120;
+  --color-surface: #121a2c;
+  --color-surface-muted: #19223a;
+  --color-surface-strong: #232e49;
 
-  /* サービス名(ロゴ)用の游明朝。font-brand で参照する。
+  /* 文字。fg(見出し・本文) > fg-secondary(ラベル・補足) > fg-muted(注記) > fg-subtle(装飾的なアイコン) の順に控えめになる。
+     fg-muted までは surface の上でコントラスト比 4.5:1 以上、fg-subtle はアイコン用で 3:1 以上 */
+  --color-fg: #ece7dc; /* 少し温かみのある白。真っ白より目に柔らかい */
+  --color-fg-secondary: #bcc3d1;
+  --color-fg-muted: #8f99ad;
+  --color-fg-subtle: #6b7690;
+
+  /* 差し色は灯りの琥珀色。上に乗る文字は暗い色にする */
+  --color-accent: #e3b071;
+  --color-accent-hover: #edc48f;
+  --color-accent-foreground: #1a1308;
+
+  --color-border: #313d58; /* 入力欄・ボタンの枠線 */
+  --color-border-muted: #212a40; /* カード・区切り線 */
+  --color-ring: #e3b071; /* フォーカスリング・フォーカス時の枠線 */
+
+  /* サービス名(ロゴ)や見出しの游明朝。font-brand で参照する。
      Windows は "Yu Mincho"、Mac は "YuMincho" という名前で入っている。游明朝がない環境(Android など)は明朝体にフォールバック */
+  /* 紙のカードの影。枠線の代わりに、机に置いた紙のような柔らかい影で地から浮かせる。
+     上辺のごく細い明るい線は、紙の厚みが光を受けている感じを出す */
+  --shadow-paper: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 20px -6px rgb(0 0 0 / 0.6);
+  --shadow-paper-lift: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 2px 4px rgb(0 0 0 / 0.5), 0 18px 32px -10px rgb(0 0 0 / 0.7);
+
   --font-brand: "Yu Mincho", "YuMincho", "游明朝", "Hiragino Mincho ProN", serif;
 }
 
-/* キーボード操作でフォーカスしたときの枠線。focus:outline-none と組み合わせて使う */
+/* キーボード操作でフォーカスしたときの枠線。focus:outline-none と組み合わせて使う。
+   リングの外側の隙間は夜色の地に合わせる */
 @utility focus-ring {
-  @apply focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1;
+  @apply focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background;
+}
+
+/* ページの地。上の方にだけ、遠くの灯りのようなごく淡い光をにじませる */
+@utility bg-night {
+  background-color: var(--color-background);
+  background-image:
+    radial-gradient(ellipse 60% 40% at 80% -10%, rgb(227 176 113 / 0.07), transparent 70%),
+    radial-gradient(ellipse 70% 50% at 10% 0%, rgb(99 120 180 / 0.08), transparent 70%);
+  background-attachment: fixed;
+}
+
+/* 紙の面(ワークショップのカード)。夜の地に、紺がかった紙(月明かりの下の紙)が置かれているように見せる。
+   この中ではトークンを紙用の値に差し替えるので、中の部品は text-fg などをそのまま使えば濃い文字になる。
+   文字色はいずれも紙の上(縁のくすみを含む)でコントラスト比 4.5:1 以上(fg-subtle はアイコン用で 3:1 以上) */
+@utility theme-paper {
+  --color-surface: #e8ebf0;
+  --color-surface-muted: #c8ced9;
+  --color-surface-strong: #c2c9d5;
+  --color-fg: #1f2433; /* インクの色 */
+  --color-fg-secondary: #3a4152;
+  --color-fg-muted: #535968;
+  --color-fg-subtle: #6c7282;
+  --color-border: #b7bfcd;
+  --color-border-muted: #c2c9d5;
+  /* 差し色は、紙に書いたインクの濃い紺にする。夜の地向けの琥珀色は、青みの紙とほぼ補色で明るさも近く、
+     ボタンの境目がちかちかして見えるため。夜の地の上(ヘッダーなど)のボタンは琥珀色のまま */
+  --color-accent: #1f2a44;
+  --color-accent-hover: #2d3b5e;
+  --color-accent-foreground: #ece7dc;
+  /* 琥珀色のままだと紙の上で見えにくいので、フォーカスの枠は濃い琥珀色にする(紙・夜の地のどちらとも 3:1 以上) */
+  --color-ring: #8f5f22;
+
+  /* バッジや曜日などの状態の色は、夜の地向けの淡い色を、紙の上で読める濃い色に置き換える */
+  --color-amber-200: #92400e;
+  --color-red-200: #991b1b;
+  --color-red-300: #b91c1c;
+  --color-indigo-200: #3730a3;
+
+  /* 紺がかった紙の色に、紙の質感を2枚重ねる。
+     上: 縁がほんのりくすむ(古い紙や、灯りが中央に当たっている感じ)
+     下: ごく細かいノイズで紙の繊維のざらつきを出す(SVG のノイズを小さく敷き詰める) */
+  background-color: #d3d8e1;
+  background-image:
+    radial-gradient(ellipse at 50% 40%, transparent 65%, rgb(40 55 90 / 0.10) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.15 0 0 0 0 0.2 0 0 0 0 0.35 0 0 0 0.24 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  color: var(--color-fg);
+  color-scheme: light;
+}
+
+/* 紙のカードの角の折れ。theme-paper と組み合わせて使う。
+   飾りなので、クリックは下(カード全体に広げたリンク)に素通りさせる */
+@utility paper-corner-fold {
+  /* 右下の角の折れ。右下半分は地の色で角が欠けたように見せ、左上半分は折り返った紙の裏側。
+     折り返しの境目に向かって少し暗くして、折った厚みを出す */
+  &::before {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 28px;
+    height: 28px;
+    pointer-events: none;
+    border-top-left-radius: 3px;
+    background: linear-gradient(
+      to top left,
+      var(--color-background) 50%,
+      #a9b0bf 50%,
+      #c3c9d4 62%,
+      #ccd2dc 100%
+    );
+    box-shadow: -2px -2px 4px rgb(20 30 60 / 0.14);
+  }
+}
+
+:root {
+  /* 日付入力・セレクトボックス・スクロールバーなど、ブラウザ標準の部品も暗い配色で表示する */
+  color-scheme: dark;
 }
 
 html,
@@ -28,4 +127,12 @@ body,
 
 body {
   margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-fg);
+  /* 和文の詰めすぎを避け、少しゆったり読ませる */
+  letter-spacing: 0.02em;
+}
+
+::selection {
+  background-color: rgb(227 176 113 / 0.3);
 }

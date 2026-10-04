@@ -15,6 +15,7 @@ class FailureLimiter:
         self._window_seconds = window_seconds
         self._failures: dict[str, deque[float]] = defaultdict(deque)
         self._lock = threading.Lock()
+        self._last_sweep = time.monotonic()
 
     def _prune(self, key: str, now: float) -> deque[float]:
         failures = self._failures[key]
@@ -38,9 +39,18 @@ class FailureLimiter:
             return None
         return max(1, int(max(waits)) + 1)
 
+    def _sweep(self, now: float) -> None:
+        """期限切れの記録をすべて消す。二度と確かめられないキー(使い捨てのメールアドレスなど)が溜まり続けないように"""
+        if now - self._last_sweep < self._window_seconds:
+            return
+        self._last_sweep = now
+        for key in list(self._failures):
+            self._prune(key, now)
+
     def record_failure(self, *keys: str) -> None:
         now = time.monotonic()
         with self._lock:
+            self._sweep(now)
             for key in keys:
                 self._failures[key].append(now)
 

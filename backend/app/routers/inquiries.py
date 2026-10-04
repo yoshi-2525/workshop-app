@@ -6,25 +6,29 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_roles
 from app.core.timeutil import utcnow_naive
 from app.database import get_db
 from app.models.inquiry import Inquiry, InquiryMessage
-from app.models.user import User
+from app.models.reservation import Reservation, ReservationStatus
+from app.models.user import User, UserRole
 from app.models.workshop import Workshop, WorkshopStatus
-from app.schemas.inquiry import InquiryDetail, InquiryMessageCreate, InquiryMessageRead, InquirySummary
+from app.schemas.inquiry import (
+    InquiryBroadcastResult,
+    InquiryDetail,
+    InquiryMessageCreate,
+    InquiryMessageRead,
+    InquirySummary,
+)
+from app.services.inquiries import add_message, get_or_create_inquiry, is_participant
 from app.services.pagination import PageQuery, paginate
-from app.services.workshops import get_viewable_workshop
+from app.services.workshops import get_viewable_workshop, lock_workshop
 
 # 参加者から主催者への問い合わせ。やり取りはワークショップと参加者の組み合わせごとに1つにまとめる。
 # 見られるのは問い合わせた参加者と、そのワークショップの主催者だけ(管理者でも他人のやり取りは見られない)
 router = APIRouter(tags=["inquiries"])
 
 _NOT_FOUND = "問い合わせが見つかりません"
-
-
-def _is_participant(inquiry: Inquiry, user: User) -> bool:
-    return inquiry.participant_id == user.id
 
 
 def _involves(user: User):
@@ -71,14 +75,14 @@ def _to_summaries(db: Session, inquiries: Sequence[Inquiry], user: User) -> list
 
     summaries = []
     for inquiry in inquiries:
-        is_participant = _is_participant(inquiry, user)
-        counterpart = inquiry.workshop.facilitator if is_participant else inquiry.participant
+        as_participant = is_participant(inquiry, user)
+        counterpart = inquiry.workshop.facilitator if as_participant else inquiry.participant
         summaries.append(
             InquirySummary(
                 id=inquiry.id,
                 workshop_id=inquiry.workshop_id,
                 workshop_title=inquiry.workshop.title,
-                my_role="participant" if is_participant else "facilitator",
+                my_role="participant" if as_participant else "facilitator",
                 counterpart_id=counterpart.id,
                 counterpart_name=counterpart.name,
                 counterpart_avatar_url=counterpart.avatar_url,
@@ -107,6 +111,7 @@ def _to_detail(db: Session, inquiry: Inquiry, user: User) -> InquiryDetail:
                 sender_name=m.sender.name,
                 is_mine=m.sender_id == user.id,
                 body=m.body,
+                is_broadcast=m.is_broadcast,
                 created_at=m.created_at,
             )
             for m in messages
@@ -122,18 +127,6 @@ def _get_my_inquiry(db: Session, inquiry_id: int, user: User) -> Inquiry:
     ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
     return inquiry
-
-
-def _add_message(db: Session, inquiry: Inquiry, user: User, body: str) -> None:
-    """メッセージを追加し、送った本人の既読位置も進める(commit は呼び出し側)"""
-    message = InquiryMessage(inquiry_id=inquiry.id, sender_id=user.id, body=body)
-    db.add(message)
-    db.flush()
-    inquiry.last_message_at = utcnow_naive()
-    if _is_participant(inquiry, user):
-        inquiry.participant_last_read_id = message.id
-    else:
-        inquiry.facilitator_last_read_id = message.id
 
 
 class InquiryListQuery(PageQuery):
@@ -194,7 +187,7 @@ def mark_inquiry_read(
 ) -> None:
     inquiry = _get_my_inquiry(db, inquiry_id, current_user)
     last_id = db.scalar(select(func.max(InquiryMessage.id)).where(InquiryMessage.inquiry_id == inquiry.id)) or 0
-    if _is_participant(inquiry, current_user):
+    if is_participant(inquiry, current_user):
         inquiry.participant_last_read_id = max(inquiry.participant_last_read_id, last_id)
     else:
         inquiry.facilitator_last_read_id = max(inquiry.facilitator_last_read_id, last_id)
@@ -213,7 +206,7 @@ def reply_inquiry(
     current_user: User = Depends(get_current_user),
 ) -> InquiryDetail:
     inquiry = _get_my_inquiry(db, inquiry_id, current_user)
-    _add_message(db, inquiry, current_user, payload.body)
+    add_message(db, inquiry, current_user, payload.body)
     db.commit()
     db.refresh(inquiry)
     return _to_detail(db, inquiry, current_user)
@@ -266,16 +259,67 @@ def send_workshop_inquiry(
     _get_inquirable_workshop(db, workshop_id, current_user)
     inquiry = _find_workshop_inquiry(db, workshop_id, current_user)
     if inquiry is None:
+        # やり取りの作成とメッセージの追加を1つのトランザクションで確定し、空のやり取りを残さない
         db.add(Inquiry(workshop_id=workshop_id, participant_id=current_user.id, last_message_at=utcnow_naive()))
         try:
-            db.commit()
+            db.flush()
         except IntegrityError:
-            # 同時に送った別のリクエストが先に作った場合は、そちらに追加する
+            # 同時に送った別のリクエストが先に作った場合は、そちらに追加する。
+            # まだ何も書き込んでいないので、トランザクションごと取り消して(読み取りの時点も新しくして)読み直す
             db.rollback()
         inquiry = _find_workshop_inquiry(db, workshop_id, current_user)
         if inquiry is None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="問い合わせを作成できませんでした")
-    _add_message(db, inquiry, current_user, payload.body)
+    add_message(db, inquiry, current_user, payload.body)
     db.commit()
     db.refresh(inquiry)
     return _to_detail(db, inquiry, current_user)
+
+
+@router.post(
+    "/workshops/{workshop_id}/inquiry/broadcast",
+    response_model=InquiryBroadcastResult,
+    status_code=status.HTTP_201_CREATED,
+)
+def broadcast_workshop_inquiry(
+    workshop_id: int,
+    payload: InquiryMessageCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+) -> InquiryBroadcastResult:
+    """主催者が、予約が確定している参加者全員にお知らせを送る。
+
+    各参加者とのやり取りに同じメッセージを1通ずつ追加する(やり取りがなければ作る)。
+    やり取りは参加者と主催者だけのものなので、管理者でも他人のワークショップからは送れない
+    """
+    # 一斉送信と予約の受付が同時に走っても、送信対象の参加者が食い違わないよう行をロックする
+    workshop = lock_workshop(db, workshop_id)
+    if workshop is None or workshop.facilitator_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
+    # 下書きは予約を受け付けておらず、中止したものには中止のお知らせが届いているので、公開中のものだけ
+    if workshop.status != WorkshopStatus.published:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="お知らせを送れるのは公開中のワークショップだけです"
+        )
+
+    participant_ids = db.scalars(
+        select(Reservation.user_id)
+        .where(
+            Reservation.workshop_id == workshop.id,
+            Reservation.status == ReservationStatus.confirmed,
+            # 自分自身とのやり取りは作らない
+            Reservation.user_id != workshop.facilitator_id,
+        )
+        .distinct()
+    ).all()
+    if not participant_ids:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="お知らせを送る参加者がいません")
+
+    # 全員分をまとめて確定する(途中で失敗したら誰にも届かない)
+    for participant_id in participant_ids:
+        inquiry = get_or_create_inquiry(db, workshop.id, participant_id)
+        if inquiry is None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="お知らせを送信できませんでした")
+        add_message(db, inquiry, current_user, payload.body, is_broadcast=True)
+    db.commit()
+    return InquiryBroadcastResult(sent_count=len(participant_ids))

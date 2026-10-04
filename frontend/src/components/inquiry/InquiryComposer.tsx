@@ -51,7 +51,7 @@ export function InquiryComposer({ onSend, label = 'メッセージ', placeholder
 
   return (
     <form onSubmit={handleSubmit}>
-      <label htmlFor={id} className="block text-sm font-medium text-slate-700">
+      <label htmlFor={id} className="block text-sm font-medium text-fg-secondary">
         {label}
       </label>
       <textarea
@@ -70,12 +70,12 @@ export function InquiryComposer({ onSend, label = 'メッセージ', placeholder
         className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none"
       />
       {emptyError && (
-        <p id={errorId} role="alert" className="mt-1 text-sm text-red-600">
+        <p id={errorId} role="alert" className="mt-1 text-sm text-red-300">
           メッセージを入力してください
         </p>
       )}
       <div className="mt-2 flex items-center justify-between gap-2">
-        <p id={helpId} className="text-xs text-slate-500">
+        <p id={helpId} className="text-xs text-fg-muted">
           Ctrl+Enter で送信 ・ {body.length} / {INQUIRY_MESSAGE_MAX_LENGTH} 文字
         </p>
         <button

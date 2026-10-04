@@ -16,8 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
-    # development 以外では、JWT の秘密鍵が初期値・短すぎる場合に起動を止める
-    app_env: str = "development"
+    # development 以外では、JWT の秘密鍵が初期値・短すぎる場合に起動を止める。
+    # 設定し忘れたときに弱い鍵のまま本番で動かないよう、初期値は production にする
+    app_env: str = "production"
     db_host: str = "localhost"
     db_port: int = 3306
     db_user: str = "root"

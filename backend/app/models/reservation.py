@@ -20,6 +20,14 @@ class ReservationStatus(str, enum.Enum):
     canceled = "canceled"
 
 
+class AttendanceStatus(str, enum.Enum):
+    """開催当日に主催者が記録する出欠"""
+
+    unconfirmed = "unconfirmed"
+    present = "present"
+    absent = "absent"
+
+
 class Reservation(Base):
     __tablename__ = "reservations"
     __table_args__ = (
@@ -39,6 +47,12 @@ class Reservation(Base):
     status: Mapped[ReservationStatus] = mapped_column(
         Enum(ReservationStatus, name="reservation_status"),
         default=ReservationStatus.confirmed,
+        nullable=False,
+    )
+    attendance: Mapped[AttendanceStatus] = mapped_column(
+        Enum(AttendanceStatus, name="attendance_status"),
+        default=AttendanceStatus.unconfirmed,
+        server_default=AttendanceStatus.unconfirmed.value,
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(

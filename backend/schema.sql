@@ -1,5 +1,5 @@
 -- Workshop App: MySQL schema
--- Matches app/models/*.py and alembic/versions (up to 0014). Keep in sync if models change.
+-- Matches app/models/*.py and alembic/versions (up to 0016). Keep in sync if models change.
 
 CREATE TABLE users (
 	id INTEGER NOT NULL AUTO_INCREMENT,
@@ -26,6 +26,8 @@ CREATE TABLE workshops (
 	capacity INTEGER NOT NULL DEFAULT 10,
 	price INTEGER NOT NULL DEFAULT 0,
 	cancellation_policy TEXT NOT NULL DEFAULT '',
+	participant_guide TEXT NOT NULL DEFAULT '',
+	emergency_contact VARCHAR(255) NOT NULL DEFAULT '',
 	status ENUM('draft','published','canceled') NOT NULL DEFAULT 'draft',
 	facilitator_id INTEGER NOT NULL,
 	published_at DATETIME NULL,
@@ -42,6 +44,7 @@ CREATE TABLE reservations (
 	contact VARCHAR(255) NOT NULL DEFAULT '',
 	ticket_count INTEGER NOT NULL DEFAULT 1,
 	status ENUM('confirmed','canceled') NOT NULL DEFAULT 'confirmed',
+	attendance ENUM('unconfirmed','present','absent') NOT NULL DEFAULT 'unconfirmed',
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
 	CONSTRAINT uq_reservation_workshop_user UNIQUE (workshop_id, user_id),
@@ -94,6 +97,7 @@ CREATE TABLE inquiry_messages (
 	inquiry_id INTEGER NOT NULL,
 	sender_id INTEGER NOT NULL,
 	body TEXT NOT NULL,
+	is_broadcast BOOL NOT NULL DEFAULT false,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
 	KEY ix_inquiry_messages_inquiry_id (inquiry_id),

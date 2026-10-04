@@ -10,17 +10,17 @@ interface AuthThemeStyle {
 
 export const authThemeStyles: Record<AuthTheme, AuthThemeStyle> = {
   participant: {
-    panelBg: 'bg-amber-50',
-    badgeBg: 'bg-amber-100 text-amber-800',
+    panelBg: 'bg-amber-400/10',
+    badgeBg: 'bg-amber-400/15 text-amber-200',
     badgeLabel: '参加者',
-    button: 'bg-amber-600 hover:bg-amber-700',
-    focusRing: 'focus:border-amber-500',
+    button: 'bg-amber-700 hover:bg-amber-600',
+    focusRing: 'focus:border-amber-400',
   },
   facilitator: {
-    panelBg: 'bg-indigo-50',
-    badgeBg: 'bg-indigo-100 text-indigo-800',
+    panelBg: 'bg-indigo-400/10',
+    badgeBg: 'bg-indigo-400/15 text-indigo-200',
     badgeLabel: '主催者',
-    button: 'bg-indigo-700 hover:bg-indigo-800',
-    focusRing: 'focus:border-indigo-500',
+    button: 'bg-indigo-700 hover:bg-indigo-600',
+    focusRing: 'focus:border-indigo-400',
   },
 }

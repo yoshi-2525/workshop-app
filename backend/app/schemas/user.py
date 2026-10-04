@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -11,6 +12,9 @@ from app.schemas.types import TrimmedStr
 # via the set_role.py script, never through the public API.
 SelfRegisterRole = Literal[UserRole.facilitator, UserRole.participant]
 
+# パスワードに使える文字。フロントエンドの utils/user.ts の PASSWORD_PATTERN と揃える
+_PASSWORD_PATTERN = re.compile(r"[\x21-\x7e]+")
+
 
 class UserRegister(BaseModel):
     name: TrimmedStr = Field(min_length=1, max_length=255)
@@ -20,13 +24,13 @@ class UserRegister(BaseModel):
 
     @field_validator("password")
     @classmethod
-    def check_password_bytes(cls, value: str) -> str:
-        # bcrypt は 72 バイトより後ろを無視するので、黙って切り捨てずに弾く(日本語などは1文字3バイト)
-        if len(value.encode("utf-8")) > BCRYPT_MAX_BYTES:
+    def check_password_characters(cls, value: str) -> str:
+        # 半角英数字と記号(スペースを除く ASCII の印字可能文字)だけを受け付ける。
+        # 1文字が必ず1バイトになるので、文字数の上限(max_length)がそのまま bcrypt の 72 バイトの上限と一致する
+        if not _PASSWORD_PATTERN.fullmatch(value):
             raise PydanticCustomError(
-                "password_too_long",
-                "パスワードは {max_bytes} バイト以内にしてください(英数字なら {max_bytes} 文字まで)",
-                {"max_bytes": BCRYPT_MAX_BYTES},
+                "password_invalid_characters",
+                "パスワードは半角英数字と記号で入力してください(全角文字・スペースは使えません)",
             )
         return value
 

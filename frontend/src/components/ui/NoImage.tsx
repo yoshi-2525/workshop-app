@@ -4,7 +4,7 @@ export function NoImage({ className = '' }: { className?: string }) {
   return (
     <div
       aria-hidden="true"
-      className={`flex aspect-video w-full flex-col items-center justify-center gap-1 bg-slate-100 text-slate-400 ${className}`}
+      className={`flex aspect-video w-full flex-col items-center justify-center gap-1 bg-surface-strong text-fg-subtle ${className}`}
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-10 w-10">
         <rect x="3" y="4" width="18" height="16" rx="2" />

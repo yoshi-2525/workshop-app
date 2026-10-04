@@ -32,7 +32,7 @@ export function LoginForm({
   switchTo,
   switchLabel,
 }: LoginFormProps) {
-  const { login, logout } = useAuth()
+  const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [email, setEmail] = useState('')
@@ -48,9 +48,8 @@ export function LoginForm({
     setError(null)
     setSubmitting(true)
     try {
-      const user = await login(email, password)
-      if (!allowedRoles.includes(user.role)) {
-        logout()
+      const user = await login(email, password, allowedRoles)
+      if (!user) {
         setError(wrongRoleMessage)
         return
       }
@@ -69,11 +68,11 @@ export function LoginForm({
         <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${style.badgeBg}`}>
           {style.badgeLabel}向け
         </span>
-        <h1 className="mt-3 text-xl font-semibold text-slate-900">{title}</h1>
-        <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-lg bg-white p-5 shadow-sm">
+        <h1 className="mt-3 text-xl font-semibold text-fg">{title}</h1>
+        <p className="mt-1 text-sm text-fg-muted">{subtitle}</p>
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-lg bg-surface p-5 shadow-sm">
           <div>
-            <label htmlFor={emailId} className="block text-sm font-medium text-slate-700">
+            <label htmlFor={emailId} className="block text-sm font-medium text-fg-secondary">
               メールアドレス
             </label>
             <input
@@ -87,7 +86,7 @@ export function LoginForm({
             />
           </div>
           <div>
-            <label htmlFor={passwordId} className="block text-sm font-medium text-slate-700">
+            <label htmlFor={passwordId} className="block text-sm font-medium text-fg-secondary">
               パスワード
             </label>
             <input
@@ -101,7 +100,7 @@ export function LoginForm({
             />
           </div>
           {error && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-red-300">
               {error}
             </p>
           )}
@@ -113,15 +112,15 @@ export function LoginForm({
             {submitting ? 'ログイン中...' : 'ログイン'}
           </button>
         </form>
-        <p className="mt-4 text-sm text-slate-600">
+        <p className="mt-4 text-sm text-fg-secondary">
           アカウントをお持ちでない場合は{' '}
-          <Link to={registerTo} className="text-slate-900 underline">
+          <Link to={registerTo} className="text-fg underline">
             {registerLabel}
           </Link>
         </p>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-fg-secondary">
           {/* ログイン後の戻り先(state.from)を切り替え先にも引き継ぐ */}
-          <Link to={switchTo} state={location.state} className="text-slate-900 underline">
+          <Link to={switchTo} state={location.state} className="text-fg underline">
             {switchLabel}
           </Link>
         </p>

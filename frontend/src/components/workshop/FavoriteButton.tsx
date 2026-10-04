@@ -66,7 +66,8 @@ export function FavoriteButton({ workshopId, isFavorited, onChange, className = 
         aria-pressed={favorited}
         aria-label={favorited ? 'お気に入りから外す' : 'お気に入りに追加'}
         className={`peer inline-flex items-center justify-center rounded-full p-2 transition disabled:opacity-50 ${
-          favorited ? 'text-red-500 hover:text-red-600' : 'text-slate-300 hover:text-red-400'
+          // 未登録時の枠線のアイコンも、背景とのコントラスト比 3:1 以上になる fg-muted を使う
+          favorited ? 'text-red-300 hover:text-red-200' : 'text-fg-muted hover:text-red-300'
         }`}
       >
         <svg
@@ -89,7 +90,7 @@ export function FavoriteButton({ workshopId, isFavorited, onChange, className = 
       {error && (
         <span
           role="alert"
-          className="absolute right-0 top-full z-20 mt-1 w-max max-w-60 rounded-md border border-red-200 bg-white px-2 py-1 text-xs text-red-600 shadow"
+          className="absolute right-0 top-full z-20 mt-1 w-max max-w-60 rounded-md border border-red-400/30 bg-surface px-2 py-1 text-xs text-red-300 shadow"
         >
           {error}
         </span>

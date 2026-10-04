@@ -34,6 +34,12 @@ export async function getWorkshopInquiry(workshopId: number, signal?: AbortSigna
   return data
 }
 
+// 主催者が、予約している参加者全員にお知らせを送る。届けた人数を返す
+export async function broadcastWorkshopInquiry(workshopId: number, body: string): Promise<number> {
+  const { data } = await apiClient.post<{ sent_count: number }>(`/workshops/${workshopId}/inquiry/broadcast`, { body })
+  return data.sent_count
+}
+
 // 主催者に問い合わせる。初めてならやり取りが作られ、既にあればそこに追加される
 export async function sendWorkshopInquiry(workshopId: number, body: string): Promise<InquiryDetail> {
   const { data } = await apiClient.post<InquiryDetail>(`/workshops/${workshopId}/inquiry/messages`, { body })

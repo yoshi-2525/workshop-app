@@ -2,20 +2,23 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 import { Link } from 'react-router-dom'
 import type { Workshop } from '@/types'
 import { formatPrice } from '@/utils/format'
-import { isWorkshopFull, priceTextClass } from '@/utils/workshop'
+import { isReservationClosed, isWorkshopFull } from '@/utils/workshop'
 import { LocationTypeBadge } from '@/components/workshop/LocationTypeBadge'
 import { MaterialIcon } from '@/components/ui/MaterialIcon'
 import { NoImage } from '@/components/ui/NoImage'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
+import { PaperCard } from '@/components/ui/PaperCard'
 
 // 詳細ページの下に並べる、小さめのワークショップカード。
-// リンクはタイトルだけにして、当たり判定(::after)をカード全体に広げる(WorkshopCard と同じ作り)
+// リンクはタイトルだけにして、当たり判定(::after)をカード全体に広げる(WorkshopCard と同じ作り)。
+// 面も WorkshopCard と同じ紙にする。余白が狭く角の折れが文字にかかるので、折れは付けない
 function CompactWorkshopCard({ workshop }: { workshop: Workshop }) {
   const [imageFailed, setImageFailed] = useState(false)
   const isFull = isWorkshopFull(workshop)
+  const isClosed = isReservationClosed(workshop)
 
   return (
-    <div className="relative flex w-full flex-col rounded-lg border border-border-muted bg-white p-2 shadow-sm transition focus-within:ring-2 focus-within:ring-ring hover:shadow-md">
+    <PaperCard interactive cornerFold={false} className="flex w-full flex-col p-2">
       {workshop.image_url && !imageFailed ? (
         <img
           src={workshop.image_url}
@@ -27,7 +30,7 @@ function CompactWorkshopCard({ workshop }: { workshop: Workshop }) {
       ) : (
         <NoImage className="rounded-md" />
       )}
-      <h3 className="mt-2 line-clamp-2 text-sm font-semibold text-slate-900">
+      <h3 className="mt-2 line-clamp-2 text-sm font-semibold text-fg">
         <Link
           to={`/workshops/${workshop.id}`}
           className="after:absolute after:inset-0 after:rounded-lg focus:outline-none"
@@ -35,25 +38,29 @@ function CompactWorkshopCard({ workshop }: { workshop: Workshop }) {
           {workshop.title}
         </Link>
       </h3>
-      <p className="mt-1 text-xs text-slate-500"><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} /></p>
-      <p className="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs text-fg-muted"><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} /></p>
+      <p className="mt-1 flex min-w-0 items-center gap-1 text-xs text-fg-muted">
         <LocationTypeBadge type={workshop.location_type} className="shrink-0" />
         <span className="truncate">{workshop.location}</span>
       </p>
       <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs">
-        <span className={priceTextClass(workshop.price)}>{formatPrice(workshop.price)}</span>
+        <span className="text-fg">{formatPrice(workshop.price)}</span>
         {workshop.viewer.is_reserved ? (
-          <span className="font-medium text-indigo-700">予約済み</span>
+          <span className="font-medium text-indigo-200">予約済み</span>
         ) : (
-          isFull && <span className="font-semibold text-red-600">満員</span>
+          (isClosed ? (
+            <span className="font-semibold text-fg-muted">受付終了</span>
+          ) : (
+            isFull && <span className="font-semibold text-red-300">満員</span>
+          ))
         )}
       </p>
-    </div>
+    </PaperCard>
   )
 }
 
 const NAV_BUTTON_CLASS =
-  'flex h-8 w-8 items-center justify-center rounded-full border border-border bg-white text-slate-600 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-40 disabled:hover:bg-white'
+  'flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface text-fg-secondary hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-40 disabled:hover:bg-surface'
 
 interface RelatedWorkshopSectionProps {
   title: string
@@ -101,7 +108,7 @@ export function RelatedWorkshopSection({ title, workshops, action }: RelatedWork
   return (
     <section aria-labelledby={headingId} className="mt-8">
       <div className="flex items-center justify-between gap-2">
-        <h2 id={headingId} className="text-base font-semibold text-slate-900">
+        <h2 id={headingId} className="text-base font-semibold text-fg">
           {title}
         </h2>
         <div className="flex shrink-0 items-center gap-3">

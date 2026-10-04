@@ -33,7 +33,10 @@ export async function register(payload: RegisterPayload): Promise<User> {
   return data
 }
 
-export async function fetchCurrentUser(): Promise<User> {
-  const { data } = await apiClient.get<User>('/auth/me')
+// token を渡すと、保存済みのトークンではなくそのトークンでユーザーを取得する(保存前の確認に使う)
+export async function fetchCurrentUser(token?: string): Promise<User> {
+  const { data } = await apiClient.get<User>('/auth/me', {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
   return data
 }

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { deleteWorkshop, listManagedWorkshops } from '@/api/workshops'
 import { extractErrorMessage } from '@/api/client'
 import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
+import { useApiResource } from '@/hooks/useApiResource'
 import type { Workshop } from '@/types'
 import { isWorkshopFinished } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
@@ -27,22 +28,17 @@ function startTime(workshop: Workshop): number {
 
 export function ManageWorkshopsPage() {
   const [tab, setTab] = useState<Tab>('upcoming')
-  const [workshops, setWorkshops] = useState<Workshop[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  function load() {
-    setLoading(true)
-    listManagedWorkshops()
-      .then(setWorkshops)
-      .catch((err) => setError(extractErrorMessage(err, '取得に失敗しました')))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(load, [])
+  const { data, loading, error: loadError, reload } = useApiResource(
+    'managed-workshops',
+    listManagedWorkshops,
+    '取得に失敗しました',
+  )
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const error = loadError ?? deleteError
 
   // タブの中身を見出しごとに分ける。見出しのない最初のまとまりが、そのタブの本体
   const sections = useMemo((): { heading?: string; items: Workshop[] }[] => {
+    const workshops = data ?? []
     // 中止したものは、公開中のものと混ざらないよう見出しを分けて下に並べる
     function splitCanceled(items: Workshop[]) {
       const canceled = items.filter((w) => w.status === 'canceled')
@@ -72,22 +68,23 @@ export function ManageWorkshopsPage() {
           { items: workshops.filter((w) => w.status === 'draft').sort((a, b) => startTime(a) - startTime(b)) },
         ]
     }
-  }, [workshops, tab])
+  }, [data, tab])
 
   async function handleDelete(id: number) {
     if (!confirm('このワークショップを削除しますか?')) return
+    setDeleteError(null)
     try {
       await deleteWorkshop(id)
-      load()
+      reload()
     } catch (err) {
-      setError(extractErrorMessage(err, '削除に失敗しました'))
+      setDeleteError(extractErrorMessage(err, '削除に失敗しました'))
     }
   }
 
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">ワークショップ管理</h1>
+        <h1 className="text-xl font-semibold text-fg">ワークショップ管理</h1>
         <Link
           to="/manage/workshops/new"
           className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
@@ -105,23 +102,23 @@ export function ManageWorkshopsPage() {
         className="mt-4"
       />
 
-      {loading && <p className="mt-6 text-slate-500">読み込み中...</p>}
+      {loading && <p className="mt-6 text-fg-muted">読み込み中...</p>}
       {error && (
-        <p role="alert" className="mt-6 text-red-600">
+        <p role="alert" className="mt-6 text-red-300">
           {error}
         </p>
       )}
       {!loading && sections.map((section) => (
         <section key={section.heading ?? 'main'} className="mt-6">
-          {section.heading && <h2 className="mb-3 text-base font-semibold text-slate-700">{section.heading}</h2>}
+          {section.heading && <h2 className="mb-3 text-base font-semibold text-fg-secondary">{section.heading}</h2>}
           {section.items.length === 0 ? (
-            <p className="text-slate-500">{EMPTY_MESSAGE[tab]}</p>
+            <p className="text-fg-muted">{EMPTY_MESSAGE[tab]}</p>
           ) : (
             <ul className="space-y-3">
               {section.items.map((workshop) => (
                 <li
                   key={workshop.id}
-                  className="flex items-center justify-between rounded-lg border border-border-muted bg-white p-4"
+                  className="flex items-center justify-between rounded-lg border border-border-muted bg-surface p-4"
                 >
                   <div className="flex items-center gap-3">
                     {workshop.image_url ? (
@@ -134,14 +131,14 @@ export function ManageWorkshopsPage() {
                         }}
                       />
                     ) : (
-                      <div className="aspect-video h-12 shrink-0 rounded-md bg-slate-100" />
+                      <div className="aspect-video h-12 shrink-0 rounded-md bg-surface-strong" />
                     )}
                     <div>
-                      <p className="font-medium text-slate-900">{workshop.title}</p>
-                      <p className="text-sm text-slate-500"><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} /></p>
+                      <p className="font-medium text-fg">{workshop.title}</p>
+                      <p className="text-sm text-fg-muted"><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} /></p>
                       {/* 下書きは予約を受け付けていないので、定員・参加者数は出さない */}
                       {workshop.status !== 'draft' && (
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-fg-muted">
                           定員：{workshop.capacity}名・参加者数：{workshop.reserved_count}名
                         </p>
                       )}
@@ -153,15 +150,17 @@ export function ManageWorkshopsPage() {
                       <>
                         <Link
                           to={`/manage/workshops/${workshop.id}/reservations`}
-                          className="rounded-md border border-border px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+                          aria-label={`${workshop.title}の予約・出欠`}
+                          className="rounded-md border border-border px-3 py-1.5 text-fg-secondary hover:bg-surface-muted"
                         >
-                          予約状況
+                          予約・出欠
                         </Link>
                         <Link
                           to={`/inquiries?workshop_id=${workshop.id}`}
-                          className="rounded-md border border-border px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+                          aria-label={`${workshop.title}への問い合わせ・お知らせ`}
+                          className="rounded-md border border-border px-3 py-1.5 text-fg-secondary hover:bg-surface-muted"
                         >
-                          問い合わせ
+                          問い合わせ・お知らせ
                         </Link>
                       </>
                     )}
@@ -169,7 +168,8 @@ export function ManageWorkshopsPage() {
                     {!isWorkshopFinished(workshop) && workshop.status !== 'canceled' && (
                       <Link
                         to={`/manage/workshops/${workshop.id}/edit`}
-                        className="rounded-md border border-border px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+                        aria-label={`${workshop.title}を編集`}
+                        className="rounded-md border border-border px-3 py-1.5 text-fg-secondary hover:bg-surface-muted"
                       >
                         編集
                       </Link>
@@ -178,8 +178,10 @@ export function ManageWorkshopsPage() {
                         (開催前に取りやめるときは「中止」を使う) */}
                     {workshop.status === 'draft' && (
                       <button
+                        type="button"
                         onClick={() => handleDelete(workshop.id)}
-                        className="rounded-md border border-red-300 px-3 py-1.5 text-red-600 hover:bg-red-50"
+                        aria-label={`${workshop.title}を削除`}
+                        className="rounded-md border border-red-400/30 px-3 py-1.5 text-red-300 hover:bg-red-400/10"
                       >
                         削除
                       </button>

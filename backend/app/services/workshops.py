@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import ColumnElement, Select, exists, func, select
@@ -9,7 +10,17 @@ from app.models.favorite import Favorite
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User, UserRole
 from app.models.workshop import Workshop, WorkshopStatus
-from app.schemas.workshop import WorkshopInput, WorkshopRead, WorkshopViewer
+from app.schemas.workshop import ParticipantInfo, WorkshopInput, WorkshopRead, WorkshopViewer
+
+
+# 予約の締め切り。開始日時のこの時間前を過ぎたら予約を受け付けない。
+# フロントエンドの utils/workshop.ts の RESERVATION_DEADLINE_HOURS_BEFORE と揃える
+RESERVATION_DEADLINE_BEFORE = timedelta(hours=24)
+
+
+def reservation_deadline(start_at: datetime) -> datetime:
+    """予約の締め切り日時(この日時以降は予約できない)"""
+    return start_at - RESERVATION_DEADLINE_BEFORE
 
 
 def lock_workshop(db: Session, workshop_id: int) -> Workshop | None:
@@ -50,9 +61,14 @@ def check_workshop_input(db: Session, payload: WorkshopInput, workshop: Workshop
             raise _conflict("開始日時には現在より後の日時を指定してください")
         return
 
-    # 開催中のものは開始日時をそのままにして他の項目を直せるよう、変更したときだけ確かめる
-    if payload.start_at != workshop.start_at and payload.start_at < now:
+    # 開催中のものは開始日時をそのままにして他の項目を直せるよう、変更したときだけ確かめる。
+    # ただし新たに公開するときは、開始済みのまま公開しないよう変更の有無にかかわらず確かめる
+    is_publishing = workshop.status != WorkshopStatus.published and payload.status == WorkshopStatus.published
+    if (is_publishing or payload.start_at != workshop.start_at) and payload.start_at < now:
         raise _conflict("開始日時には現在より後の日時を指定してください")
+    # 終了日時を過去にすると、編集で「開催済み」にできてしまう
+    if payload.end_at != workshop.end_at and payload.end_at < now:
+        raise _conflict("終了日時には現在より後の日時を指定してください")
 
     # 一度公開したものは、予約の有無にかかわらず下書きに戻させない(参加者の目に触れているため)
     if workshop.status == WorkshopStatus.published and payload.status == WorkshopStatus.draft:
@@ -62,6 +78,24 @@ def check_workshop_input(db: Session, payload: WorkshopInput, workshop: Workshop
     if workshop.status == WorkshopStatus.draft and payload.status == WorkshopStatus.canceled:
         raise _conflict("下書きのワークショップは中止できません。取りやめる場合は削除してください")
 
+    # 公開中のものは、参加者が予約したときの条件(参加費・日時・場所)を変えさせない。
+    # 中止にするときも、これらは保存済みの値のまま送られてくる
+    if workshop.status == WorkshopStatus.published:
+        changed = [
+            label
+            for label, new, old in (
+                ("参加費", payload.price, workshop.price),
+                ("開始日時", payload.start_at, workshop.start_at),
+                ("終了日時", payload.end_at, workshop.end_at),
+                ("開催形式", payload.location_type, workshop.location_type),
+                ("場所", payload.location, workshop.location),
+            )
+            if new != old
+        ]
+        if changed:
+            raise _conflict(f"公開中のワークショップは{'・'.join(changed)}を変更できません")
+
+    # 定員は、すでに予約されているチケット枚数(参加人数)を下回らせない
     booked = reserved_count(db, workshop.id)
     if payload.capacity < booked:
         raise _conflict(f"定員は予約済みのチケット枚数({booked}枚)以上にしてください")
@@ -80,6 +114,13 @@ def confirmed_tickets_select(*criteria: ColumnElement[bool]) -> Select[tuple[int
 
 def reserved_count(db: Session, workshop_id: int) -> int:
     return db.scalar(confirmed_tickets_select(Reservation.workshop_id == workshop_id)) or 0
+
+
+def _can_see_participant_info(workshop: Workshop, user: User | None, reserved_ids: set[int]) -> bool:
+    """参加者向けの案内(当日の詳細・緊急連絡先)を見せてよいか。予約が確定している参加者と主催者・運営だけ"""
+    if user is None:
+        return False
+    return user.role == UserRole.admin or workshop.facilitator_id == user.id or workshop.id in reserved_ids
 
 
 def to_workshop_reads(
@@ -149,6 +190,11 @@ def to_workshop_reads(
                 is_favorited=w.id in favorited_ids,
                 is_reserved=w.id in reserved_ids,
                 is_reservation_canceled=w.id in canceled_ids,
+            ),
+            participant_info=(
+                ParticipantInfo(guide=w.participant_guide, emergency_contact=w.emergency_contact)
+                if _can_see_participant_info(w, current_user, reserved_ids)
+                else None
             ),
         )
         for w in workshops

@@ -1,10 +1,35 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { HELP_DOCUMENTS } from '@/pages/help/helpDocuments'
+import { canManageWorkshops } from '@/utils/user'
 
 interface SettingsLink {
   to: string
   title: string
   description: string
+}
+
+function SettingsLinkList({ links }: { links: SettingsLink[] }) {
+  return (
+    <ul className="mt-3 space-y-3">
+      {links.map((link) => (
+        <li key={link.to}>
+          <Link
+            to={link.to}
+            className="flex items-center justify-between rounded-lg border border-border-muted bg-surface p-4 shadow-sm transition hover:shadow-md"
+          >
+            <div>
+              <p className="font-medium text-fg">{link.title}</p>
+              <p className="mt-0.5 text-sm text-fg-muted">{link.description}</p>
+            </div>
+            <span aria-hidden="true" className="text-fg-subtle">
+              ›
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 export function SettingsPage() {
@@ -17,7 +42,7 @@ export function SettingsPage() {
     navigate('/login')
   }
 
-  const isFacilitator = user.role === 'admin' || user.role === 'facilitator'
+  const isFacilitator = canManageWorkshops(user)
 
   const links: SettingsLink[] = [
     {
@@ -55,27 +80,20 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <h1 className="text-xl font-semibold text-slate-900">設定</h1>
-      <ul className="mt-6 space-y-3">
-        {links.map((link) => (
-          <li key={link.to}>
-            <Link
-              to={link.to}
-              className="flex items-center justify-between rounded-lg border border-border-muted bg-white p-4 shadow-sm transition hover:shadow-md"
-            >
-              <div>
-                <p className="font-medium text-slate-900">{link.title}</p>
-                <p className="mt-0.5 text-sm text-slate-500">{link.description}</p>
-              </div>
-              <span className="text-slate-400">›</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <h1 className="text-xl font-semibold text-fg">設定</h1>
+      <div className="mt-3">
+        <SettingsLinkList links={links} />
+      </div>
+      <section aria-labelledby="help-heading" className="mt-8">
+        <h2 id="help-heading" className="text-base font-semibold text-fg-secondary">
+          ヘルプ・規約
+        </h2>
+        <SettingsLinkList links={HELP_DOCUMENTS} />
+      </section>
       <button
         type="button"
         onClick={handleLogout}
-        className="mt-8 w-full rounded-lg border border-border bg-white p-3 text-sm font-medium text-red-600 transition hover:bg-red-50 focus-ring focus:outline-none"
+        className="mt-8 w-full rounded-lg border border-border bg-surface p-3 text-sm font-medium text-red-300 transition hover:bg-red-400/10 focus-ring focus:outline-none"
       >
         ログアウト
       </button>

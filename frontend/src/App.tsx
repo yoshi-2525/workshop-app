@@ -22,6 +22,11 @@ import { ManageWorkshopsPage } from '@/pages/manage/ManageWorkshopsPage'
 import { WorkshopFormPage } from '@/pages/manage/WorkshopFormPage'
 import { WorkshopReservationsPage } from '@/pages/manage/WorkshopReservationsPage'
 import { ProfileEditPage } from '@/pages/manage/ProfileEditPage'
+import { HelpPage } from '@/pages/help/HelpPage'
+import { TermsPage } from '@/pages/help/TermsPage'
+import { CancellationPolicyPage } from '@/pages/help/CancellationPolicyPage'
+import { FacilitatorGuidelinesPage } from '@/pages/help/FacilitatorGuidelinesPage'
+import { TokushohoPage } from '@/pages/help/TokushohoPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 export default function App() {
@@ -38,6 +43,13 @@ export default function App() {
         <Route path="register" element={<RegisterChooserPage />} />
         <Route path="register/participant" element={<ParticipantRegisterPage />} />
         <Route path="register/facilitator" element={<FacilitatorRegisterPage />} />
+
+        {/* 規約は登録前にも読めるよう、ログインしていなくても表示する */}
+        <Route path="help" element={<HelpPage />} />
+        <Route path="help/terms" element={<TermsPage />} />
+        <Route path="help/cancellation-policy" element={<CancellationPolicyPage />} />
+        <Route path="help/facilitator-guidelines" element={<FacilitatorGuidelinesPage />} />
+        <Route path="help/tokushoho" element={<TokushohoPage />} />
 
         <Route element={<ProtectedRoute loginPath="/login/participant" />}>
           <Route path="workshops/:id/reserve" element={<ReservationFormPage />} />

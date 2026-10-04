@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.schemas.auth import Token
 from app.schemas.user import UserRead, UserRegister, UserUpdate
-from app.services.uploads import delete_avatar_image, reject_oversized_upload, save_avatar_image
+from app.services.uploads import delete_avatar_image, save_avatar_image
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -47,6 +47,8 @@ def login(
     db: Session = Depends(get_db),
 ) -> Token:
     email = form_data.username.lower()
+    # リバースプロキシの後ろでは、uvicorn の --forwarded-allow-ips にプロキシの IP を指定すること。
+    # 指定しないとプロキシ以外から来た X-Forwarded-For は使われず、全員が同じ IP(プロキシ)として数えられる
     client_host = request.client.host if request.client else "unknown"
     limiter_keys = (f"ip:{client_host}", f"email:{email}")
 
@@ -95,13 +97,15 @@ def update_me(
 
 
 # 主催者アイコンはワークショップ詳細・主催者ページに出すものなので、主催者と運営だけが設定できる。
-# ワークショップ画像と同じく、同期処理としてスレッドプールで動かし、大きすぎる送信は本文の受け取り前に断る
-@router.post("/me/avatar", response_model=UserRead, dependencies=[Depends(reject_oversized_upload)])
+# ワークショップ画像と同じく、同期処理としてスレッドプールで動かす(大きすぎる送信は main.py のミドルウェアで断る)
+@router.post("/me/avatar", response_model=UserRead)
 def upload_my_avatar(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> User:
+    # 同時に差し替えられても古い画像を確実に消せるよう、行をロックしてから今の画像を読む
+    db.refresh(current_user, with_for_update=True)
     new_avatar_url = save_avatar_image(file)
     old_avatar_url = current_user.avatar_url
     current_user.avatar_url = new_avatar_url
@@ -123,6 +127,7 @@ def remove_my_avatar(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> User:
+    db.refresh(current_user, with_for_update=True)
     old_avatar_url = current_user.avatar_url
     current_user.avatar_url = ""
     db.commit()

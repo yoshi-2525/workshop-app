@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import HTTPException, Request, UploadFile, status
+from fastapi import HTTPException, UploadFile, status
 
 from app.config import settings
 
@@ -14,7 +14,7 @@ _IMAGE_SIGNATURES: tuple[tuple[bytes, int, str], ...] = (
     (b"GIF89a", 0, ".gif"),
 )
 _READ_CHUNK_BYTES = 64 * 1024
-# multipart の区切りやヘッダーの分として、Content-Length には画像サイズの上限に加えてこれだけ許す
+# multipart の区切りやヘッダーの分として、リクエスト本文には画像サイズの上限に加えてこれだけ許す
 _MULTIPART_OVERHEAD_BYTES = 64 * 1024
 
 _UPLOAD_URL_PREFIX = "/api/uploads"
@@ -29,23 +29,18 @@ def _image_dir(subdir: str) -> Path:
     return path
 
 
-def _too_large_error() -> HTTPException:
+def too_large_message() -> str:
     max_mb = settings.max_upload_size_bytes // (1024 * 1024)
-    return HTTPException(
-        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-        detail=f"画像サイズは{max_mb}MB以内にしてください",
-    )
+    return f"画像サイズは{max_mb}MB以内にしてください"
 
 
-def reject_oversized_upload(request: Request) -> None:
-    """依存関係として使い、リクエスト本文を受け取る前に Content-Length で大きすぎる送信を断る"""
-    content_length = request.headers.get("content-length")
-    if (
-        content_length is not None
-        and content_length.isdigit()
-        and int(content_length) > settings.max_upload_size_bytes + _MULTIPART_OVERHEAD_BYTES
-    ):
-        raise _too_large_error()
+def max_request_body_bytes() -> int:
+    """リクエスト本文の上限(main.py の BodySizeLimitMiddleware で使う)。画像のアップロードが最も大きい"""
+    return settings.max_upload_size_bytes + _MULTIPART_OVERHEAD_BYTES
+
+
+def _too_large_error() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=too_large_message())
 
 
 def _detect_image_extension(head: bytes) -> str | None:

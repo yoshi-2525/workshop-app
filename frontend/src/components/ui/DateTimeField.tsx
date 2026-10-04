@@ -1,15 +1,15 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { RequiredMark } from '@/components/ui/RequiredMark'
+import { pad2 } from '@/utils/date'
 
 // 時刻は「時」と「分」のセレクトで選ぶ。分は 5 分刻み
 const MINUTE_STEP = 5
-const pad2 = (n: number) => String(n).padStart(2, '0')
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => pad2(i))
 const MINUTE_OPTIONS = Array.from({ length: 60 / MINUTE_STEP }, (_, i) => pad2(i * MINUTE_STEP))
 
 const SELECT_CLASS =
-  'w-16 rounded-md border border-border bg-white px-2 py-2 text-sm focus:border-ring focus:outline-none'
+  'w-16 rounded-md border border-border bg-surface px-2 py-2 text-sm focus:border-ring focus:outline-none disabled:cursor-not-allowed disabled:bg-surface-muted'
 
 interface DateTimeFieldProps {
   label: string
@@ -26,6 +26,8 @@ interface DateTimeFieldProps {
   followDate?: string
   // 必須項目の印をラベルに付ける
   required?: boolean
+  // 日付・時刻を変更できないようにする(入力済みの値は表示したまま)
+  disabled?: boolean
 }
 
 // 日付は DatePicker のカレンダー、時刻は「時」「分」のセレクト(分は 5 分刻み)で入力する
@@ -37,6 +39,7 @@ export function DateTimeField({
   onDateChange,
   followDate,
   required = false,
+  disabled = false,
 }: DateTimeFieldProps) {
   const [date, setDate] = useState(value.slice(0, 10))
   const [hour, setHour] = useState(value.slice(11, 13))
@@ -77,7 +80,7 @@ export function DateTimeField({
   useEffect(() => {
     const prevFollowDate = prevFollowDateRef.current
     prevFollowDateRef.current = followDate
-    if (!followDate || followDate === prevFollowDate) return
+    if (disabled || !followDate || followDate === prevFollowDate) return
     if (date && date !== prevFollowDate && date >= followDate) return
     setDate(followDate)
     emit(followDate, time)
@@ -100,7 +103,7 @@ export function DateTimeField({
 
   return (
     <div>
-      <span className="block text-sm font-medium text-slate-700">
+      <span className="block text-sm font-medium text-fg-secondary">
         {label}
         {required && <RequiredMark />}
       </span>
@@ -111,6 +114,7 @@ export function DateTimeField({
           onChange={handleChangeDate}
           minDate={minDate}
           disablePast
+          disabled={disabled}
           className="flex-1"
         />
         <div className="flex items-center gap-1">
@@ -120,18 +124,19 @@ export function DateTimeField({
           <select
             id={hourId}
             required={required}
+            disabled={disabled}
             value={hour}
             onChange={(e) => handleChangeHour(e.target.value)}
-            className={`${SELECT_CLASS} ${hour ? 'text-slate-900' : 'text-slate-400'}`}
+            className={`${SELECT_CLASS} ${hour ? 'text-fg' : 'text-fg-subtle'}`}
           >
             <option value="">--</option>
             {HOUR_OPTIONS.map((h) => (
-              <option key={h} value={h} className="text-slate-900">
+              <option key={h} value={h} className="text-fg">
                 {h}
               </option>
             ))}
           </select>
-          <span aria-hidden="true" className="text-sm text-slate-500">
+          <span aria-hidden="true" className="text-sm text-fg-muted">
             :
           </span>
           <label htmlFor={minuteId} className="sr-only">
@@ -140,13 +145,14 @@ export function DateTimeField({
           <select
             id={minuteId}
             required={required}
+            disabled={disabled}
             value={minute}
             onChange={(e) => handleChangeMinute(e.target.value)}
-            className={`${SELECT_CLASS} ${minute ? 'text-slate-900' : 'text-slate-400'}`}
+            className={`${SELECT_CLASS} ${minute ? 'text-fg' : 'text-fg-subtle'}`}
           >
             <option value="">--</option>
             {minuteOptions.map((m) => (
-              <option key={m} value={m} className="text-slate-900">
+              <option key={m} value={m} className="text-fg">
                 {m}
               </option>
             ))}

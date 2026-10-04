@@ -30,6 +30,7 @@ def to_reservation_reads(
             contact=r.contact,
             ticket_count=r.ticket_count,
             status=r.status,
+            attendance=r.attendance,
             created_at=r.created_at,
         )
         for r in reservations

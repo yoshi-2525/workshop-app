@@ -29,7 +29,7 @@ export function Pagination({
   if (totalPages <= 1) return null
 
   const navButton =
-    'rounded-md border border-border px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 focus-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-40'
+    'rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg-secondary transition hover:bg-surface-strong focus-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-40'
 
   return (
     <nav aria-label="ページ送り" className="mt-8 flex flex-wrap items-center justify-center gap-1">
@@ -52,14 +52,14 @@ export function Pagination({
                 aria-current={item === page ? 'page' : undefined}
                 aria-label={`${item}ページ目`}
                 className={`min-w-9 rounded-md px-3 py-1.5 text-sm font-medium transition focus-ring focus:outline-none disabled:cursor-not-allowed ${
-                  item === page ? 'bg-accent text-accent-foreground' : 'text-slate-600 hover:bg-slate-100'
+                  item === page ? 'bg-accent text-accent-foreground' : 'text-fg-secondary hover:bg-surface-strong'
                 }`}
               >
                 {item}
               </button>
             </li>
           ) : (
-            <li key={item} aria-hidden="true" className="px-1 text-slate-400">
+            <li key={item} aria-hidden="true" className="px-1 text-fg-subtle">
               …
             </li>
           ),

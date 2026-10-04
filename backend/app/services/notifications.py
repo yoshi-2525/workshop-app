@@ -8,6 +8,7 @@ from app.core.timeutil import utcnow_naive
 from app.models.notification import Notification, NotificationType
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.workshop import Workshop, WorkshopStatus
+from app.services.inquiries import add_message, get_or_create_inquiry
 
 # Reminders fire once per workshop per participant. Each scheduler tick looks at
 # every published workshop starting within REMINDER_LOOKAHEAD, so a workshop is
@@ -28,10 +29,10 @@ def _confirmed_participant_ids(db: Session, workshop_id: int) -> list[int]:
 
 def _add_missing(
     db: Session, workshop_id: int, user_ids: list[int], type_: NotificationType, message: str
-) -> int:
-    """まだ同じ種類の通知を受け取っていない参加者にだけ通知を追加する(commit は呼び出し側)"""
+) -> list[int]:
+    """まだ同じ種類の通知を受け取っていない参加者にだけ通知を追加し、追加した相手を返す(commit は呼び出し側)"""
     if not user_ids:
-        return 0
+        return []
     already = set(
         db.scalars(
             select(Notification.user_id).where(
@@ -46,23 +47,62 @@ def _add_missing(
         Notification(user_id=user_id, workshop_id=workshop_id, type=type_, message=message)
         for user_id in new_ids
     )
-    return len(new_ids)
+    return new_ids
 
 
 def add_cancellation_notices(db: Session, workshop: Workshop) -> int:
     """中止の通知を追加する。中止への変更と同じトランザクションで commit すること"""
     message = f"「{workshop.title}」は主催者により中止になりました。"
-    return _add_missing(
-        db, workshop.id, _confirmed_participant_ids(db, workshop.id), NotificationType.cancellation, message
+    return len(
+        _add_missing(
+            db, workshop.id, _confirmed_participant_ids(db, workshop.id), NotificationType.cancellation, message
+        )
     )
 
 
 def add_reservation_canceled_notice(db: Session, reservation: Reservation) -> int:
     """主催者が参加をキャンセルしたことを参加者に通知する。キャンセルと同じトランザクションで commit すること"""
     message = f"「{reservation.workshop.title}」への参加は主催者によりキャンセルされました。"
-    return _add_missing(
-        db, reservation.workshop_id, [reservation.user_id], NotificationType.reservation_canceled, message
+    return len(
+        _add_missing(
+            db, reservation.workshop_id, [reservation.user_id], NotificationType.reservation_canceled, message
+        )
     )
+
+
+def _has_participant_guide(workshop: Workshop) -> bool:
+    return bool(workshop.participant_guide or workshop.emergency_contact)
+
+
+def reminder_message(workshop: Workshop) -> str:
+    """開催前日のリマインダー(通知)の本文。当日の案内はメッセージで別に届けるので、ここには載せない"""
+    message = f"「{workshop.title}」の開催が近づいています。お忘れなくご参加ください。"
+    if _has_participant_guide(workshop):
+        message += "当日のご案内を主催者からのメッセージでお送りしましたので、ご確認ください。"
+    return message
+
+
+def participant_guide_message(workshop: Workshop) -> str:
+    """開催前日に、主催者から参加者へのメッセージとして送る当日の案内・緊急連絡先"""
+    parts = [f"「{workshop.title}」へのご参加ありがとうございます。当日のご案内をお送りします。"]
+    if workshop.participant_guide:
+        parts.append(f"【当日のご案内】\n{workshop.participant_guide}")
+    if workshop.emergency_contact:
+        parts.append(f"【緊急連絡先】\n{workshop.emergency_contact}")
+    return "\n\n".join(parts)
+
+
+def _send_participant_guide(db: Session, workshop: Workshop, user_ids: list[int]) -> None:
+    """当日の案内を、主催者からの一斉送信のメッセージとして各参加者とのやり取りに追加する(commit は呼び出し側)"""
+    if not user_ids or not _has_participant_guide(workshop):
+        return
+    body = participant_guide_message(workshop)
+    for user_id in user_ids:
+        inquiry = get_or_create_inquiry(db, workshop.id, user_id)
+        if inquiry is None:
+            # やり取りを作れなかった場合。リマインダーごと取り消し、次の実行で改めて送る
+            raise RuntimeError("inquiry could not be created")
+        add_message(db, inquiry, workshop.facilitator, body, is_broadcast=True)
 
 
 def send_upcoming_reminders(db: Session) -> int:
@@ -91,15 +131,22 @@ def _send_upcoming_reminders(db: Session) -> int:
     ).all()
     sent = 0
     for workshop in workshops:
-        message = f"「{workshop.title}」の開催が近づいています。お忘れなくご参加ください。"
+        # リマインダーと当日の案内のメッセージは、同じ参加者に同じトランザクションで1回だけ送る
+        # (リマインダーの通知が一意なので、通知を新しく作った相手にだけメッセージも送れば重複しない)
         added = _add_missing(
-            db, workshop.id, _confirmed_participant_ids(db, workshop.id), NotificationType.reminder, message
+            db,
+            workshop.id,
+            _confirmed_participant_ids(db, workshop.id),
+            NotificationType.reminder,
+            reminder_message(workshop),
         )
         try:
+            _send_participant_guide(db, workshop, added)
             db.commit()
-        except IntegrityError:
-            # 確認してから追加するまでの間に、別の経路で同じ通知が作られた場合。次の実行で改めて作る
+        except (IntegrityError, RuntimeError):
+            # 確認してから追加するまでの間に別の経路で同じ通知が作られた、またはやり取りを作れなかった場合。
+            # 通知もメッセージも取り消し、次の実行で改めて送る
             db.rollback()
             continue
-        sent += added
+        sent += len(added)
     return sent

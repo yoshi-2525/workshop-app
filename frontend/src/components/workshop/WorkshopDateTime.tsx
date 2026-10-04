@@ -1,40 +1,32 @@
-import { getDayInfo, toDateInputValue, type DayInfo } from '@/utils/date'
-
-// 白背景でコントラスト比 4.5:1 以上になる色を使う
-const DAY_TEXT_CLASS: Record<DayInfo['kind'], string> = {
-  weekday: '',
-  saturday: 'text-blue-600',
-  holiday: 'text-red-600',
-}
+import { getDayInfo, toDateInputValue } from '@/utils/date'
 
 type DateStyle = 'long' | 'medium'
 
 const formatTime = (date: Date) => date.toLocaleTimeString('ja-JP', { timeStyle: 'short' })
 
-// 日付と曜日。曜日の「(土)」の部分だけ、土曜なら青、日曜・祝日なら赤にする
+// 日付と曜日。色を使いすぎないよう、土曜・日曜・祝日も平日と同じ色で表示する
 function DatePart({ date, dateStyle }: { date: Date; dateStyle: DateStyle }) {
-  const day = getDayInfo(date)
   return (
     <>
-      {date.toLocaleDateString('ja-JP', { dateStyle })}
-      <span className={DAY_TEXT_CLASS[day.kind]}>({day.label})</span>
+      {date.toLocaleDateString('ja-JP', { dateStyle })}({getDayInfo(date).label})
     </>
   )
 }
 
 // ワークショップの開催日時を「2026/10/03(土) 14:00〜17:00」の形で表示する。
-// 終了が開始と同じ日なら終了側の日付は省略し、日をまたぐときは「〜2026/10/04(日) 10:00」のように日付も付ける
+// 終了が開始と同じ日なら終了側の日付は省略し、日をまたぐときは「〜2026/10/04(日) 10:00」のように日付も付ける。
+// end を省くと、予約の締め切りなど1つの日時だけを同じ形で表示する
 export function WorkshopDateTime({
   start,
   end,
   dateStyle = 'medium',
 }: {
   start: string
-  end: string
+  end?: string
   dateStyle?: DateStyle
 }) {
   const startDate = new Date(start)
-  const endDate = new Date(end)
+  const endDate = new Date(end ?? Number.NaN)
   if (Number.isNaN(startDate.getTime())) return <>-</>
 
   const hasEnd = !Number.isNaN(endDate.getTime())

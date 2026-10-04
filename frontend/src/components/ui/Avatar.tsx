@@ -20,7 +20,7 @@ export function Avatar({ url, name, className = 'h-10 w-10 text-base' }: { url: 
   return (
     <span
       aria-hidden="true"
-      className={`flex shrink-0 items-center justify-center rounded-full bg-slate-200 font-semibold text-slate-600 ${className}`}
+      className={`flex shrink-0 items-center justify-center rounded-full bg-fg/10 font-semibold text-fg-secondary ${className}`}
     >
       {Array.from(name.trim())[0] ?? ''}
     </span>

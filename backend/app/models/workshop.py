@@ -43,6 +43,11 @@ class Workshop(Base):
     capacity: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
     price: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     cancellation_policy: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # 予約した参加者と主催者にだけ見せる、当日の詳しい案内(集合場所・持ち物・参加 URL など)。
+    # 開催前日のリマインダーにも載せる
+    participant_guide: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # 当日の緊急連絡先(電話番号など)。participant_guide と同じく参加者と主催者にだけ見せる
+    emergency_contact: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     status: Mapped[WorkshopStatus] = mapped_column(
         Enum(WorkshopStatus, name="workshop_status"), default=WorkshopStatus.draft, nullable=False
     )

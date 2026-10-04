@@ -45,6 +45,9 @@ export function useWorkshopListPage(listState: WorkshopListState, { perPage, onP
       .catch((err) => {
         // 次の検索で中断された古いリクエストは無視する
         if (axios.isCancel(err)) return
+        // 前の検索条件の結果を、エラーと一緒に表示し続けない
+        setWorkshops([])
+        setTotal(0)
         setError(extractErrorMessage(err, 'ワークショップの取得に失敗しました'))
         setLoading(false)
       })

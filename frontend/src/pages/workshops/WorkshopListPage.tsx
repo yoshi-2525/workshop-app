@@ -7,6 +7,7 @@ import { WorkshopCard } from '@/components/workshop/WorkshopCard'
 import { WorkshopSearchForm, type WorkshopSearchConditions } from '@/components/workshop/WorkshopSearchForm'
 import { useListScrollRestoration } from '@/hooks/useListScrollRestoration'
 import { useWorkshopListPage } from '@/hooks/useWorkshopListPage'
+import { HomeHero } from '@/components/home/HomeHero'
 import {
   readListState,
   saveLastListUrl,
@@ -72,7 +73,10 @@ export function WorkshopListPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-900">開催予定のワークショップ</h1>
+      <HomeHero />
+
+      <h2 className="font-brand text-xl font-semibold tracking-wider text-fg">これから開かれる場</h2>
+      <p className="mt-1 text-sm text-fg-muted">聞いているだけでもかまいません。気になったら、のぞいてみてください。</p>
 
       <WorkshopSearchForm listState={listState} disabled={loading} onSearch={handleSearch} />
 
@@ -86,12 +90,12 @@ export function WorkshopListPage() {
             onChange={(e) => updateList({ available: e.target.checked, page: 1 })}
             className="h-4 w-4 rounded border-border accent-accent focus-ring focus:outline-none"
           />
-          <label htmlFor={onlyAvailableId} className="text-sm font-medium text-slate-700">
+          <label htmlFor={onlyAvailableId} className="text-sm font-medium text-fg-secondary">
             参加可能なワークショップを表示する
           </label>
         </div>
         <div className="flex items-center gap-2">
-          <label htmlFor={sortId} className="text-sm font-medium text-slate-700">
+          <label htmlFor={sortId} className="text-sm font-medium text-fg-secondary">
             並び替え
           </label>
           <select
@@ -110,22 +114,22 @@ export function WorkshopListPage() {
       </div>
       {/* 検索結果の更新をスクリーンリーダーに通知する */}
       <div ref={resultsRef} aria-live="polite" className="scroll-mt-4">
-        {loading && <p className="mt-6 text-slate-500">読み込み中...</p>}
+        {loading && <p className="mt-6 text-fg-muted">読み込み中...</p>}
         {!loading && !error && workshops.length === 0 && (
-          <p className="mt-6 text-slate-500">
+          <p className="mt-6 text-fg-muted">
             {hasActiveFilter
-              ? '条件に一致するワークショップはありません。'
-              : '開催予定のワークショップはありません。'}
+              ? '条件に合う場は見つかりませんでした。条件を少しゆるめてみてください。'
+              : 'いまは開かれる予定の場がありません。また、ふと思い出したときにのぞいてみてください。'}
           </p>
         )}
         {!loading && !error && workshops.length > 0 && (
-          <p className="mt-6 text-sm text-slate-600">
+          <p className="mt-6 text-sm text-fg-secondary">
             全{total}件中 {(page - 1) * PER_PAGE + 1}〜{(page - 1) * PER_PAGE + workshops.length}件を表示
           </p>
         )}
       </div>
       {error && (
-        <p role="alert" className="mt-6 text-red-600">
+        <p role="alert" className="mt-6 text-red-300">
           {error}
         </p>
       )}

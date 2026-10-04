@@ -9,7 +9,7 @@ export function parseDateInput(value: string): Date {
   return new Date(y, m - 1, d)
 }
 
-const pad2 = (n: number) => String(n).padStart(2, '0')
+export const pad2 = (n: number) => String(n).padStart(2, '0')
 
 // Date を、端末の時間帯での YYYY-MM-DD に変換する
 export function toDateInputValue(date: Date): string {

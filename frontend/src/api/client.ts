@@ -8,7 +8,8 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_STORAGE_KEY)
-  if (token) {
+  // 呼び出し側で指定済み(ログイン直後の役割確認など)なら、保存済みのトークンで上書きしない
+  if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config

@@ -3,12 +3,12 @@ import type { ReactNode } from 'react'
 import { fetchCurrentUser, login as loginRequest, register as registerRequest } from '@/api/auth'
 import { AUTH_EXPIRED_EVENT, TOKEN_STORAGE_KEY } from '@/api/client'
 import type { RegisterPayload } from '@/api/auth'
-import type { User } from '@/types'
+import type { User, UserRole } from '@/types'
 
 interface AuthContextValue {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<User>
+  login: (email: string, password: string, allowedRoles?: UserRole[]) => Promise<User | null>
   register: (payload: RegisterPayload) => Promise<User>
   logout: () => void
   refreshUser: () => Promise<void>
@@ -31,7 +31,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const current = await fetchCurrentUser()
       setUser(current)
     } catch {
-      localStorage.removeItem(TOKEN_STORAGE_KEY)
+      // トークンが無効(401)なら apiClient のインターセプターが消す。
+      // 通信エラーやサーバーエラーではトークンを残し、次に読み込んだときにログイン状態へ戻れるようにする
       setUser(null)
     } finally {
       setLoading(false)
@@ -52,17 +53,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired)
   }, [])
 
-  const login = useCallback(async (email: string, password: string) => {
+  // allowedRoles を指定した場合、役割が合わなければトークンを保存せずに null を返す
+  // (ログイン状態には一度もならないので、それまでのログイン状態もそのまま残る)
+  const login = useCallback(async (email: string, password: string, allowedRoles?: UserRole[]) => {
     const token = await loginRequest({ email, password })
+    const current = await fetchCurrentUser(token)
+    if (allowedRoles && !allowedRoles.includes(current.role)) return null
     localStorage.setItem(TOKEN_STORAGE_KEY, token)
-    const current = await fetchCurrentUser()
     setUser(current)
     return current
   }, [])
 
   const register = useCallback(async (payload: RegisterPayload) => {
     await registerRequest(payload)
-    return login(payload.email, payload.password)
+    const current = await login(payload.email, payload.password)
+    // 役割を指定していないので null にはならない
+    return current!
   }, [login])
 
   const logout = useCallback(() => {

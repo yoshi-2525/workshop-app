@@ -13,7 +13,7 @@ import { parseDateInput, toDateInputValue } from '@/utils/date'
 // (初期値: マス 44px / ボタン 42px / 矢印ボタン 36px / 見出しの高さ 44px / 文字 16px / 見出し 18px)
 const CALENDAR_STYLE = {
   '--rdp-accent-color': 'var(--color-accent)',
-  '--rdp-accent-background-color': 'var(--color-slate-100)',
+  '--rdp-accent-background-color': 'var(--color-surface-strong)',
   '--rdp-day-width': '35px',
   '--rdp-day-height': '35px',
   // ボタンはマスより 2px 小さくする(初期値と同じ差)
@@ -59,6 +59,8 @@ interface DatePickerProps {
   invalid?: boolean
   describedBy?: string
   size?: keyof typeof SIZE_CLASSES
+  // カレンダーを開けないようにする(選択中の日付は表示したまま)
+  disabled?: boolean
   // 外側の要素に付けるクラス(幅の指定など)
   className?: string
 }
@@ -76,6 +78,7 @@ export function DatePicker({
   invalid = false,
   describedBy,
   size = 'md',
+  disabled = false,
   className = '',
 }: DatePickerProps) {
   const [open, setOpen] = useState(false)
@@ -125,7 +128,7 @@ export function DatePicker({
   // 今日は選べる
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-  const disabled: Matcher[] = [
+  const disabledDays: Matcher[] = [
     ...(disablePast ? [{ before: today }] : []),
     ...(minDate ? [{ before: parseDateInput(minDate) }] : []),
     ...(maxDate ? [{ after: parseDateInput(maxDate) }] : []),
@@ -145,27 +148,28 @@ export function DatePicker({
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((prev) => !prev)}
+        disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? calendarId : undefined}
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
-        className={`w-full rounded-md border bg-white px-3 text-left text-sm focus-ring focus:outline-none ${
+        className={`w-full rounded-md border bg-surface px-3 text-left text-sm focus-ring focus:outline-none disabled:cursor-not-allowed disabled:bg-surface-muted ${
           SIZE_CLASSES[size]
         } ${invalid ? 'border-red-500' : 'border-border'} ${
-          selectedDate ? 'text-slate-900' : 'text-slate-400'
+          selectedDate ? 'text-fg' : 'text-fg-subtle'
         }`}
       >
         {/* 読み上げは「開始日時 2026年10月1日(木)」のように、名前と選択中の日付をつなげる */}
         <span className="sr-only">{label} </span>
         {dateLabel}
       </button>
-      {open && (
+      {open && !disabled && (
         <div
           id={calendarId}
           role="dialog"
           aria-label={`${label}を選択`}
-          className="absolute left-0 z-10 mt-1 rounded-lg border border-border-muted bg-white p-3 shadow-lg"
+          className="absolute left-0 z-10 mt-1 rounded-lg border border-border-muted bg-surface p-3 shadow-lg"
         >
           <DayPicker
             mode="single"
@@ -180,7 +184,7 @@ export function DatePicker({
               selectedDate ??
               (minDate ? parseDateInput(minDate) : maxDate ? parseDateInput(maxDate) : undefined)
             }
-            disabled={disabled}
+            disabled={disabledDays}
             autoFocus
           />
           {clearable && selectedDate && (
@@ -188,7 +192,7 @@ export function DatePicker({
               <button
                 type="button"
                 onClick={handleClear}
-                className="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 focus-ring focus:outline-none"
+                className="rounded px-2 py-1 text-xs font-medium text-fg-secondary hover:bg-surface-strong focus-ring focus:outline-none"
               >
                 クリア
               </button>

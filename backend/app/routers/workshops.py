@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
@@ -11,25 +12,31 @@ from app.database import get_db
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User, UserRole
 from app.models.workshop import Workshop, WorkshopStatus
-from app.schemas.reservation import ReservationCreate, ReservationRead
+from app.schemas.reservation import AttendanceUpdate, ReservationCreate, ReservationRead
 from app.schemas.workshop import RelatedWorkshops, WorkshopInput, WorkshopRead, WorkshopSearchQuery
 from app.services.notifications import add_cancellation_notices, add_reservation_canceled_notice
 from app.services.pagination import PageQuery, paginate
 from app.services.related import related_workshops
 from app.services.reservations import to_reservation_read, to_reservation_reads
-from app.services.uploads import delete_workshop_image, reject_oversized_upload, save_workshop_image
+from app.services.uploads import delete_workshop_image, save_workshop_image
 from app.services.workshops import (
+    RESERVATION_DEADLINE_BEFORE,
     check_workshop_input,
     confirmed_tickets_select,
     ensure_editable,
     get_viewable_workshop,
     lock_workshop,
+    reservation_deadline,
 )
 from app.services.workshops import reserved_count as _reserved_count
 from app.services.workshops import to_workshop_read as _to_read
 from app.services.workshops import to_workshop_reads as _to_reads
 
 router = APIRouter(prefix="/workshops", tags=["workshops"])
+
+# 出欠は開始日時のこの時間前から記録できる(受付の準備や、前日に欠席の連絡を受けた場合のため)。
+# フロントエンドの utils/workshop.ts の ATTENDANCE_OPEN_HOURS_BEFORE と揃える
+ATTENDANCE_OPEN_BEFORE = timedelta(hours=24)
 
 
 def _get_owned_workshop(db: Session, workshop_id: int, user: User, *, for_update: bool = False) -> Workshop:
@@ -108,7 +115,11 @@ def list_workshops(
             .correlate(Workshop)
             .scalar_subquery()
         )
-        stmt = stmt.where(booked < Workshop.capacity)
+        # 予約の締め切りを過ぎたものも、チケットを購入できないので除く
+        stmt = stmt.where(
+            booked < Workshop.capacity,
+            Workshop.start_at > utcnow_naive() + RESERVATION_DEADLINE_BEFORE,
+        )
     # ページネーション時は絞り込み後の総件数をヘッダーで返す
     stmt = paginate(db, stmt, PageQuery(limit=query.limit, offset=query.offset), response)
     workshops = db.scalars(stmt.options(selectinload(Workshop.facilitator))).all()
@@ -172,19 +183,16 @@ def update_workshop(
 
 
 # 同期 DB セッションとファイル書き込みでイベントループを止めないよう、async にせずスレッドプールで動かす。
-# reject_oversized_upload は本文の受け取り前に評価されるよう、ルートの依存関係に置く
-@router.post(
-    "/{workshop_id}/image",
-    response_model=WorkshopRead,
-    dependencies=[Depends(reject_oversized_upload)],
-)
+# 大きすぎる送信は main.py の BodySizeLimitMiddleware が本文の受け取り中に断る
+@router.post("/{workshop_id}/image", response_model=WorkshopRead)
 def upload_workshop_image(
     workshop_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> WorkshopRead:
-    workshop = _get_owned_workshop(db, workshop_id, current_user)
+    # 同時に差し替えられても古い画像を確実に消せるよう、行をロックしてから今の画像を読む
+    workshop = _get_owned_workshop(db, workshop_id, current_user, for_update=True)
     ensure_editable(workshop)
     new_image_url = save_workshop_image(file)
     old_image_url = workshop.image_url
@@ -208,7 +216,7 @@ def remove_workshop_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
 ) -> WorkshopRead:
-    workshop = _get_owned_workshop(db, workshop_id, current_user)
+    workshop = _get_owned_workshop(db, workshop_id, current_user, for_update=True)
     ensure_editable(workshop)
     old_image_url = workshop.image_url
     workshop.image_url = ""
@@ -243,8 +251,11 @@ def delete_workshop(
             status_code=status.HTTP_409_CONFLICT,
             detail="中止したワークショップは、記録として残すため削除できません",
         )
+    image_url = workshop.image_url
     db.delete(workshop)
     db.commit()
+    if image_url:
+        delete_workshop_image(image_url)
 
 
 @router.post("/{workshop_id}/reservations", response_model=ReservationRead, status_code=status.HTTP_201_CREATED)
@@ -258,8 +269,13 @@ def reserve_workshop(
     workshop = lock_workshop(db, workshop_id)
     if workshop is None or workshop.status != WorkshopStatus.published:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ワークショップが見つかりません")
-    if workshop.start_at <= utcnow_naive():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="開始済みのワークショップは予約できません")
+    if utcnow_naive() >= reservation_deadline(workshop.start_at):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="予約の受付は開始日時の24時間前で締め切りました",
+        )
+    if workshop.facilitator_id == current_user.id:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="自分が主催するワークショップは予約できません")
 
     existing = (
         db.query(Reservation)
@@ -280,7 +296,8 @@ def reserve_workshop(
     reservation = Reservation(
         workshop_id=workshop_id,
         user_id=current_user.id,
-        attendee_name=payload.attendee_name,
+        # 同じアカウントでは同じ名前で参加する想定なので、参加者名はアカウント名を使う
+        attendee_name=current_user.name,
         contact=payload.contact,
         ticket_count=payload.ticket_count,
     )
@@ -340,6 +357,35 @@ def cancel_workshop_reservation(
     reservation.status = ReservationStatus.canceled
     # キャンセルと参加者への通知は、同じトランザクションでまとめて確定する
     add_reservation_canceled_notice(db, reservation)
+    db.commit()
+    db.refresh(reservation)
+    return to_reservation_read(db, reservation, current_user)
+
+
+@router.put("/{workshop_id}/reservations/{reservation_id}/attendance", response_model=ReservationRead)
+def update_reservation_attendance(
+    workshop_id: int,
+    reservation_id: int,
+    payload: AttendanceUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+) -> ReservationRead:
+    """開催当日の出欠を記録する。記録の誤りを直せるよう、開催後も変更できる"""
+    workshop = _get_owned_workshop(db, workshop_id, current_user)
+    reservation = db.get(Reservation, reservation_id)
+    if reservation is None or reservation.workshop_id != workshop.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="予約が見つかりません")
+    if workshop.status != WorkshopStatus.published:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="公開中のワークショップだけ出欠を記録できます")
+    if reservation.status != ReservationStatus.confirmed:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="キャンセルされた予約の出欠は記録できません")
+    if utcnow_naive() < workshop.start_at - ATTENDANCE_OPEN_BEFORE:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="出欠は開始日時の24時間前から記録できます",
+        )
+
+    reservation.attendance = payload.attendance
     db.commit()
     db.refresh(reservation)
     return to_reservation_read(db, reservation, current_user)

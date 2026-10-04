@@ -6,7 +6,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon'
 const MESSAGE_DISPLAY_MS = 2000
 
 const MENU_ITEM_CLASS =
-  'block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none'
+  'block w-full px-3 py-2 text-left text-sm text-fg-secondary hover:bg-surface-muted focus:bg-surface-muted focus:outline-none'
 
 // 各 SNS の共有画面の URL。どれも新しいタブで開く
 function snsShareLinks(url: string, text: string) {
@@ -20,6 +20,8 @@ function snsShareLinks(url: string, text: string) {
 }
 
 // 共有ボタン。押すとメニューを開き、SNS での共有とリンクのコピーを選べる。
+// メニューは開閉ボタン(aria-expanded)と、その下に並ぶ通常のリンク・ボタンとして作る。
+// role="menu" は矢印キーでの移動を前提とした部品なので、Tab キーで移動するこの作りでは使わない
 // path は /workshops/1 などのこのサイト内のパス、title は共有するときの本文に使う
 export function ShareButton({ path, title, className = '' }: { path: string; title: string; className?: string }) {
   const [open, setOpen] = useState(false)
@@ -83,10 +85,9 @@ export function ShareButton({ path, title, className = '' }: { path: string; tit
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="共有"
-        aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        className="peer inline-flex items-center justify-center rounded-full p-2 text-slate-400 transition hover:text-slate-700"
+        className="peer inline-flex items-center justify-center rounded-full p-2 text-fg-muted transition hover:text-fg-secondary"
       >
         <MaterialIcon name="share" className="text-[28px]" />
       </button>
@@ -95,14 +96,13 @@ export function ShareButton({ path, title, className = '' }: { path: string; tit
       {open && (
         <div
           id={menuId}
-          role="menu"
+          role="group"
           aria-label="共有"
-          className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-md border border-border-muted bg-white py-1 shadow-lg"
+          className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-md border border-border-muted bg-surface py-1 shadow-lg"
         >
           {snsShareLinks(url, title).map((item) => (
             <a
               key={item.label}
-              role="menuitem"
               href={item.href}
               target="_blank"
               rel="noopener noreferrer"
@@ -112,12 +112,12 @@ export function ShareButton({ path, title, className = '' }: { path: string; tit
               {item.label}
             </a>
           ))}
-          <div role="separator" className="my-1 border-t border-border-muted" />
-          <button type="button" role="menuitem" onClick={handleCopy} className={MENU_ITEM_CLASS}>
+          <div aria-hidden="true" className="my-1 border-t border-border-muted" />
+          <button type="button" onClick={handleCopy} className={MENU_ITEM_CLASS}>
             リンクをコピー
           </button>
           {canNativeShare && (
-            <button type="button" role="menuitem" onClick={handleNativeShare} className={MENU_ITEM_CLASS}>
+            <button type="button" onClick={handleNativeShare} className={MENU_ITEM_CLASS}>
               その他のアプリで共有
             </button>
           )}
@@ -126,8 +126,8 @@ export function ShareButton({ path, title, className = '' }: { path: string; tit
       {message && (
         <span
           role={message.isError ? 'alert' : 'status'}
-          className={`absolute right-0 top-full z-20 mt-1 w-max rounded-md border bg-white px-2 py-1 text-xs shadow ${
-            message.isError ? 'border-red-200 text-red-600' : 'border-border-muted text-slate-700'
+          className={`absolute right-0 top-full z-20 mt-1 w-max rounded-md border bg-surface px-2 py-1 text-xs shadow ${
+            message.isError ? 'border-red-400/30 text-red-300' : 'border-border-muted text-fg-secondary'
           }`}
         >
           {message.text}

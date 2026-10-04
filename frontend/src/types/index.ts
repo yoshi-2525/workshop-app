@@ -32,6 +32,13 @@ export interface WorkshopViewer {
   is_reservation_canceled: boolean
 }
 
+/** 予約した参加者と主催者にだけ返される、参加者向けの案内 */
+export interface ParticipantInfo {
+  // 当日の詳しい案内(集合場所・持ち物・参加 URL など)
+  guide: string
+  emergency_contact: string
+}
+
 export interface Workshop {
   id: number
   title: string
@@ -50,6 +57,8 @@ export interface Workshop {
   reserved_count: number
   status: WorkshopStatus
   viewer: WorkshopViewer
+  // 閲覧者が予約済みの参加者・主催者・運営でなければ null
+  participant_info: ParticipantInfo | null
 }
 
 /** ワークショップ詳細ページに出す関連ワークショップ。どれも開催予定のもの */
@@ -72,9 +81,15 @@ export type WorkshopInput = Pick<
   | 'price'
   | 'cancellation_policy'
   | 'status'
->
+> & {
+  participant_guide: string
+  emergency_contact: string
+}
 
 export type ReservationStatus = 'confirmed' | 'canceled'
+
+// 開催当日に主催者が記録する出欠
+export type AttendanceStatus = 'unconfirmed' | 'present' | 'absent'
 
 export interface Reservation {
   id: number
@@ -86,11 +101,11 @@ export interface Reservation {
   contact: string
   ticket_count: number
   status: ReservationStatus
+  attendance: AttendanceStatus
   created_at: string
 }
 
 export interface ReservationCreate {
-  attendee_name: string
   contact: string
   ticket_count: number
 }
@@ -114,6 +129,8 @@ export interface InquiryMessage {
   // 閲覧しているユーザー自身が送ったメッセージか
   is_mine: boolean
   body: string
+  // 主催者が参加者全員に一斉送信したお知らせか
+  is_broadcast: boolean
   created_at: string
 }
 

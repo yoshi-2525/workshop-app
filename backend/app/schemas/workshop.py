@@ -11,6 +11,8 @@ from app.schemas.types import NaiveUTCDateTime, TrimmedStr, UTCDateTime
 TITLE_MAX_LENGTH = 50
 CAPACITY_MAX = 100
 PRICE_MAX = 100_000
+PARTICIPANT_GUIDE_MAX_LENGTH = 2000
+EMERGENCY_CONTACT_MAX_LENGTH = 255
 
 
 class WorkshopInput(BaseModel):
@@ -23,6 +25,8 @@ class WorkshopInput(BaseModel):
     capacity: int = Field(ge=1, le=CAPACITY_MAX)
     price: int = Field(ge=0, le=PRICE_MAX, default=0)
     cancellation_policy: TrimmedStr = Field(default="", max_length=2000)
+    participant_guide: TrimmedStr = Field(default="", max_length=PARTICIPANT_GUIDE_MAX_LENGTH)
+    emergency_contact: TrimmedStr = Field(default="", max_length=EMERGENCY_CONTACT_MAX_LENGTH)
     status: WorkshopStatus = WorkshopStatus.draft
 
     @model_validator(mode="after")
@@ -39,6 +43,13 @@ class WorkshopViewer(BaseModel):
     is_reserved: bool = False
     # 主催者に参加をキャンセルされた。この場合は同じワークショップを再予約できない
     is_reservation_canceled: bool = False
+
+
+class ParticipantInfo(BaseModel):
+    """予約した参加者と主催者(と運営)にだけ返す、参加者向けの案内"""
+
+    guide: str
+    emergency_contact: str
 
 
 class WorkshopRead(BaseModel):
@@ -61,6 +72,8 @@ class WorkshopRead(BaseModel):
     facilitator_avatar_url: str
     reserved_count: int
     viewer: WorkshopViewer = WorkshopViewer()
+    # 閲覧者が予約済みの参加者・主催者・運営でなければ null
+    participant_info: ParticipantInfo | None = None
 
 
 class RelatedWorkshops(BaseModel):
@@ -89,7 +102,7 @@ class WorkshopSearchQuery(BaseModel):
     price: Literal["free", "paid"] | None = None
     # price=paid のときだけ使う
     max_price: int | None = Field(default=None, ge=0)
-    # 満員でない(確定済みチケットの合計が定員未満の)ものだけ
+    # 予約できる(満員でなく、予約の締め切り前の)ものだけ
     available: bool = False
     # ログイン中のユーザーが予約済み(確定済み)のものを除く。未ログインなら何もしない
     exclude_reserved: bool = False
