@@ -3,9 +3,9 @@ import type { FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getWorkshop } from '@/api/workshops'
 import { reserveWorkshop } from '@/api/reservations'
-import { extractErrorMessage } from '@/api/client'
 import { useAuth } from '@/context/AuthContext'
 import { useApiResource } from '@/hooks/useApiResource'
+import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { formatPrice } from '@/utils/format'
 import type { Workshop } from '@/types'
 import { parseIdParam } from '@/utils/params'
@@ -75,8 +75,7 @@ export function ReservationFormPage() {
     'ワークショップの取得に失敗しました',
   )
   // 予約の送信に失敗したときのメッセージ
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const submitAction = useAsyncAction()
 
   // ログインが必要なページ(ProtectedRoute の内側)なので、表示時点で user は読み込み済み。
   // 初期値として一度だけ入れ、あとから user が更新されても入力中の内容は上書きしない
@@ -106,19 +105,11 @@ export function ReservationFormPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (!workshop) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      await reserveWorkshop(workshop.id, {
-        contact,
-        ticket_count: ticketCount,
-      })
-      navigate('/reservations', { state: { justReserved: workshop.title } })
-    } catch (err) {
-      setError(extractErrorMessage(err, '予約に失敗しました'))
-    } finally {
-      setSubmitting(false)
-    }
+    const result = await submitAction.run(
+      () => reserveWorkshop(workshop.id, { contact, ticket_count: ticketCount }),
+      '予約に失敗しました',
+    )
+    if (result.ok) navigate('/reservations', { state: { justReserved: workshop.title } })
   }
 
   // 予約できない場合は、理由と戻り先のリンクだけを出す
@@ -212,7 +203,7 @@ export function ReservationFormPage() {
             )}
           </div>
 
-          <ErrorMessage message={error} className="text-sm" />
+          <ErrorMessage message={submitAction.error} className="text-sm" />
 
           <div className="flex gap-3 justify-end">
             <button
@@ -224,10 +215,10 @@ export function ReservationFormPage() {
             </button>
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitAction.pending}
               className={PRIMARY_BUTTON_CLASS}
             >
-              {submitting ? '登録中...' : 'この内容で予約を確定する'}
+              {submitAction.pending ? '登録中...' : 'この内容で予約を確定する'}
             </button>
 
           </div>

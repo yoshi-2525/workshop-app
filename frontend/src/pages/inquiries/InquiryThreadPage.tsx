@@ -7,6 +7,7 @@ import { useNotifications } from '@/context/NotificationContext'
 import { Avatar } from '@/components/ui/Avatar'
 import { InquiryComposer } from '@/components/inquiry/InquiryComposer'
 import { InquiryMessageList } from '@/components/inquiry/InquiryMessageList'
+import { useAsyncAction } from '@/hooks/useAsyncAction'
 import type { InquiryDetail } from '@/types'
 import { parseIdParam } from '@/utils/params'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
@@ -21,7 +22,7 @@ export function InquiryThreadPage() {
   const [inquiry, setInquiry] = useState<InquiryDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [sendError, setSendError] = useState<string | null>(null)
+  const { run: runSend, error: sendError, clearError: clearSendError } = useAsyncAction()
   // 送信するたびに増やす。読み込み直しの途中で送信した場合、その読み込みの結果(送信前の内容)で上書きしないため
   const sendVersionRef = useRef(0)
 
@@ -43,7 +44,7 @@ export function InquiryThreadPage() {
   useEffect(() => {
     setInquiry(null)
     setError(null)
-    setSendError(null)
+    clearSendError()
     const inquiryId = parseIdParam(id)
     if (inquiryId === null) {
       setError('問い合わせが見つかりません')
@@ -77,18 +78,15 @@ export function InquiryThreadPage() {
       clearInterval(interval)
       controller.abort()
     }
-  }, [id, markReadIfNeeded])
+  }, [id, markReadIfNeeded, clearSendError])
 
   async function handleSend(body: string) {
     if (!inquiry) return
-    setSendError(null)
     sendVersionRef.current += 1
-    try {
-      setInquiry(await replyInquiry(inquiry.id, body))
-    } catch (err) {
-      setSendError(extractErrorMessage(err, '送信に失敗しました'))
-      throw err
-    }
+    const sent = await runSend(() => replyInquiry(inquiry.id, body), '送信に失敗しました')
+    // 失敗したら InquiryComposer が入力を残せるよう、エラーを投げ直す
+    if (!sent.ok) throw sent.error
+    setInquiry(sent.value)
   }
 
   const backLink = (

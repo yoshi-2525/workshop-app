@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getWorkshopInquiry, sendWorkshopInquiry } from '@/api/inquiries'
 import { getWorkshop } from '@/api/workshops'
-import { extractErrorMessage } from '@/api/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { InquiryComposer } from '@/components/inquiry/InquiryComposer'
 import { useApiResource } from '@/hooks/useApiResource'
+import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { parseIdParam } from '@/utils/params'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PaperCard } from '@/components/ui/PaperCard'
@@ -14,7 +14,7 @@ import { PaperCard } from '@/components/ui/PaperCard'
 export function WorkshopInquiryPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [sendError, setSendError] = useState<string | null>(null)
+  const { run: runSend, error: sendError } = useAsyncAction()
   const workshopId = parseIdParam(id)
   const { data, loading, error } = useApiResource(
     workshopId === null ? null : `workshop-inquiry:${workshopId}`,
@@ -31,14 +31,10 @@ export function WorkshopInquiryPage() {
 
   async function handleSend(body: string) {
     if (!workshop) return
-    setSendError(null)
-    try {
-      const inquiry = await sendWorkshopInquiry(workshop.id, body)
-      navigate(`/inquiries/${inquiry.id}`, { replace: true })
-    } catch (err) {
-      setSendError(extractErrorMessage(err, '送信に失敗しました'))
-      throw err
-    }
+    const sent = await runSend(() => sendWorkshopInquiry(workshop.id, body), '送信に失敗しました')
+    // 失敗したら InquiryComposer が入力を残せるよう、エラーを投げ直す
+    if (!sent.ok) throw sent.error
+    navigate(`/inquiries/${sent.value.id}`, { replace: true })
   }
 
   const backLink = (

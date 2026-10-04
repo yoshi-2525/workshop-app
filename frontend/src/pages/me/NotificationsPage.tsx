@@ -1,13 +1,12 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/api/notifications'
-import { extractErrorMessage } from '@/api/client'
 import { useNotifications } from '@/context/NotificationContext'
 import { useApiResource } from '@/hooks/useApiResource'
+import { useAsyncAction } from '@/hooks/useAsyncAction'
 import type { Notification } from '@/types'
 import { formatDateTime } from '@/utils/format'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
@@ -33,39 +32,35 @@ export function NotificationsPage() {
     setData: setNotifications,
   } = useApiResource('notifications', listNotifications, '通知の取得に失敗しました')
   const notifications = data ?? []
-  const [markError, setMarkError] = useState<string | null>(null)
-  const error = loadError ?? markError
+  const markAction = useAsyncAction()
+  const error = loadError ?? markAction.error
 
   async function handleOpen(notification: Notification) {
     if (notification.is_read) return
-    setMarkError(null)
     setNotifications((prev) =>
       prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)),
     )
-    try {
-      await markNotificationRead(notification.id)
+    const result = await markAction.run(() => markNotificationRead(notification.id), '既読にできませんでした')
+    if (result.ok) {
       refreshUnreadCount()
-    } catch (err) {
-      // 先に既読として表示したので、失敗したら未読に戻す
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notification.id ? { ...n, is_read: false } : n)),
-      )
-      setMarkError(extractErrorMessage(err, '既読にできませんでした'))
+      return
     }
+    // 先に既読として表示したので、失敗したら未読に戻す
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notification.id ? { ...n, is_read: false } : n)),
+    )
   }
 
   async function handleMarkAllRead() {
     // 失敗したときに戻せるよう、未読だったものを覚えておく
     const unreadIds = new Set(notifications.filter((n) => !n.is_read).map((n) => n.id))
-    setMarkError(null)
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
-    try {
-      await markAllNotificationsRead()
+    const result = await markAction.run(markAllNotificationsRead, '既読にできませんでした')
+    if (result.ok) {
       refreshUnreadCount()
-    } catch (err) {
-      setNotifications((prev) => prev.map((n) => (unreadIds.has(n.id) ? { ...n, is_read: false } : n)))
-      setMarkError(extractErrorMessage(err, '既読にできませんでした'))
+      return
     }
+    setNotifications((prev) => prev.map((n) => (unreadIds.has(n.id) ? { ...n, is_read: false } : n)))
   }
 
   return (

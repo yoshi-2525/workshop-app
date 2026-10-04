@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getWorkshop } from '@/api/workshops'
 import {
@@ -6,8 +5,8 @@ import {
   listWorkshopReservations,
   updateReservationAttendance,
 } from '@/api/reservations'
-import { extractErrorMessage } from '@/api/client'
 import { useApiResource } from '@/hooks/useApiResource'
+import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
 import type { AttendanceStatus, Reservation, Workshop } from '@/types'
 import { formatDateTime } from '@/utils/format'
@@ -24,10 +23,9 @@ const ATTENDANCE_OPTIONS: ToggleOption<AttendanceStatus>[] = [
 
 export function WorkshopReservationsPage() {
   const { id } = useParams<{ id: string }>()
-  const [cancelError, setCancelError] = useState<string | null>(null)
-  const [cancelingId, setCancelingId] = useState<number | null>(null)
-  const [attendanceError, setAttendanceError] = useState<string | null>(null)
-  const [updatingAttendanceId, setUpdatingAttendanceId] = useState<number | null>(null)
+  // どちらも実行中の予約の ID を持つ
+  const cancelAction = useAsyncAction<number>()
+  const attendanceAction = useAsyncAction<number>()
 
   const workshopId = parseIdParam(id)
   const { data, loading, error, setData } = useApiResource(
@@ -48,6 +46,14 @@ export function WorkshopReservationsPage() {
       <ErrorMessage message={error ?? 'ワークショップが見つかりませんでした'} />
     )
   const { workshop, reservations } = data
+
+  // 操作の結果で返ってきた予約を、一覧に反映する
+  function replaceReservation(updated: Reservation) {
+    setData((current) => ({
+      ...current,
+      reservations: current.reservations.map((r) => (r.id === updated.id ? updated : r)),
+    }))
+  }
 
   // キャンセルできるのは、確定済みの予約で、ワークショップが中止されておらず、まだ始まっていないものだけ
   // (バックエンドの cancel_workshop_reservation と同じ条件)
@@ -70,19 +76,12 @@ export function WorkshopReservationsPage() {
       )
     )
       return
-    setCancelingId(reservation.id)
-    setCancelError(null)
-    try {
-      const updated = await cancelWorkshopReservation(reservation.workshop_id, reservation.id)
-      setData((current) => ({
-        ...current,
-        reservations: current.reservations.map((r) => (r.id === updated.id ? updated : r)),
-      }))
-    } catch (err) {
-      setCancelError(extractErrorMessage(err, 'キャンセルに失敗しました'))
-    } finally {
-      setCancelingId(null)
-    }
+    const result = await cancelAction.run(
+      () => cancelWorkshopReservation(reservation.workshop_id, reservation.id),
+      'キャンセルに失敗しました',
+      reservation.id,
+    )
+    if (result.ok) replaceReservation(result.value)
   }
 
   // 出欠を記録できるのは、公開中のワークショップの確定済みの予約だけ(バックエンドの update_reservation_attendance と同じ条件)
@@ -90,19 +89,12 @@ export function WorkshopReservationsPage() {
 
   async function handleAttendanceChange(reservation: Reservation, attendance: AttendanceStatus) {
     if (attendance === reservation.attendance) return
-    setUpdatingAttendanceId(reservation.id)
-    setAttendanceError(null)
-    try {
-      const updated = await updateReservationAttendance(reservation.workshop_id, reservation.id, attendance)
-      setData((current) => ({
-        ...current,
-        reservations: current.reservations.map((r) => (r.id === updated.id ? updated : r)),
-      }))
-    } catch (err) {
-      setAttendanceError(extractErrorMessage(err, '出欠の記録に失敗しました'))
-    } finally {
-      setUpdatingAttendanceId(null)
-    }
+    const result = await attendanceAction.run(
+      () => updateReservationAttendance(reservation.workshop_id, reservation.id, attendance),
+      '出欠の記録に失敗しました',
+      reservation.id,
+    )
+    if (result.ok) replaceReservation(result.value)
   }
 
   const confirmed = reservations.filter((r) => r.status === 'confirmed')
@@ -132,8 +124,8 @@ export function WorkshopReservationsPage() {
           )}
         </PaperCard>
       )}
-      <ErrorMessage message={attendanceError} className="mt-4 text-sm" />
-      <ErrorMessage message={cancelError} className="mt-4 text-sm" />
+      <ErrorMessage message={attendanceAction.error} className="mt-4 text-sm" />
+      <ErrorMessage message={cancelAction.error} className="mt-4 text-sm" />
       {reservations.length === 0 ? (
         <p className="mt-6 text-fg-muted">まだ予約はありません。</p>
       ) : (
@@ -157,11 +149,11 @@ export function WorkshopReservationsPage() {
                     <button
                       type="button"
                       onClick={() => handleCancel(reservation)}
-                      disabled={cancelingId !== null}
+                      disabled={cancelAction.pending}
                       aria-label={`${reservation.user_name}さんの参加をキャンセル`}
                       className="rounded-md border border-red-400/30 px-2.5 py-1 text-xs text-red-300 hover:bg-red-400/10 disabled:opacity-50"
                     >
-                      {cancelingId === reservation.id ? 'キャンセル中...' : '参加をキャンセル'}
+                      {cancelAction.pendingKey === reservation.id ? 'キャンセル中...' : '参加をキャンセル'}
                     </button>
                   )}
                 </div>
@@ -179,7 +171,7 @@ export function WorkshopReservationsPage() {
                   options={ATTENDANCE_OPTIONS}
                   value={reservation.attendance}
                   onChange={(attendance) => handleAttendanceChange(reservation, attendance)}
-                  disabled={updatingAttendanceId !== null}
+                  disabled={attendanceAction.pending}
                   className="mt-2"
                 />
               )}

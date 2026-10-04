@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { addFavorite, removeFavorite } from '@/api/workshops'
-import { extractErrorMessage } from '@/api/client'
 import { useAuth } from '@/context/AuthContext'
+import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { HoverLabel } from '@/components/ui/HoverLabel'
 
 // 失敗したときのメッセージを表示しておく時間
@@ -19,8 +19,7 @@ interface FavoriteButtonProps {
 export function FavoriteButton({ workshopId, isFavorited, onChange, className = '', size = 'md' }: FavoriteButtonProps) {
   const { user } = useAuth()
   const [favorited, setFavorited] = useState(isFavorited)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { run, pending: submitting, error, clearError } = useAsyncAction()
 
   // 親が新しい値を渡してきたら(一覧の再読み込みなど)、表示もそれに合わせる
   const [prevIsFavorited, setPrevIsFavorited] = useState(isFavorited)
@@ -31,30 +30,25 @@ export function FavoriteButton({ workshopId, isFavorited, onChange, className = 
 
   useEffect(() => {
     if (!error) return
-    const timer = setTimeout(() => setError(null), ERROR_DISPLAY_MS)
+    const timer = setTimeout(clearError, ERROR_DISPLAY_MS)
     return () => clearTimeout(timer)
-  }, [error])
+  }, [error, clearError])
 
   // お気に入りはログインユーザーだけの機能なので、未ログインならボタン自体を出さない
   if (!user) return null
 
   async function handleClick() {
-    setSubmitting(true)
-    setError(null)
     const next = !favorited
-    try {
-      if (next) {
-        await addFavorite(workshopId)
-      } else {
-        await removeFavorite(workshopId)
-      }
-      setFavorited(next)
-      onChange?.(next)
-    } catch (err) {
-      setError(extractErrorMessage(err, 'お気に入りの更新に失敗しました'))
-    } finally {
-      setSubmitting(false)
-    }
+    const result = await run(
+      async () => {
+        if (next) await addFavorite(workshopId)
+        else await removeFavorite(workshopId)
+      },
+      'お気に入りの更新に失敗しました',
+    )
+    if (!result.ok) return
+    setFavorited(next)
+    onChange?.(next)
   }
 
   return (

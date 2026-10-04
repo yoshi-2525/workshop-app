@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { deleteWorkshop, listManagedWorkshops } from '@/api/workshops'
-import { extractErrorMessage } from '@/api/client'
 import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
 import { useApiResource } from '@/hooks/useApiResource'
+import { useAsyncAction } from '@/hooks/useAsyncAction'
 import type { Workshop } from '@/types'
 import { isWorkshopFinished } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
@@ -35,8 +35,8 @@ export function ManageWorkshopsPage() {
     listManagedWorkshops,
     '取得に失敗しました',
   )
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-  const error = loadError ?? deleteError
+  const deleteAction = useAsyncAction()
+  const error = loadError ?? deleteAction.error
 
   // タブの中身を見出しごとに分ける。見出しのない最初のまとまりが、そのタブの本体
   const sections = useMemo((): { heading?: string; items: Workshop[] }[] => {
@@ -74,13 +74,8 @@ export function ManageWorkshopsPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('このワークショップを削除しますか?')) return
-    setDeleteError(null)
-    try {
-      await deleteWorkshop(id)
-      reload()
-    } catch (err) {
-      setDeleteError(extractErrorMessage(err, '削除に失敗しました'))
-    }
+    const result = await deleteAction.run(() => deleteWorkshop(id), '削除に失敗しました')
+    if (result.ok) reload()
   }
 
   return (
