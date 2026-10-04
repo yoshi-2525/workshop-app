@@ -234,7 +234,7 @@ export function WorkshopDetailPage() {
               <button
                 onClick={handleReserveClick}
                 disabled={isClosed || isFull || workshop.viewer.is_reserved || workshop.viewer.is_reservation_canceled}
-                className="rounded-md bg-accent px-6 py-3 text-base font-medium text-accent-foreground enabled:hover:bg-accent-hover disabled:opacity-50"
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground enabled:hover:bg-accent-hover disabled:opacity-50"
               >
                 {workshop.viewer.is_reserved
                   ? '予約済みです'

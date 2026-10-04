@@ -11,7 +11,7 @@ import { WorkshopListPage } from '@/pages/workshops/WorkshopListPage'
 import { WorkshopDetailPage } from '@/pages/workshops/WorkshopDetailPage'
 import { ReservationFormPage } from '@/pages/reservations/ReservationFormPage'
 import { FacilitatorProfilePage } from '@/pages/workshops/FacilitatorProfilePage'
-import { MyReservationsPage } from '@/pages/reservations/MyReservationsPage'
+import { MyReservationsPage, ReservationHistoryPage } from '@/pages/reservations/MyReservationsPage'
 import { FavoritesPage } from '@/pages/me/FavoritesPage'
 import { NotificationsPage } from '@/pages/me/NotificationsPage'
 import { InquiriesPage } from '@/pages/inquiries/InquiriesPage'
@@ -54,6 +54,7 @@ export default function App() {
         <Route element={<ProtectedRoute loginPath="/login/participant" />}>
           <Route path="workshops/:id/reserve" element={<ReservationFormPage />} />
           <Route path="reservations" element={<MyReservationsPage />} />
+          <Route path="reservations/history" element={<ReservationHistoryPage />} />
           <Route path="favorites" element={<FavoritesPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="workshops/:id/inquiry" element={<WorkshopInquiryPage />} />

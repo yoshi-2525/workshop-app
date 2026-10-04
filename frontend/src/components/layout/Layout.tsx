@@ -7,7 +7,7 @@ export function Layout() {
     <div className="flex min-h-screen flex-col bg-night">
       <ScrollToTop />
       <Navbar />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-4">
         <Outlet />
       </main>
       <footer className="border-t border-border-muted">

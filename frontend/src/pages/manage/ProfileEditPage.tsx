@@ -9,6 +9,7 @@ import { UPLOAD_IMAGE_ACCEPT } from '@/utils/image'
 import { canManageWorkshops, USER_BIO_MAX_LENGTH, USER_NAME_MAX_LENGTH } from '@/utils/user'
 import { ErrorMessage } from '@/components/ui/StatusMessage'
 import { FILE_INPUT_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { PaperCard } from '@/components/ui/PaperCard'
 
 export function ProfileEditPage() {
   const { user, refreshUser } = useAuth()
@@ -66,92 +67,97 @@ export function ProfileEditPage() {
           ? '参加者があなたのワークショップ詳細から見られる公開プロフィールです。'
           : '表示名や自己紹介を編集します。'}
       </p>
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        {isFacilitator && user && (
-          <div>
-            <label htmlFor={avatarId} className="block text-sm font-medium text-fg-secondary">
-              アイコン
-            </label>
-            <div className="mt-2 flex items-center gap-4">
-              <Avatar
-                url={avatar.previewUrl ?? (avatar.removed ? '' : user.avatar_url)}
-                name={name || user.name}
-                className="h-16 w-16 text-2xl"
-              />
-              <div className="min-w-0 flex-1">
-                <input
-                  id={avatarId}
-                  ref={avatarInputRef}
-                  type="file"
-                  accept={UPLOAD_IMAGE_ACCEPT}
-                  onChange={avatar.select}
-                  aria-describedby={avatarHelpId}
-                  className={FILE_INPUT_CLASS}
+      {/* 入力欄一式を、他の一覧・フォームと同じ紙のカードにまとめる */}
+      <PaperCard cornerFold={false} className="mt-6 p-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {isFacilitator && user && (
+            <div>
+              <label htmlFor={avatarId} className="block text-sm font-medium text-fg-secondary">
+                アイコン
+              </label>
+              <div className="mt-2 flex items-center gap-4">
+                <Avatar
+                  url={avatar.previewUrl ?? (avatar.removed ? '' : user.avatar_url)}
+                  name={name || user.name}
+                  className="h-16 w-16 text-2xl"
                 />
-                {avatar.file ? (
-                  <button type="button" onClick={avatar.clearSelection} className="mt-2 text-xs text-red-300 underline">
-                    選んだ画像を取り消す
-                  </button>
-                ) : (
-                  user.avatar_url &&
-                  !avatar.removed && (
-                    <button type="button" onClick={avatar.remove} className="mt-2 text-xs text-red-300 underline">
-                      アイコンを削除する
+                <div className="min-w-0 flex-1">
+                  <input
+                    id={avatarId}
+                    ref={avatarInputRef}
+                    type="file"
+                    accept={UPLOAD_IMAGE_ACCEPT}
+                    onChange={avatar.select}
+                    aria-describedby={avatarHelpId}
+                    className={FILE_INPUT_CLASS}
+                  />
+                  {avatar.file ? (
+                    <button type="button" onClick={avatar.clearSelection} className="mt-2 text-xs text-red-300 underline">
+                      選んだ画像を取り消す
                     </button>
-                  )
-                )}
+                  ) : (
+                    user.avatar_url &&
+                    !avatar.removed && (
+                      <button type="button" onClick={avatar.remove} className="mt-2 text-xs text-red-300 underline">
+                        アイコンを削除する
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
+              <p id={avatarHelpId} className="mt-1 text-xs text-fg-muted">
+                ワークショップ詳細と主催者ページに丸く切り抜いて表示されます(推奨: 正方形 400×400 / jpg, png, webp, gif / 5MBまで)。
+              </p>
             </div>
-            <p id={avatarHelpId} className="mt-1 text-xs text-fg-muted">
-              ワークショップ詳細と主催者ページに丸く切り抜いて表示されます(推奨: 正方形 400×400 / jpg, png, webp, gif / 5MBまで)。
+          )}
+          <div>
+            <label htmlFor={nameId} className="block text-sm font-medium text-fg-secondary">
+              表示名
+            </label>
+            <input
+              id={nameId}
+              autoComplete="name"
+              required
+              maxLength={USER_NAME_MAX_LENGTH}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none"
+            />
+          </div>
+          <div>
+            <label htmlFor={bioId} className="block text-sm font-medium text-fg-secondary">
+              自己紹介
+            </label>
+            <textarea
+              id={bioId}
+              rows={6}
+              maxLength={USER_BIO_MAX_LENGTH}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="経歴や大切にしていること、対話へのスタンスなどを書いてみましょう。"
+              className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none"
+            />
+            <p className="mt-1 text-right text-xs text-fg-muted">
+              {bio.length} / {USER_BIO_MAX_LENGTH}文字
             </p>
           </div>
-        )}
-        <div>
-          <label htmlFor={nameId} className="block text-sm font-medium text-fg-secondary">
-            表示名
-          </label>
-          <input
-            id={nameId}
-            autoComplete="name"
-            required
-            maxLength={USER_NAME_MAX_LENGTH}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none"
-          />
-        </div>
-        <div>
-          <label htmlFor={bioId} className="block text-sm font-medium text-fg-secondary">
-            自己紹介
-          </label>
-          <textarea
-            id={bioId}
-            rows={6}
-            maxLength={USER_BIO_MAX_LENGTH}
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="経歴や大切にしていること、対話へのスタンスなどを書いてみましょう。"
-            className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none"
-          />
-          <p className="mt-1 text-right text-xs text-fg-muted">
-            {bio.length} / {USER_BIO_MAX_LENGTH}文字
-          </p>
-        </div>
-        <ErrorMessage message={error} className="text-sm" />
-        {saved && (
-          <p role="status" className="text-sm text-emerald-300">
-            保存しました。
-          </p>
-        )}
-        <button
-          type="submit"
-          disabled={saving}
-          className={PRIMARY_BUTTON_CLASS}
-        >
-          {saving ? '保存中...' : '保存する'}
-        </button>
-      </form>
+          <ErrorMessage message={error} className="text-sm" />
+          {saved && (
+            <p role="status" className="text-sm text-emerald-300">
+              保存しました。
+            </p>
+          )}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={saving}
+              className={PRIMARY_BUTTON_CLASS}
+            >
+              {saving ? '保存中...' : '保存する'}
+            </button>
+          </div>
+        </form>
+      </PaperCard>
     </div>
   )
 }

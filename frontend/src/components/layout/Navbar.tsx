@@ -9,7 +9,7 @@ function NavIconLink({ to, icon, label, unreadCount }: { to: string; icon: strin
   const fullLabel = unreadCount > 0 ? `${label}(未読${unreadCount}件)` : label
   return (
     <Link to={to} aria-label={fullLabel} title={fullLabel} className="relative flex text-fg-secondary hover:text-fg">
-      <MaterialIcon name={icon} className="text-[24px]" />
+      <MaterialIcon name={icon} className="text-[26px]" />
       {/* 未読数は aria-label で伝えるので、バッジ自体は読み上げない */}
       {unreadCount > 0 && (
         <span
@@ -32,21 +32,22 @@ export function Navbar() {
   return (
     // 地の淡い光が透けるよう、ヘッダーは半透明にしてぼかす
     <header className="border-b border-border-muted bg-background/60 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <Link to="/" className="font-brand leading-none text-2xl font-semibold tracking-[0.3em] text-fg">
+      {/* ロゴと文字はスマホ幅だと横に収まらないので、少し広い画面(sm)から大きくする */}
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:py-5">
+        <Link to="/" className="font-brand leading-none text-2xl font-semibold tracking-[0.3em] text-fg sm:text-3xl">
           TAIWA
         </Link>
-        <nav className="flex items-center gap-3 text-sm sm:gap-4">
+        <nav className="flex items-center gap-3 text-sm sm:gap-5 sm:text-base">
           {/* 狭い画面ではロゴがトップへのリンクを兼ねるので省く */}
           <Link to="/" className="hidden text-fg-secondary hover:text-fg sm:inline">
             場をさがす
           </Link>
           {user ? (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 sm:gap-4">
               {isFacilitator && (
                 <Link
                   to="/manage/workshops/new"
-                  className="rounded-md bg-accent px-3 py-1.5 text-accent-foreground hover:bg-accent-hover"
+                  className="rounded-md bg-accent px-3 py-1.5 text-accent-foreground hover:bg-accent-hover sm:px-4 sm:py-2"
                 >
                   ワークショップの開催
                 </Link>
@@ -59,7 +60,7 @@ export function Navbar() {
                 title={`${user.name}さんの設定`}
                 className="flex text-fg-secondary hover:text-fg"
               >
-                <MaterialIcon name="account_circle" className="text-[28px]" />
+                <MaterialIcon name="account_circle" className="text-[30px]" />
               </Link>
 
             </div>
@@ -67,13 +68,13 @@ export function Navbar() {
             <div className="flex items-center gap-2">
               <Link
                 to="/login"
-                className="rounded-md border border-border px-3 py-1.5 text-fg-secondary hover:bg-surface-muted"
+                className="rounded-md border border-border px-3 py-1.5 text-fg-secondary hover:bg-surface-muted sm:px-4 sm:py-2"
               >
                 ログイン
               </Link>
               <Link
                 to="/register"
-                className="rounded-md bg-accent px-3 py-1.5 text-accent-foreground hover:bg-accent-hover"
+                className="rounded-md bg-accent px-3 py-1.5 text-accent-foreground hover:bg-accent-hover sm:px-4 sm:py-2"
               >
                 新規登録
               </Link>

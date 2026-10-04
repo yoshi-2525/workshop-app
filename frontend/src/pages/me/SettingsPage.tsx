@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { HELP_DOCUMENTS } from '@/pages/help/helpDocuments'
 import { canManageWorkshops } from '@/utils/user'
+import { PaperCard } from '@/components/ui/PaperCard'
 
 interface SettingsLink {
   to: string
@@ -13,10 +14,10 @@ function SettingsLinkList({ links }: { links: SettingsLink[] }) {
   return (
     <ul className="mt-3 space-y-3">
       {links.map((link) => (
-        <li key={link.to}>
+        <PaperCard as="li" key={link.to} cornerFold={false} interactive>
           <Link
             to={link.to}
-            className="flex items-center justify-between rounded-lg border border-border-muted bg-surface p-4 shadow-sm transition hover:shadow-md"
+            className="flex items-center justify-between rounded-lg p-4 focus:outline-none"
           >
             <div>
               <p className="font-medium text-fg">{link.title}</p>
@@ -26,7 +27,7 @@ function SettingsLinkList({ links }: { links: SettingsLink[] }) {
               ›
             </span>
           </Link>
-        </li>
+        </PaperCard>
       ))}
     </ul>
   )
@@ -61,8 +62,13 @@ export function SettingsPage() {
       : []),
     {
       to: '/reservations',
-      title: '予約履歴・参加履歴',
-      description: '参加予定のワークショップの確認や、過去に参加した履歴を見られます。',
+      title: '参加予定のワークショップ',
+      description: 'これから参加する予定のワークショップを確認できます。',
+    },
+    {
+      to: '/reservations/history',
+      title: '予約・参加履歴',
+      description: '過去に参加したワークショップや、キャンセル・中止になったものも含めた予約の履歴を見られます。',
     },
     {
       to: '/inquiries',

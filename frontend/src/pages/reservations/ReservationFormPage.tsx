@@ -233,7 +233,7 @@ export function ReservationFormPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-accent px-6 py-3 text-base font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
             >
               {submitting ? '登録中...' : 'この内容で予約を確定する'}
             </button>
