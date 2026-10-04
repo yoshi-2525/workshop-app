@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -58,7 +59,7 @@ def login(
             headers={"Retry-After": str(retry_after)},
         )
 
-    user = db.query(User).filter(User.email == email).first()
+    user = db.scalar(select(User).where(User.email == email))
     if user is None:
         burn_password_check(form_data.password)
     if user is None or not verify_password(form_data.password, user.hashed_password):

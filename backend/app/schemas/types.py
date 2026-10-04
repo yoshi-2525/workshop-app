@@ -29,9 +29,8 @@ EmailAddress = Annotated[
     AfterValidator(_check_email),
 ]
 
-# The DB stores every datetime as naive UTC. API responses must carry an
-# explicit offset so browsers don't read them as local time, and inputs are
-# normalized back to naive UTC before they reach the ORM.
+# DB の日時はすべて「タイムゾーンなしの UTC」で持つ。API の応答には、ブラウザが端末の時刻として
+# 読まないよう UTC であることを明示し、入力は ORM に渡す前にタイムゾーンなしの UTC に戻す。
 
 
 def _to_aware_utc(value: datetime) -> datetime:

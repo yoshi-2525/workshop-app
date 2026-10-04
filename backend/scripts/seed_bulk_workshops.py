@@ -83,7 +83,7 @@ def jst_to_utc(days: int, hour: int, minute: int = 0) -> datetime:
 
 
 def build_titles(rng: random.Random) -> list[tuple[str, str]]:
-    # Skip the title seed_sample_data.py already uses, so all 50 are new.
+    # seed_sample_data.py で使っているタイトルは除き、50件すべてを新しいものにする
     pairs = [
         (theme, fmt)
         for theme in THEMES

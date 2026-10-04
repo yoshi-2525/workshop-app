@@ -1,64 +1,45 @@
-from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
-from sqlalchemy import exists, or_, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.deps import get_current_user, get_current_user_optional, require_roles
-from app.core.errors import RESERVATION_NOT_FOUND, WORKSHOP_NOT_FOUND, conflict, not_found
+from app.core.errors import conflict
 from app.core.timeutil import utcnow_naive
 from app.database import get_db
-from app.models.reservation import Reservation, ReservationStatus
+from app.models.reservation import Reservation
 from app.models.user import User, UserRole
 from app.models.workshop import Workshop, WorkshopStatus
 from app.schemas.reservation import AttendanceUpdate, ReservationCreate, ReservationRead
 from app.schemas.workshop import RelatedWorkshops, WorkshopInput, WorkshopRead, WorkshopSearchQuery
-from app.services.notifications import add_cancellation_notices, add_reservation_canceled_notice
-from app.services.pagination import PageQuery, paginate
+from app.services.pagination import paginate
 from app.services.related import related_workshops
-from app.services.reservations import to_reservation_read, to_reservation_reads
+from app.services.reservations import (
+    RESERVATION_LOAD_OPTIONS,
+    cancel_reservation,
+    create_reservation,
+    get_workshop_reservation,
+    record_attendance,
+    to_reservation_read,
+    to_reservation_reads,
+)
 from app.services.uploads import WORKSHOP_IMAGES, replace_image
 from app.services.workshops import (
-    RESERVATION_DEADLINE_BEFORE,
+    cancel_workshop,
     check_workshop_input,
-    confirmed_tickets_select,
     ensure_editable,
     get_managed_workshop,
     get_viewable_workshop,
-    lock_workshop,
-    reservation_deadline,
-    reserved_count,
+    public_workshops_select,
     to_workshop_read,
     to_workshop_reads,
 )
 
 router = APIRouter(prefix="/workshops", tags=["workshops"])
 
-# 出欠は開始日時のこの時間前から記録できる(受付の準備や、前日に欠席の連絡を受けた場合のため)。
-# フロントエンドの utils/workshop.ts の ATTENDANCE_OPEN_HOURS_BEFORE と揃える
-ATTENDANCE_OPEN_BEFORE = timedelta(hours=24)
-
-
-def _get_workshop_reservation(db: Session, workshop: Workshop, reservation_id: int) -> Reservation:
-    """ワークショップの予約を1件取得する。別のワークショップの予約は存在しないのと同じく 404 にする"""
-    reservation = db.get(Reservation, reservation_id)
-    if reservation is None or reservation.workshop_id != workshop.id:
-        raise not_found(RESERVATION_NOT_FOUND)
-    return reservation
-
-
-# 公開一覧の並び順。同じ値のときの順序が毎回変わらないよう、最後に id を付ける
-_PUBLIC_SORT_ORDERS = {
-    "start": (Workshop.start_at.asc(), Workshop.id.asc()),
-    "newest": (Workshop.published_at.desc(), Workshop.id.desc()),
-    "price": (Workshop.price.asc(), Workshop.start_at.asc(), Workshop.id.asc()),
-}
-
-
-def _escape_like(value: str) -> str:
-    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+_manager = require_roles(UserRole.admin, UserRole.facilitator)
 
 
 @router.get("", response_model=list[WorkshopRead])
@@ -68,61 +49,8 @@ def list_workshops(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
 ) -> list[WorkshopRead]:
-    # 公開中のワークショップだけを検索する(主催者用の一覧は routers/manage.py)。
-    # 検索条件の入力チェックは WorkshopSearchQuery で済んでいるので、ここでは SQL を組み立てるだけ
-    # 開始済み・終了済みのものは予約できないので、一覧には開催予定(まだ始まっていない)ものだけを出す
-    stmt = (
-        select(Workshop)
-        .where(Workshop.status == WorkshopStatus.published, Workshop.start_at > utcnow_naive())
-        .order_by(*_PUBLIC_SORT_ORDERS[query.sort])
-    )
-    if query.facilitator_id is not None:
-        stmt = stmt.where(Workshop.facilitator_id == query.facilitator_id)
-    keyword = query.q.strip() if query.q else ""
-    if keyword:
-        pattern = f"%{_escape_like(keyword)}%"
-        stmt = stmt.where(
-            or_(
-                Workshop.title.ilike(pattern, escape="\\"),
-                Workshop.description.ilike(pattern, escape="\\"),
-            )
-        )
-    if query.location_type is not None:
-        stmt = stmt.where(Workshop.location_type == query.location_type)
-    if query.price == "free":
-        stmt = stmt.where(Workshop.price == 0)
-    elif query.price == "paid":
-        stmt = stmt.where(Workshop.price > 0)
-        if query.max_price is not None:
-            stmt = stmt.where(Workshop.price <= query.max_price)
-    if query.start_from is not None:
-        stmt = stmt.where(Workshop.start_at >= query.start_from)
-    if query.start_to is not None:
-        stmt = stmt.where(Workshop.start_at < query.start_to)
-    if query.exclude_reserved and current_user is not None:
-        stmt = stmt.where(
-            ~exists().where(
-                Reservation.workshop_id == Workshop.id,
-                Reservation.user_id == current_user.id,
-                Reservation.status == ReservationStatus.confirmed,
-            )
-        )
-    if query.exclude_own and current_user is not None:
-        stmt = stmt.where(Workshop.facilitator_id != current_user.id)
-    if query.available:
-        # 確定済みチケットの合計が定員に達していない(満員でない)ものだけ
-        booked = (
-            confirmed_tickets_select(Reservation.workshop_id == Workshop.id)
-            .correlate(Workshop)
-            .scalar_subquery()
-        )
-        # 予約の締め切りを過ぎたものも、チケットを購入できないので除く
-        stmt = stmt.where(
-            booked < Workshop.capacity,
-            Workshop.start_at > utcnow_naive() + RESERVATION_DEADLINE_BEFORE,
-        )
     # ページネーション時は絞り込み後の総件数をヘッダーで返す
-    stmt = paginate(db, stmt, PageQuery(limit=query.limit, offset=query.offset), response)
+    stmt = paginate(db, public_workshops_select(query, current_user), query, response)
     workshops = db.scalars(stmt.options(selectinload(Workshop.facilitator))).all()
     return to_workshop_reads(db, workshops, current_user)
 
@@ -152,7 +80,7 @@ def get_related_workshops(
 def create_workshop(
     payload: WorkshopInput,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+    current_user: User = Depends(_manager),
 ) -> WorkshopRead:
     check_workshop_input(db, payload)
     workshop = Workshop(**payload.model_dump(), facilitator_id=current_user.id)
@@ -167,17 +95,29 @@ def update_workshop(
     workshop_id: int,
     payload: WorkshopInput,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+    current_user: User = Depends(_manager),
 ) -> WorkshopRead:
+    """内容を更新する。中止は POST /{workshop_id}/cancel で行う"""
     # 予約の受付と同時に定員・状態を変えても食い違わないよう、行をロックしてから確かめる
     workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
     ensure_editable(workshop)
     check_workshop_input(db, payload, workshop)
     for field, value in payload.model_dump().items():
         setattr(workshop, field, value)
-    # 中止への変更と中止の通知は、同じトランザクションでまとめて確定する
-    if workshop.status == WorkshopStatus.canceled:
-        add_cancellation_notices(db, workshop)
+    db.commit()
+    db.refresh(workshop)
+    return to_workshop_read(db, workshop, current_user)
+
+
+@router.post("/{workshop_id}/cancel", response_model=WorkshopRead)
+def cancel_published_workshop(
+    workshop_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_manager),
+) -> WorkshopRead:
+    """公開中のワークショップを中止にする。予約済みの参加者には中止のお知らせが届く。中止は取り消せない"""
+    workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
+    cancel_workshop(db, workshop)
     db.commit()
     db.refresh(workshop)
     return to_workshop_read(db, workshop, current_user)
@@ -190,7 +130,7 @@ def upload_workshop_image(
     workshop_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+    current_user: User = Depends(_manager),
 ) -> WorkshopRead:
     # 同時に差し替えられても古い画像を確実に消せるよう、行をロックしてから今の画像を読む
     workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
@@ -203,7 +143,7 @@ def upload_workshop_image(
 def remove_workshop_image(
     workshop_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+    current_user: User = Depends(_manager),
 ) -> WorkshopRead:
     workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
     ensure_editable(workshop)
@@ -215,7 +155,7 @@ def remove_workshop_image(
 def delete_workshop(
     workshop_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+    current_user: User = Depends(_manager),
 ) -> None:
     workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
     # 削除できるのは下書きだけ。一度公開したもの(公開中・中止)は、予約の有無や開催前後にかかわらず記録として残す。
@@ -243,38 +183,7 @@ def reserve_workshop(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ReservationRead:
-    # 同時に申し込まれても定員を超えないよう、行をロックしてから予約数を数える(commit まで保持)
-    workshop = lock_workshop(db, workshop_id)
-    if workshop is None or workshop.status != WorkshopStatus.published:
-        raise not_found(WORKSHOP_NOT_FOUND)
-    if utcnow_naive() >= reservation_deadline(workshop.start_at):
-        raise conflict("予約の受付は開始日時の24時間前で締め切りました")
-    if workshop.facilitator_id == current_user.id:
-        raise conflict("自分が主催するワークショップは予約できません")
-
-    existing = (
-        db.query(Reservation)
-        .filter(Reservation.workshop_id == workshop_id, Reservation.user_id == current_user.id)
-        .first()
-    )
-    if existing is not None:
-        if existing.status == ReservationStatus.confirmed:
-            raise conflict("既に予約済みです")
-        # キャンセル済みの予約は主催者が取り消したもの。主催者の判断を覆さないよう、再予約させない
-        raise conflict("主催者により参加がキャンセルされたため、このワークショップは予約できません")
-    if reserved_count(db, workshop_id) + payload.ticket_count > workshop.capacity:
-        raise conflict("残席がチケット枚数に満たないため予約できません")
-
-    reservation = Reservation(
-        workshop_id=workshop_id,
-        user_id=current_user.id,
-        # 同じアカウントでは同じ名前で参加する想定なので、参加者名はアカウント名を使う
-        attendee_name=current_user.name,
-        contact=payload.contact,
-        ticket_count=payload.ticket_count,
-    )
-    db.add(reservation)
-
+    reservation = create_reservation(db, workshop_id, current_user, payload)
     try:
         db.commit()
     except IntegrityError as exc:
@@ -288,15 +197,12 @@ def reserve_workshop(
 def list_workshop_reservations(
     workshop_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+    current_user: User = Depends(_manager),
 ) -> list[ReservationRead]:
     get_managed_workshop(db, workshop_id, current_user)
     reservations = db.scalars(
         select(Reservation)
-        .options(
-            selectinload(Reservation.user),
-            selectinload(Reservation.workshop).selectinload(Workshop.facilitator),
-        )
+        .options(*RESERVATION_LOAD_OPTIONS)
         .where(Reservation.workshop_id == workshop_id)
         .order_by(Reservation.created_at.asc(), Reservation.id.asc())
     ).all()
@@ -309,21 +215,11 @@ def cancel_workshop_reservation(
     workshop_id: int,
     reservation_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+    current_user: User = Depends(_manager),
 ) -> ReservationRead:
-    # 予約の受付と同時に走っても残席の数が食い違わないよう、予約と同じくワークショップの行をロックする
     workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
-    reservation = _get_workshop_reservation(db, workshop, reservation_id)
-    if reservation.status == ReservationStatus.canceled:
-        raise conflict("この予約は既にキャンセルされています")
-    if workshop.status == WorkshopStatus.canceled:
-        raise conflict("中止したワークショップの予約はキャンセルできません")
-    if workshop.start_at <= utcnow_naive():
-        raise conflict("開始済みのワークショップの予約はキャンセルできません")
-
-    reservation.status = ReservationStatus.canceled
-    # キャンセルと参加者への通知は、同じトランザクションでまとめて確定する
-    add_reservation_canceled_notice(db, reservation)
+    reservation = get_workshop_reservation(db, workshop, reservation_id)
+    cancel_reservation(db, workshop, reservation)
     db.commit()
     db.refresh(reservation)
     return to_reservation_read(db, reservation, current_user)
@@ -335,19 +231,12 @@ def update_reservation_attendance(
     reservation_id: int,
     payload: AttendanceUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.facilitator)),
+    current_user: User = Depends(_manager),
 ) -> ReservationRead:
     """開催当日の出欠を記録する。記録の誤りを直せるよう、開催後も変更できる"""
     workshop = get_managed_workshop(db, workshop_id, current_user)
-    reservation = _get_workshop_reservation(db, workshop, reservation_id)
-    if workshop.status != WorkshopStatus.published:
-        raise conflict("公開中のワークショップだけ出欠を記録できます")
-    if reservation.status != ReservationStatus.confirmed:
-        raise conflict("キャンセルされた予約の出欠は記録できません")
-    if utcnow_naive() < workshop.start_at - ATTENDANCE_OPEN_BEFORE:
-        raise conflict("出欠は開始日時の24時間前から記録できます")
-
-    reservation.attendance = payload.attendance
+    reservation = get_workshop_reservation(db, workshop, reservation_id)
+    record_attendance(workshop, reservation, payload.attendance)
     db.commit()
     db.refresh(reservation)
     return to_reservation_read(db, reservation, current_user)

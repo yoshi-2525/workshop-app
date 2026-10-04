@@ -10,10 +10,9 @@ from app.models.reservation import Reservation, ReservationStatus
 from app.models.workshop import Workshop, WorkshopStatus
 from app.services.inquiries import add_message, get_or_create_inquiry
 
-# Reminders fire once per workshop per participant. Each scheduler tick looks at
-# every published workshop starting within REMINDER_LOOKAHEAD, so a workshop is
-# covered even when it is published (or booked) less than a day before it starts;
-# the unique constraint on (user_id, workshop_id, type) keeps it to one per user.
+# リマインダーは、ワークショップごと・参加者ごとに1回だけ送る。定期実行のたびに
+# REMINDER_LOOKAHEAD 以内に始まる公開中のワークショップをすべて見るので、開始の1日前を切ってから
+# 公開・予約されたものにも届く。(user_id, workshop_id, type) の一意制約で1人1回に限る。
 REMINDER_LOOKAHEAD = timedelta(hours=25)
 
 # 複数のワーカー・プロセスで同時にリマインダーを作らないための MySQL の名前付きロック

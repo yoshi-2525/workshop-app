@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.reservation import Reservation
 from app.models.user import User
-from app.models.workshop import Workshop
 from app.schemas.reservation import ReservationRead
-from app.services.reservations import to_reservation_reads
+from app.services.reservations import RESERVATION_LOAD_OPTIONS, to_reservation_reads
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
 
@@ -20,14 +20,10 @@ def list_my_reservations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[ReservationRead]:
-    reservations = (
-        db.query(Reservation)
-        .options(
-            selectinload(Reservation.user),
-            selectinload(Reservation.workshop).selectinload(Workshop.facilitator),
-        )
-        .filter(Reservation.user_id == current_user.id)
-        .order_by(Reservation.created_at.desc())
-        .all()
-    )
+    reservations = db.scalars(
+        select(Reservation)
+        .options(*RESERVATION_LOAD_OPTIONS)
+        .where(Reservation.user_id == current_user.id)
+        .order_by(Reservation.created_at.desc(), Reservation.id.desc())
+    ).all()
     return to_reservation_reads(db, reservations, current_user)

@@ -1,4 +1,4 @@
-"""Seed sample facilitators, participants, workshops and reservations.
+"""動作確認用の主催者・参加者・ワークショップ・予約を投入する。
 
 Usage: ./venv/Scripts/python scripts/seed_sample_data.py
 """
@@ -59,7 +59,7 @@ def _workshop_image_dir() -> Path:
 
 
 def ensure_sample_image(workshop: Workshop, color_index: int) -> None:
-    """Assign a generated placeholder banner if the workshop has no image yet."""
+    """画像のないワークショップに、生成したバナー画像を設定する"""
     if workshop.image_url:
         return
     filename = f"sample-{workshop.id}.png"

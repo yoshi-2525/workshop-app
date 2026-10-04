@@ -1,15 +1,14 @@
 import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_core import PydanticCustomError
 
 from app.core.security import BCRYPT_MAX_BYTES
 from app.models.user import UserRole
-from app.schemas.types import TrimmedStr
+from app.schemas.types import EmailAddress, TrimmedStr
 
-# Self-registration is limited to these two roles. "admin" is granted only
-# via the set_role.py script, never through the public API.
+# 自分で登録できる役割はこの2つだけ。admin は公開 API からは付けられず、scripts/set_role.py でだけ付与する
 SelfRegisterRole = Literal[UserRole.facilitator, UserRole.participant]
 
 # パスワードに使える文字。フロントエンドの utils/user.ts の PASSWORD_PATTERN と揃える
@@ -18,7 +17,7 @@ _PASSWORD_PATTERN = re.compile(r"[\x21-\x7e]+")
 
 class UserRegister(BaseModel):
     name: TrimmedStr = Field(min_length=1, max_length=255)
-    email: EmailStr
+    email: EmailAddress
     password: str = Field(min_length=8, max_length=BCRYPT_MAX_BYTES)
     role: SelfRegisterRole = UserRole.participant
 

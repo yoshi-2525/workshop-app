@@ -9,7 +9,8 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.workshop import Workshop
 from app.schemas.workshop import WorkshopRead
-from app.services.pagination import PageQuery, paginate
+from app.schemas.pagination import PageQuery
+from app.services.pagination import paginate
 from app.services.workshops import to_workshop_reads
 
 # 主催者・管理者が自分のワークショップを管理するための API

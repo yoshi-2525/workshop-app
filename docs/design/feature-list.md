@@ -66,7 +66,7 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 | F-NTF-02 | 通知 | 未読件数バッジ | Navbar の 🔔 に未読件数を表示。60 秒ごとにポーリング | ログイン | Navbar | `GET /api/notifications/unread-count` |
 | F-NTF-03 | 通知 | 通知の既読化 | 通知カードのクリックで 1 件を既読化 | ログイン（宛先本人） | `/notifications` | `POST /api/notifications/{notification_id}/read` |
 | F-NTF-04 | 通知 | すべて既読 | 未読の通知をまとめて既読化 | ログイン | `/notifications` | `POST /api/notifications/read-all` |
-| F-NTF-05 | 通知 | 中止通知の自動作成 | ワークショップが `canceled` に変更されたとき、予約確定済みの参加者へ `cancellation` 通知を作成 | システム（主催者の中止操作を契機） | なし | `PUT /api/workshops/{workshop_id}` の内部処理 |
+| F-NTF-05 | 通知 | 中止通知の自動作成 | ワークショップが `canceled` に変更されたとき、予約確定済みの参加者へ `cancellation` 通知を作成 | システム（主催者の中止操作を契機） | なし | `POST /api/workshops/{workshop_id}/cancel` の内部処理 |
 | F-NTF-06 | 通知 | 開催前日リマインド | 30 分間隔のジョブで、開始 23〜25 時間前の公開ワークショップの予約確定者へ `reminder` 通知を作成（同一通知は 1 回のみ） | システム（APScheduler） | なし | — |
 
 ### プロフィール・設定（PRF）
@@ -84,7 +84,7 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 | F-MNG-02 | 主催者管理 | ワークショップ作成 | タイトル・説明・開催形式・場所・日時・定員・参加費・キャンセルポリシーを入力し、下書き保存または公開 | 主催者 | `/manage/workshops/new` | `POST /api/workshops` |
 | F-MNG-03 | 主催者管理 | ワークショップ編集 | 既存ワークショップを編集し、下書き保存または公開。開催済み（終了日時を過ぎた）ものは編集不可：管理画面の「開催履歴」タブに「編集」を出さず、編集画面を直接開いても「開催済みのワークショップは編集できません。」を表示し、API も 409 を返す | 主催者（所有者 / admin） | `/manage/workshops/:id/edit` | `GET /api/workshops/{workshop_id}`、`PUT /api/workshops/{workshop_id}` |
 | F-MNG-04 | 主催者管理 | ワークショップ画像の登録・削除 | jpg / png / webp / gif（5MB 以内）の画像をアップロード、または削除。旧画像ファイルは削除。開催済みのものは API が 409 を返す | 主催者（所有者 / admin） | `/manage/workshops/new`、`/manage/workshops/:id/edit` | `POST /api/workshops/{workshop_id}/image`、`DELETE /api/workshops/{workshop_id}/image` |
-| F-MNG-05 | 主催者管理 | ワークショップ中止 | 確認（「予約済みの参加者には中止のお知らせが自動で届きます。」）後、ステータスを `canceled` に更新（F-NTF-05 の通知を発火）。操作は編集画面の下部の「ワークショップの中止」から行う（編集中の内容は保存しない） | 主催者（所有者 / admin） | `/manage/workshops/:id/edit` | `PUT /api/workshops/{workshop_id}` |
+| F-MNG-05 | 主催者管理 | ワークショップ中止 | 確認（「予約済みの参加者には中止のお知らせが自動で届きます。」）後、ステータスを `canceled` に更新（F-NTF-05 の通知を発火）。操作は編集画面の下部の「ワークショップの中止」から行う（編集中の内容は保存しない） | 主催者（所有者 / admin） | `/manage/workshops/:id/edit` | `POST /api/workshops/{workshop_id}/cancel` |
 | F-MNG-06 | 主催者管理 | ワークショップ削除 | 確認後、ワークショップを物理削除（関連するキャンセル済み予約・お気に入り・通知も ORM カスケードで削除）。開催予定（終了日時前）のものは下書きのみ削除でき、公開中・中止は削除ボタンを出さず API も 409 を返す（取りやめる場合は中止を利用する）。確定済み予約がある場合は削除ボタンが無効で、API も 409 を返す | 主催者（所有者 / admin） | `/manage` | `DELETE /api/workshops/{workshop_id}` |
 | F-MNG-07 | 主催者管理 | 予約状況の確認 | ワークショップの予約者一覧（参加者名・連絡先・枚数・状態・予約日時）と確定チケット数を表示 | 主催者（所有者 / admin） | `/manage/workshops/:id/reservations` | `GET /api/workshops/{workshop_id}`、`GET /api/workshops/{workshop_id}/reservations` |
 | F-MNG-08 | 主催者管理 | 入力内容の自動保存 | 作成・編集フォームの入力内容を 1 秒ごと（入力が止まったとき）にブラウザの localStorage へ自動保存し、次に開いたときに復元・破棄を選べる。画像は対象外。保存成功・キャンセルで削除 | 主催者 | `/manage/workshops/new`、`/manage/workshops/:id/edit` | —（ブラウザ内のみ） |
@@ -112,7 +112,8 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 | 5-2 | GET | `/api/manage/workshops` | 主催者・管理者 | 管理用のワークショップ一覧。下書き・中止を含む自分のワークショップ（admin は全員分）を開催日時の新しい順で返す。未ログインは 401、参加者は 403 | `backend/app/routers/manage.py` |
 | 6 | GET | `/api/workshops/{workshop_id}` | 任意 | ワークショップ詳細。非公開は所有者 / admin 以外 404。ただし中止済みは、そのワークショップを予約したことのあるユーザーも閲覧可 | `backend/app/routers/workshops.py` |
 | 7 | POST | `/api/workshops` | 主催者 | ワークショップ作成 | `backend/app/routers/workshops.py` |
-| 8 | PUT | `/api/workshops/{workshop_id}` | 主催者（所有者 / admin） | ワークショップ更新。`canceled` への変更時に中止通知を作成 | `backend/app/routers/workshops.py` |
+| 8 | PUT | `/api/workshops/{workshop_id}` | 主催者（所有者 / admin） | ワークショップ更新。`canceled` への変更は受け付けず 409（中止は 8-2 で行う） | `backend/app/routers/workshops.py` |
+| 8-2 | POST | `/api/workshops/{workshop_id}/cancel` | 主催者（所有者 / admin） | 公開中のワークショップを中止にし、予約確定済みの参加者へ中止通知を作成。下書き・中止済み・開催済みは 409 | `backend/app/routers/workshops.py` |
 | 9 | DELETE | `/api/workshops/{workshop_id}` | 主催者（所有者 / admin） | ワークショップ削除（204）。開催予定（終了日時前）で下書き以外のもの、または確定済み予約がある場合は 409 | `backend/app/routers/workshops.py` |
 | 10 | POST | `/api/workshops/{workshop_id}/image` | 主催者（所有者 / admin） | 画像アップロード（multipart, `file`） | `backend/app/routers/workshops.py` |
 | 11 | DELETE | `/api/workshops/{workshop_id}/image` | 主催者（所有者 / admin） | 画像削除 | `backend/app/routers/workshops.py` |

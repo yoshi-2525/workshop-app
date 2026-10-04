@@ -21,8 +21,9 @@ from app.schemas.inquiry import (
     InquiryMessageRead,
     InquirySummary,
 )
+from app.schemas.pagination import PageQuery
 from app.services.inquiries import add_message, get_or_create_inquiry, is_participant
-from app.services.pagination import PageQuery, paginate
+from app.services.pagination import paginate
 from app.services.workshops import get_viewable_workshop, lock_workshop
 
 # 参加者から主催者への問い合わせ。やり取りはワークショップと参加者の組み合わせごとに1つにまとめる。

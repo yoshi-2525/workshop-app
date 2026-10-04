@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.deps import get_current_user
@@ -10,7 +10,8 @@ from app.database import get_db
 from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.notification import NotificationRead
-from app.services.pagination import PageQuery, paginate
+from app.schemas.pagination import PageQuery
+from app.services.pagination import paginate
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -49,12 +50,12 @@ def get_unread_count(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, int]:
-    count = (
-        db.query(Notification)
-        .filter(Notification.user_id == current_user.id, Notification.is_read.is_(False))
-        .count()
+    count = db.scalar(
+        select(func.count())
+        .select_from(Notification)
+        .where(Notification.user_id == current_user.id, Notification.is_read.is_(False))
     )
-    return {"count": count}
+    return {"count": count or 0}
 
 
 @router.post("/{notification_id}/read", response_model=NotificationRead)
@@ -77,7 +78,9 @@ def mark_all_notifications_read(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> None:
-    db.query(Notification).filter(
-        Notification.user_id == current_user.id, Notification.is_read.is_(False)
-    ).update({"is_read": True})
+    db.execute(
+        update(Notification)
+        .where(Notification.user_id == current_user.id, Notification.is_read.is_(False))
+        .values(is_read=True)
+    )
     db.commit()

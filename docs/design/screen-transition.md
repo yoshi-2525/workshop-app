@@ -185,7 +185,7 @@ flowchart LR
 
 補足:
 
-- 「中止する」は編集画面の下部に、`status !== 'canceled'` のときだけ表示される。実体は、保存済みの内容のまま `PUT /api/workshops/{id}` で `status: 'canceled'` を送る処理（`frontend/src/pages/manage/WorkshopFormPage.tsx` の `handleCancelWorkshop`）。
+- 「中止する」は編集画面の下部に、`status !== 'canceled'` のときだけ表示される。実体は `POST /api/workshops/{id}/cancel` を送る処理（`frontend/src/pages/manage/WorkshopFormPage.tsx` の `handleCancelWorkshop`）。フォームで編集中の内容は保存しない。
 - 保存時は、ワークショップ本体の保存（作成 / 更新）が成功した後に、画像の差し替え（`POST /image`）または削除（`DELETE /image`）を行ってから `/manage` へ遷移する（`frontend/src/pages/manage/WorkshopFormPage.tsx:146-162`）。
 - 予約状況画面にはリンク・ボタンがなく、戻る導線は Navbar またはブラウザバックのみ（`frontend/src/pages/manage/WorkshopReservationsPage.tsx`）。
 

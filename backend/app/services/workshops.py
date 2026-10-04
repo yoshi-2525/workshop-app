@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 
-from sqlalchemy import ColumnElement, Select, exists, func, select
+from sqlalchemy import ColumnElement, Select, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import WORKSHOP_NOT_FOUND, conflict, forbidden, not_found
@@ -10,7 +10,14 @@ from app.models.favorite import Favorite
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User, UserRole
 from app.models.workshop import Workshop, WorkshopStatus
-from app.schemas.workshop import ParticipantInfo, WorkshopInput, WorkshopRead, WorkshopViewer
+from app.schemas.workshop import (
+    ParticipantInfo,
+    WorkshopInput,
+    WorkshopRead,
+    WorkshopSearchQuery,
+    WorkshopViewer,
+)
+from app.services.notifications import add_cancellation_notices
 
 
 # 予約の締め切り。開始日時のこの時間前を過ぎたら予約を受け付けない。
@@ -68,9 +75,15 @@ def check_workshop_input(db: Session, payload: WorkshopInput, workshop: Workshop
     """
     now = utcnow_naive()
 
+    # 中止は、参加者への通知を伴う別の操作(cancel_workshop)で行う
+    if payload.status == WorkshopStatus.canceled:
+        raise conflict(
+            "中止の状態でワークショップを作成することはできません"
+            if workshop is None
+            else "ワークショップを中止するには、編集画面の「中止する」を使ってください"
+        )
+
     if workshop is None:
-        if payload.status == WorkshopStatus.canceled:
-            raise conflict("中止の状態でワークショップを作成することはできません")
         if payload.start_at < now:
             raise conflict("開始日時には現在より後の日時を指定してください")
         return
@@ -88,12 +101,7 @@ def check_workshop_input(db: Session, payload: WorkshopInput, workshop: Workshop
     if workshop.status == WorkshopStatus.published and payload.status == WorkshopStatus.draft:
         raise conflict("公開済みのワークショップは下書きに戻せません。開催を取りやめる場合は中止にしてください")
 
-    # 下書きは参加者の目に触れておらず予約もないので、中止ではなく削除してもらう
-    if workshop.status == WorkshopStatus.draft and payload.status == WorkshopStatus.canceled:
-        raise conflict("下書きのワークショップは中止できません。取りやめる場合は削除してください")
-
-    # 公開中のものは、参加者が予約したときの条件(参加費・日時・場所)を変えさせない。
-    # 中止にするときも、これらは保存済みの値のまま送られてくる
+    # 公開中のものは、参加者が予約したときの条件(参加費・日時・場所)を変えさせない
     if workshop.status == WorkshopStatus.published:
         changed = [
             label
@@ -113,6 +121,93 @@ def check_workshop_input(db: Session, payload: WorkshopInput, workshop: Workshop
     booked = reserved_count(db, workshop.id)
     if payload.capacity < booked:
         raise conflict(f"定員は予約済みのチケット枚数({booked}枚)以上にしてください")
+
+
+def cancel_workshop(db: Session, workshop: Workshop) -> None:
+    """公開中のワークショップを中止にし、予約済みの参加者に通知する(commit は呼び出し側)。
+
+    中止への変更と中止の通知は、同じトランザクションでまとめて確定する。
+    予約の受付と同時に走っても通知の対象が食い違わないよう、workshop は lock_workshop で取得したものを渡すこと
+    """
+    ensure_editable(workshop)
+    # 下書きは参加者の目に触れておらず予約もないので、中止ではなく削除してもらう
+    if workshop.status == WorkshopStatus.draft:
+        raise conflict("下書きのワークショップは中止できません。取りやめる場合は削除してください")
+    workshop.status = WorkshopStatus.canceled
+    add_cancellation_notices(db, workshop)
+
+
+# 公開一覧の並び順。同じ値のときの順序が毎回変わらないよう、最後に id を付ける
+_PUBLIC_SORT_ORDERS = {
+    "start": (Workshop.start_at.asc(), Workshop.id.asc()),
+    "newest": (Workshop.published_at.desc(), Workshop.id.desc()),
+    "price": (Workshop.price.asc(), Workshop.start_at.asc(), Workshop.id.asc()),
+}
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def public_workshops_select(query: WorkshopSearchQuery, current_user: User | None) -> Select[tuple[Workshop]]:
+    """公開一覧(GET /api/workshops)の検索条件から SELECT を組み立てる。
+
+    公開中のワークショップだけを対象にする(主催者用の一覧は routers/manage.py)。
+    開始済み・終了済みのものは予約できないので、開催予定(まだ始まっていない)ものだけを出す。
+    検索条件の入力チェックは WorkshopSearchQuery で済んでいるので、ここでは SQL を組み立てるだけ
+    """
+    now = utcnow_naive()
+    stmt = (
+        select(Workshop)
+        .where(Workshop.status == WorkshopStatus.published, Workshop.start_at > now)
+        .order_by(*_PUBLIC_SORT_ORDERS[query.sort])
+    )
+    if query.facilitator_id is not None:
+        stmt = stmt.where(Workshop.facilitator_id == query.facilitator_id)
+    keyword = query.q.strip() if query.q else ""
+    if keyword:
+        pattern = f"%{_escape_like(keyword)}%"
+        stmt = stmt.where(
+            or_(
+                Workshop.title.ilike(pattern, escape="\\"),
+                Workshop.description.ilike(pattern, escape="\\"),
+            )
+        )
+    if query.location_type is not None:
+        stmt = stmt.where(Workshop.location_type == query.location_type)
+    if query.price == "free":
+        stmt = stmt.where(Workshop.price == 0)
+    elif query.price == "paid":
+        stmt = stmt.where(Workshop.price > 0)
+        if query.max_price is not None:
+            stmt = stmt.where(Workshop.price <= query.max_price)
+    if query.start_from is not None:
+        stmt = stmt.where(Workshop.start_at >= query.start_from)
+    if query.start_to is not None:
+        stmt = stmt.where(Workshop.start_at < query.start_to)
+    if query.exclude_reserved and current_user is not None:
+        stmt = stmt.where(
+            ~exists().where(
+                Reservation.workshop_id == Workshop.id,
+                Reservation.user_id == current_user.id,
+                Reservation.status == ReservationStatus.confirmed,
+            )
+        )
+    if query.exclude_own and current_user is not None:
+        stmt = stmt.where(Workshop.facilitator_id != current_user.id)
+    if query.available:
+        # 確定済みチケットの合計が定員に達していない(満員でない)ものだけ
+        booked = (
+            confirmed_tickets_select(Reservation.workshop_id == Workshop.id)
+            .correlate(Workshop)
+            .scalar_subquery()
+        )
+        # 予約の締め切りを過ぎたものも、チケットを購入できないので除く
+        stmt = stmt.where(
+            booked < Workshop.capacity,
+            Workshop.start_at > now + RESERVATION_DEADLINE_BEFORE,
+        )
+    return stmt
 
 
 def confirmed_tickets_select(*criteria: ColumnElement[bool]) -> Select[tuple[int]]:
@@ -229,8 +324,8 @@ def get_viewable_workshop(db: Session, workshop_id: int, user: User | None) -> W
     workshop = db.get(Workshop, workshop_id)
     if workshop is None:
         raise not_found(WORKSHOP_NOT_FOUND)
-    # Participants keep access to a canceled workshop they booked, so links from
-    # the cancellation notice and their reservation list still resolve.
+    # 中止になったワークショップも、予約していた参加者は見られるようにする
+    # (中止のお知らせや予約一覧からのリンクが切れないように)
     had_reservation = (
         workshop.status == WorkshopStatus.canceled
         and user is not None

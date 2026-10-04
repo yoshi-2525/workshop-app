@@ -1,4 +1,4 @@
-"""Set a user's role. Usage: python scripts/set_role.py user@example.com admin|facilitator|participant"""
+"""ユーザーの役割を変える。使い方: python scripts/set_role.py user@example.com admin|facilitator|participant"""
 
 import sys
 from pathlib import Path

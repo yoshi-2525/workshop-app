@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_core import PydanticCustomError
 
 from app.models.workshop import LocationType, WorkshopStatus
+from app.schemas.pagination import PageQuery
 from app.schemas.types import NaiveUTCDateTime, TrimmedStr, UTCDateTime
 
 
@@ -87,14 +88,12 @@ class RelatedWorkshops(BaseModel):
     nearby: list[WorkshopRead]
 
 
-class WorkshopSearchQuery(BaseModel):
+class WorkshopSearchQuery(PageQuery):
     """公開ワークショップ一覧(GET /api/workshops)の検索条件。URL のクエリパラメータから組み立てる。
 
-    一覧に出るのは、どの条件でも公開中かつ開始前のものだけ
+    一覧に出るのは、どの条件でも公開中かつ開始前のものだけ。
+    ページ指定(limit / offset)と、存在しないパラメータを 422 にする設定は PageQuery から引き継ぐ
     """
-
-    # 存在しないパラメータ(打ち間違いや廃止済みのもの)は黙って無視せず 422 にする
-    model_config = ConfigDict(extra="forbid")
 
     facilitator_id: int | None = None
     q: str | None = Field(default=None, max_length=100)
@@ -113,9 +112,6 @@ class WorkshopSearchQuery(BaseModel):
     start_from: NaiveUTCDateTime | None = None
     start_to: NaiveUTCDateTime | None = None
     sort: Literal["start", "newest", "price"] = "start"
-    # 指定したときだけページ分けし、総件数を X-Total-Count ヘッダーで返す
-    limit: int | None = Field(default=None, ge=1, le=100)
-    offset: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def check_start_range(self) -> "WorkshopSearchQuery":

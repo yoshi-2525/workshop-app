@@ -4,8 +4,8 @@ from urllib.parse import quote_plus
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# backend/ directory, regardless of the process's current working directory
-# (e.g. `npm run dev` at the repo root vs. running uvicorn from backend/).
+# backend/ ディレクトリ。プロセスのカレントディレクトリに関係なく決まる
+# (リポジトリ直下で `npm run dev` した場合も、backend/ で uvicorn を起動した場合も同じ)
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 DEFAULT_JWT_SECRET_KEY = "dev-secret-change-me"

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, status
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -15,18 +16,21 @@ from app.services.workshops import get_viewable_workshop, to_workshop_read, to_w
 router = APIRouter(tags=["favorites"])
 
 
+def _my_favorite(workshop_id: int, user: User):
+    return select(Favorite).where(Favorite.workshop_id == workshop_id, Favorite.user_id == user.id)
+
+
 @router.get("/favorites", response_model=list[WorkshopRead])
 def list_my_favorites(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[WorkshopRead]:
-    favorites = (
-        db.query(Favorite)
+    favorites = db.scalars(
+        select(Favorite)
         .options(selectinload(Favorite.workshop).selectinload(Workshop.facilitator))
-        .filter(Favorite.user_id == current_user.id)
+        .where(Favorite.user_id == current_user.id)
         .order_by(Favorite.created_at.desc())
-        .all()
-    )
+    ).all()
     return to_workshop_reads(db, [f.workshop for f in favorites], current_user)
 
 
@@ -39,11 +43,7 @@ def add_favorite(
     # 詳細ページを見られるワークショップは、お気に入りにも追加できる
     workshop = get_viewable_workshop(db, workshop_id, current_user)
 
-    existing = (
-        db.query(Favorite)
-        .filter(Favorite.workshop_id == workshop_id, Favorite.user_id == current_user.id)
-        .first()
-    )
+    existing = db.scalar(_my_favorite(workshop_id, current_user))
     if existing is None:
         db.add(Favorite(workshop_id=workshop_id, user_id=current_user.id))
         try:
@@ -60,11 +60,7 @@ def remove_favorite(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> None:
-    favorite = (
-        db.query(Favorite)
-        .filter(Favorite.workshop_id == workshop_id, Favorite.user_id == current_user.id)
-        .first()
-    )
+    favorite = db.scalar(_my_favorite(workshop_id, current_user))
     if favorite is not None:
         db.delete(favorite)
         db.commit()
