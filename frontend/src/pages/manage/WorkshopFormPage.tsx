@@ -9,10 +9,10 @@ import {
 } from '@/api/workshops'
 import { extractErrorMessage } from '@/api/client'
 import { useAuth } from '@/context/AuthContext'
+import { useImageSelection } from '@/hooks/useImageSelection'
 import type { Workshop, WorkshopInput, WorkshopStatus } from '@/types'
 import { toDateTimeInputValue } from '@/utils/date'
 import { parseIdParam } from '@/utils/params'
-import { validateUploadImage } from '@/utils/image'
 import { isWorkshopFinished } from '@/utils/workshop'
 import { WorkshopFormFields } from '@/pages/manage/WorkshopFormFields'
 import { removeWorkshopDraft, useWorkshopDraft, workshopDraftKey } from '@/pages/manage/useWorkshopDraft'
@@ -60,10 +60,8 @@ export function WorkshopFormPage() {
   const reservedCount = savedWorkshop?.reserved_count ?? 0
 
   const [currentImageUrl, setCurrentImageUrl] = useState('')
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
-  const [removeImage, setRemoveImage] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const image = useImageSelection(imageInputRef, setError)
 
   // 入力内容をこのブラウザに自動保存する。編集画面では、読み込みが終わってから始める
   const draftKey =
@@ -130,38 +128,8 @@ export function WorkshopFormPage() {
       .finally(() => setLoading(false))
   }, [isEdit, workshopId])
 
-  useEffect(() => {
-    if (!imageFile) {
-      setImagePreviewUrl(null)
-      return
-    }
-    const url = URL.createObjectURL(imageFile)
-    setImagePreviewUrl(url)
-    return () => URL.revokeObjectURL(url)
-  }, [imageFile])
-
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null
-    if (!file) return
-    const invalidMessage = validateUploadImage(file)
-    if (invalidMessage) {
-      setError(invalidMessage)
-      e.target.value = ''
-      return
-    }
-    setError(null)
-    setImageFile(file)
-    setRemoveImage(false)
-  }
-
-  function handleRemoveImage() {
-    setImageFile(null)
-    setRemoveImage(true)
-    if (imageInputRef.current) imageInputRef.current.value = ''
-  }
-
   // 読み込んだ内容(新規なら空のフォーム)から変更があるか。画像の選択・削除も変更に含める
-  const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm) || Boolean(imageFile) || removeImage
+  const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm) || Boolean(image.file) || image.removed
 
   function handleCancelClick() {
     if (isDirty && !confirm('入力した内容が破棄されますが、よろしいですか?')) {
@@ -253,14 +221,14 @@ export function WorkshopFormPage() {
     setSavedWorkshop(workshop)
 
     try {
-      if (imageFile) {
-        await uploadWorkshopImage(workshop.id, imageFile)
-      } else if (removeImage) {
+      if (image.file) {
+        await uploadWorkshopImage(workshop.id, image.file)
+      } else if (image.removed) {
         await deleteWorkshopImage(workshop.id)
       }
     } catch (err) {
       setError(
-        `ワークショップの内容は保存しましたが、画像の${imageFile ? 'アップロード' : '削除'}に失敗しました。` +
+        `ワークショップの内容は保存しましたが、画像の${image.file ? 'アップロード' : '削除'}に失敗しました。` +
           `もう一度保存してください(${extractErrorMessage(err, '原因不明のエラー')})`,
       )
       setSaving(false)
@@ -325,11 +293,11 @@ export function WorkshopFormPage() {
           form={form}
           setForm={setForm}
           imageInputRef={imageInputRef}
-          imagePreviewUrl={imagePreviewUrl}
+          imagePreviewUrl={image.previewUrl}
           currentImageUrl={currentImageUrl}
-          removeImage={removeImage}
-          onImageChange={handleImageChange}
-          onRemoveImage={handleRemoveImage}
+          removeImage={image.removed}
+          onImageChange={image.select}
+          onRemoveImage={image.remove}
           lockConditions={lockConditions}
           reservedCount={reservedCount}
         />
