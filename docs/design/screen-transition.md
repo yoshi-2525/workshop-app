@@ -1,6 +1,8 @@
 # 画面遷移図
 
-最終更新日: 2026-09-28
+最終更新日: 2026-10-05
+
+> 注記（2026-10-05）: 今回の更新では主催者フォロー機能（`/following`、主催者プロフィールのフォローボタン）と、その導線であるマイページ（`/me`。旧 `/settings`）のみを反映した。問い合わせ・ヘルプ・予約履歴などの画面と、Navbar の新しい項目（「さがす」「対話のルール」「対話を開く」「問い合わせ」）は本書にまだ反映していない。
 
 各画面間の遷移を、きっかけ（リンク・ボタン・処理結果）とともに示す。画面数が多いため「共通ナビゲーション」「認証」「利用者向け」「主催者向け」の 4 つの図に分けている。遷移は `Link` / `navigate()` / `<Navigate>` のコードから読み取った。
 
@@ -11,13 +13,13 @@ flowchart LR
     ANY(["任意の画面"])
     LIST["ワークショップ一覧<br/>/"]
     NOTI["通知<br/>/notifications"]
-    SET["設定<br/>/settings"]
+    SET["マイページ<br/>/me"]
     LOGIN["ログイン（種別選択）<br/>/login"]
     REG["新規登録（種別選択）<br/>/register"]
     LOGIN_P["参加者ログイン<br/>/login/participant"]
     LOGIN_F["主催者ログイン<br/>/login/facilitator"]
     NF["ページが見つかりません<br/>/404"]
-    AUTHED(["ログイン必須の画面<br/>/workshops/:id/reserve, /reservations,<br/>/favorites, /notifications,<br/>/settings, /settings/profile"])
+    AUTHED(["ログイン必須の画面<br/>/workshops/:id/reserve, /reservations,<br/>/favorites, /following, /notifications,<br/>/me, /me/profile"])
     MNG(["主催者・管理者の画面<br/>/manage 配下"])
 
     ANY -->|"ロゴ / ワークショップ一覧"| LIST
@@ -36,7 +38,9 @@ flowchart LR
 根拠:
 
 - Navbar のリンク: `frontend/src/components/Navbar.tsx`
-- ログアウト後の `navigate('/login')`: `frontend/src/pages/SettingsPage.tsx`
+- プロフィールアイコン → `/me`: `frontend/src/components/layout/Navbar.tsx:93`
+- ログアウト後の `navigate('/login')`: `frontend/src/pages/me/MyPage.tsx:59-62`
+- 旧 URL `/settings`・`/settings/profile` は `/me`・`/me/profile` へ `<Navigate replace>`（`frontend/src/App.tsx:71-73`）
 - 未ログイン時のリダイレクト（`state: { from: location.pathname }`）とロール不足時の `/` へのリダイレクト: `frontend/src/components/ProtectedRoute.tsx:18-24`
 - ログイン先の出し分け（`loginPath`）: `frontend/src/App.tsx:39, 48`
 - 未定義パス → `/404`: `frontend/src/App.tsx:55-56`
@@ -90,7 +94,7 @@ flowchart LR
 - 登録成功時は `register` → 自動で `login` し、`afterRegisterPath` へ `replace: true` で遷移する。登録後の遷移では `state.from` は参照しない（`frontend/src/context/AuthContext.tsx:53-56`、`frontend/src/components/auth/RegisterForm.tsx:44-45`）。
 - 「参加者ログイン ⇔ 主催者ログイン」の切替リンクは `state={location.state}` で現在の state を引き継ぐ。このため、ログイン必須画面から参加者ログインへリダイレクトされた主催者が主催者ログインに切り替えても、ログイン後は元の画面（`state.from`）へ戻る（`frontend/src/components/auth/LoginForm.tsx:109-112`）。
 
-## 3. 利用者向け（閲覧・予約・お気に入り・通知・設定）
+## 3. 利用者向け（閲覧・予約・お気に入り・フォロー・通知・マイページ）
 
 ```mermaid
 flowchart LR
@@ -100,9 +104,10 @@ flowchart LR
     RESERVE["参加者情報の入力<br/>/workshops/:id/reserve"]
     MYRSV["参加予定のワークショップ<br/>/reservations"]
     FAV["お気に入り<br/>/favorites"]
+    FOLLOWING["フォロー中の主催者<br/>/following"]
     NOTI["通知<br/>/notifications"]
-    SET["設定<br/>/settings"]
-    PROF["プロフィール編集<br/>/settings/profile"]
+    SET["マイページ<br/>/me"]
+    PROF["プロフィール編集<br/>/me/profile"]
     MANAGE["ワークショップ管理<br/>/manage"]
     LOGIN_P["参加者ログイン<br/>/login/participant"]
     GMAP(["Google マップ<br/>（外部・新しいタブ）"])
@@ -113,6 +118,12 @@ flowchart LR
     FACI -->|"ワークショップカード"| DETAIL
 
     DETAIL -->|"主催: {主催者名}"| FACI
+
+    FACI -->|"フォローする / フォロー中（押すと解除）<br/>同一画面でボタン表示を切替"| FACI
+    FACI -->|"ログインしてフォロー（未ログイン時）<br/>state.from = /facilitators/:id"| LOGIN_P
+    FOLLOWING -->|"ワークショップカード<br/>（開催予定のワークショップ）"| DETAIL
+    FOLLOWING -->|"主催者名（フォローしている主催者）"| FACI
+    FOLLOWING -->|"フォロー中（押すと解除）<br/>両方の一覧を再取得"| FOLLOWING
     DETAIL -->|"地図で見る（オフライン開催時）"| GMAP
     DETAIL -->|"予約する（ログイン時）"| RESERVE
     DETAIL -->|"ログインして予約する<br/>state.from = /workshops/:id/reserve"| LOGIN_P
@@ -129,13 +140,14 @@ flowchart LR
     MYRSV -->|"ワークショップ名"| DETAIL
     MYRSV -->|"キャンセル（確認ダイアログ→再取得）"| MYRSV
 
-    NOTI -->|"通知カード（未読なら既読化）"| DETAIL
+    NOTI -->|"通知カード（未読なら既読化）<br/>「新着」通知も同じ"| DETAIL
     NOTI -->|"すべて既読にする"| NOTI
 
     SET -->|"プロフィール編集"| PROF
     SET -->|"ワークショップの管理<br/>（facilitator / admin のみ表示）"| MANAGE
-    SET -->|"予約履歴・参加履歴"| MYRSV
+    SET -->|"参加予定のワークショップ"| MYRSV
     SET -->|"お気に入り"| FAV
+    SET -->|"フォロー中の主催者"| FOLLOWING
     SET -->|"ログアウト"| LOGIN_OUT["ログイン（種別選択）<br/>/login"]
     PROF -->|"保存する（同一画面で完了表示）"| PROF
 ```
@@ -148,12 +160,17 @@ flowchart LR
 - 詳細画面・予約画面・主催者プロフィール画面は、URL の `:id` が正の整数でない場合、API を呼ばずにエラーメッセージを表示する（`parseIdParam`。`frontend/src/pages/WorkshopDetailPage.tsx:28-33`、`frontend/src/pages/ReservationFormPage.tsx:28-33`、`frontend/src/pages/FacilitatorProfilePage.tsx:18-23`、`frontend/src/utils/params.ts`）。`/404` へは遷移しない。
 - 中止されたワークショップの詳細は、そのワークショップを予約したことのあるユーザーも閲覧できる。このため、通知一覧（中止のお知らせ）や参加予定一覧からのリンクで、中止のバナー付きの詳細画面を表示できる（`backend/app/routers/workshops.py:102-110`、`frontend/src/pages/WorkshopDetailPage.tsx:88-92`）。
 - 詳細画面のお気に入りボタンは公開中のときのみ表示される（`frontend/src/pages/WorkshopDetailPage.tsx:95-97`）。
+- 主催者プロフィールのフォローボタン（`FollowButton`）は、表示中の主催者の role が `facilitator` のときだけ表示する。admin（運営）のページと自分自身のページでは表示しない。未ログイン時は「ログインしてフォロー」リンクになり、`/login/participant` へ `state.from = 現在のパス + クエリ` 付きで遷移する。参加者ログイン後に元の主催者ページへ戻る（`frontend/src/components/facilitator/FollowButton.tsx:39-52`、`frontend/src/utils/user.ts:18-30`）。
+- フォロー・解除は画面遷移せず、成功時にボタン表示を「フォローする」⇔「フォロー中」で切り替える。失敗時はボタンの下に「フォローの更新に失敗しました」等を 4 秒間表示する（`frontend/src/components/facilitator/FollowButton.tsx:10-11, 54-66`）。
+- フォロー中の主催者画面でフォローを解除すると、その主催者のワークショップも一覧から外れるため、ワークショップ・主催者の両一覧を再取得する。そのページの最後の 1 人を解除した場合は、主催者一覧を 1 つ前のページへ戻す（`frontend/src/pages/me/FollowingPage.tsx:36-42`）。
+- フォロー中の主催者画面からのリンクには `useBackState('フォロー中の主催者')` の state を付け、遷移先の戻るリンクの表示に使う（`frontend/src/pages/me/FollowingPage.tsx:16, 59, 87`）。
+- マイページのメニュー（`/reservations`、`/favorites`、`/following`、`/me/profile` など）のリンクには `useBackState('マイページ')` の state を付ける（`frontend/src/pages/me/MyPage.tsx:16-23`）。
 
 ## 4. 主催者向け（ワークショップ管理）
 
 ```mermaid
 flowchart LR
-    SET["設定<br/>/settings"]
+    SET["マイページ<br/>/me"]
     MANAGE["ワークショップ管理<br/>/manage"]
     NEW["ワークショップ新規作成<br/>/manage/workshops/new"]
     EDIT["ワークショップ編集<br/>/manage/workshops/:id/edit"]
@@ -206,8 +223,12 @@ flowchart LR
 - `frontend/src/pages/MyReservationsPage.tsx`
 - `frontend/src/pages/FavoritesPage.tsx`
 - `frontend/src/pages/NotificationsPage.tsx`
-- `frontend/src/pages/SettingsPage.tsx`
-- `frontend/src/pages/FacilitatorProfilePage.tsx`
+- `frontend/src/pages/me/MyPage.tsx`
+- `frontend/src/pages/me/FollowingPage.tsx`
+- `frontend/src/pages/workshops/FacilitatorProfilePage.tsx`
+- `frontend/src/components/facilitator/FollowButton.tsx`
+- `frontend/src/components/layout/Navbar.tsx`
+- `frontend/src/utils/user.ts`
 - `frontend/src/pages/NotFoundPage.tsx`
 - `frontend/src/pages/auth/*.tsx`
 - `frontend/src/pages/manage/*.tsx`

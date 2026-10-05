@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { BackLink } from '@/components/ui/BackLink'
+import { useForwardedBackState } from '@/hooks/useBackState'
 
 // 規約・ガイドラインなどの文書ページの共通レイアウト。見出しの番号は呼び出し側で title に含める
 export function LegalDocument({
@@ -43,5 +45,16 @@ export function LegalList({ items }: { items: ReactNode[] }) {
         <li key={i}>{item}</li>
       ))}
     </ol>
+  )
+}
+
+// 文書の中から別の文書へのリンク。この文書が受け取った戻り先を引き継ぎ、
+// 文書をいくつかたどったあとも「← ○○に戻る」で最初に来たページ(マイページなど)へ戻れるようにする
+export function LegalDocLink({ to, children }: { to: string; children: ReactNode }) {
+  const backState = useForwardedBackState()
+  return (
+    <Link to={to} state={backState} className="underline">
+      {children}
+    </Link>
   )
 }

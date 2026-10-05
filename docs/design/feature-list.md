@@ -1,8 +1,10 @@
 # 機能一覧表
 
-最終更新日: 2026-09-25
+最終更新日: 2026-10-05
 
 Workshop App の機能をカテゴリごとに一覧化し、利用者（権限）・画面・API との対応を示す。画面を持たない機能（スケジューラ、運用スクリプト等）も含む。別表として全 API エンドポイントの一覧を置く。
+
+> 注記（2026-10-05）: 今回の更新では主催者フォロー機能（FLW）と関連する通知・マイページの記述のみを反映した。問い合わせ・ヘルプ・予約履歴・参加キャンセル通知など、それ以前に追加された機能は本書にまだ反映していない。
 
 ## 凡例
 
@@ -13,7 +15,7 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
   - **管理者**: admin のみ
   - **システム**: 利用者操作によらず自動実行
 - API のパスはすべて `/api` プレフィックス付き。
-- カテゴリ略称: AUTH（認証）/ WS（ワークショップ閲覧）/ RSV（予約）/ FAV（お気に入り）/ NTF（通知）/ PRF（プロフィール）/ MNG（主催者管理）/ SYS（システム）
+- カテゴリ略称: AUTH（認証）/ WS（ワークショップ閲覧）/ RSV（予約）/ FAV（お気に入り）/ FLW（主催者フォロー）/ NTF（通知）/ PRF（プロフィール）/ MNG（主催者管理）/ SYS（システム）
 
 ## 機能一覧
 
@@ -27,7 +29,7 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 | F-AUTH-04 | 認証 | 参加者登録 | 名前・メール・パスワード（8 文字以上）で participant として登録し、自動ログイン | 全員 | `/register/participant` | `POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me` |
 | F-AUTH-05 | 認証 | 主催者登録 | facilitator として登録し、自動ログインして `/manage` へ | 全員 | `/register/facilitator` | `POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me` |
 | F-AUTH-06 | 認証 | ログイン状態の復元 | 起動時に localStorage の JWT でユーザー情報を取得。失敗時・401 応答時はトークンを破棄 | ログイン | （全画面共通） | `GET /api/auth/me` |
-| F-AUTH-07 | 認証 | ログアウト | トークンを破棄して `/login` へ遷移（サーバー API 呼び出しなし） | ログイン | `/settings` | — |
+| F-AUTH-07 | 認証 | ログアウト | トークンを破棄して `/login` へ遷移（サーバー API 呼び出しなし） | ログイン | `/me` | — |
 | F-AUTH-08 | 認証 | 画面アクセス制御 | 未ログイン時はログイン画面へ（`state.from` 付き）、主催者画面にロール不足でアクセスすると `/` へリダイレクト | 全員 | ログイン必須画面・`/manage` 配下 | — |
 | F-AUTH-09 | 認証 | ロール変更（管理者付与） | 運用スクリプトで既存ユーザーのロールを変更する。admin は API からは作成できない | 管理者（運用者） | なし（`backend/scripts/set_role.py`） | — |
 
@@ -40,7 +42,7 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 | F-WS-03 | ワークショップ | ワークショップ詳細 | 画像・日時・場所・参加費・定員・説明・キャンセルポリシーを表示。下書きは主催者本人と admin のみ、中止はそれに加えて予約したことのあるユーザーも閲覧可（「中止になりました」と表示） | 全員 | `/workshops/:id` | `GET /api/workshops/{workshop_id}` |
 | F-WS-04 | ワークショップ | 地図表示リンク | オフライン開催の場所を Google マップ検索で新しいタブに表示 | 全員 | `/workshops/:id` | —（外部リンク） |
 | F-WS-05 | ワークショップ | 閲覧者別の状態表示 | ログインユーザーごとのお気に入り登録状態・予約済み状態（`viewer`）をカード・詳細に反映 | ログイン | `/`、`/workshops/:id`、`/favorites`、`/facilitators/:id` | `GET /api/workshops`、`GET /api/workshops/{workshop_id}` |
-| F-WS-06 | ワークショップ | 主催者プロフィール閲覧 | 主催者の名前・ロール（主催者 / 運営）・自己紹介と、その主催者の公開ワークショップ一覧を表示 | 全員 | `/facilitators/:id` | `GET /api/facilitators/{user_id}`、`GET /api/workshops?facilitator_id=` |
+| F-WS-06 | ワークショップ | 主催者プロフィール閲覧 | 主催者の名前・ロール（主催者 / 運営）・自己紹介と、その主催者の開催予定のワークショップ一覧を表示。フォローボタン（F-FLW-01〜03）を併置 | 全員 | `/facilitators/:id` | `GET /api/facilitators/{user_id}`、`GET /api/workshops?facilitator_id=` |
 
 ### 予約（RSV）
 
@@ -58,23 +60,35 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 | F-FAV-02 | お気に入り | お気に入り解除 | ♡ ボタンで解除。失敗時は `alert()` でエラー表示 | ログイン | 同上 | `DELETE /api/workshops/{workshop_id}/favorite` |
 | F-FAV-03 | お気に入り | お気に入り一覧 | 自分のお気に入りを登録日時の新しい順に表示 | ログイン | `/favorites` | `GET /api/favorites` |
 
+### 主催者フォロー（FLW）
+
+| 機能ID | カテゴリ | 機能名 | 概要 | 利用者（権限） | 画面 | API（メソッド + パス） |
+|---|---|---|---|---|---|---|
+| F-FLW-01 | 主催者フォロー | 主催者をフォロー | 「フォローする」ボタンで主催者をフォロー。対象は role が facilitator のユーザーだけ（admin・存在しないユーザーは 404、自分自身は 409）。フォロー済みならそのまま成功扱い。未ログイン時はボタンの代わりに「ログインしてフォロー」を表示し、参加者ログインへ誘導（`state.from` 付き）。失敗時はボタン下にエラーを 4 秒表示 | ログイン（ロール不問） | `/facilitators/:id`、`/following` | `POST /api/facilitators/{facilitator_id}/follow` |
+| F-FLW-02 | 主催者フォロー | フォロー解除 | 「フォロー中」ボタンを押して解除。フォローしていなくてもエラーにしない | ログイン | `/facilitators/:id`、`/following` | `DELETE /api/facilitators/{facilitator_id}/follow` |
+| F-FLW-03 | 主催者フォロー | フォロー状態の表示 | 主催者プロフィールの取得時に、ログイン中かつ相手が facilitator なら `viewer.is_following` を返し、ボタンの表示（「フォローする」/「フォロー中」）に反映。未ログイン・admin のページでは `viewer` は null。自分自身のページではボタンを表示しない | 全員 | `/facilitators/:id` | `GET /api/facilitators/{user_id}` |
+| F-FLW-04 | 主催者フォロー | フォロー中の主催者一覧 | フォローしている主催者（現在も facilitator のもの）をフォローした日時の新しい順に 20 件ずつ表示。主催者名から主催者プロフィールへ。各行に「フォロー中」ボタン（解除すると両一覧を再取得） | ログイン | `/following` | `GET /api/follows/facilitators?limit=&offset=` |
+| F-FLW-05 | 主催者フォロー | フォロー中の主催者の開催予定ワークショップ | フォロー中の主催者の、公開中かつ開始前のワークショップを開始日時の早い順に 10 件ずつカード表示 | ログイン | `/following` | `GET /api/follows/workshops?limit=&offset=` |
+| F-FLW-06 | 主催者フォロー | マイページからの導線 | マイページの「予約・お気に入り」に「フォロー中の主催者」メニューを表示 | ログイン | `/me` | — |
+
 ### 通知（NTF）
 
 | 機能ID | カテゴリ | 機能名 | 概要 | 利用者（権限） | 画面 | API（メソッド + パス） |
 |---|---|---|---|---|---|---|
-| F-NTF-01 | 通知 | 通知一覧 | 自分宛ての通知（中止 / 開催前日）を新しい順に表示。クリックでワークショップ詳細へ | ログイン | `/notifications` | `GET /api/notifications` |
+| F-NTF-01 | 通知 | 通知一覧 | 自分宛ての通知を新しい順に表示。種別バッジは「中止」「リマインダー」「参加キャンセル」「新着」。クリックでワークショップ詳細へ | ログイン | `/notifications` | `GET /api/notifications` |
 | F-NTF-02 | 通知 | 未読件数バッジ | Navbar の 🔔 に未読件数を表示。60 秒ごとにポーリング | ログイン | Navbar | `GET /api/notifications/unread-count` |
 | F-NTF-03 | 通知 | 通知の既読化 | 通知カードのクリックで 1 件を既読化 | ログイン（宛先本人） | `/notifications` | `POST /api/notifications/{notification_id}/read` |
 | F-NTF-04 | 通知 | すべて既読 | 未読の通知をまとめて既読化 | ログイン | `/notifications` | `POST /api/notifications/read-all` |
 | F-NTF-05 | 通知 | 中止通知の自動作成 | ワークショップが `canceled` に変更されたとき、予約確定済みの参加者へ `cancellation` 通知を作成 | システム（主催者の中止操作を契機） | なし | `POST /api/workshops/{workshop_id}/cancel` の内部処理 |
 | F-NTF-06 | 通知 | 開催前日リマインド | 30 分間隔のジョブで、開始 23〜25 時間前の公開ワークショップの予約確定者へ `reminder` 通知を作成（同一通知は 1 回のみ） | システム（APScheduler） | なし | — |
+| F-NTF-07 | 通知 | 新着ワークショップ通知 | 主催者（facilitator）がワークショップを初めて公開したとき（公開状態での作成、または下書きからの公開）、その主催者のフォロワーへ `new_workshop` 通知（「フォロー中の{主催者名}さんが、新しいワークショップ「{タイトル}」を公開しました。」）を公開と同じトランザクションで作成。admin が公開したもの、2 回目以降の公開では作成しない。通知一覧では「新着」と表示 | システム（主催者の公開操作を契機） | `/notifications` に表示 | `POST /api/workshops`、`PUT /api/workshops/{workshop_id}` の内部処理 |
 
 ### プロフィール・設定（PRF）
 
 | 機能ID | カテゴリ | 機能名 | 概要 | 利用者（権限） | 画面 | API（メソッド + パス） |
 |---|---|---|---|---|---|---|
-| F-PRF-01 | プロフィール | 設定メニュー | プロフィール編集・ワークショップ管理（主催者のみ）・予約履歴へのメニューを表示 | ログイン | `/settings` | — |
-| F-PRF-02 | プロフィール | プロフィール編集 | 表示名（必須、最大 255 文字）と自己紹介（最大 2000 文字）を更新 | ログイン | `/settings/profile` | `PATCH /api/auth/me`、`GET /api/auth/me` |
+| F-PRF-01 | プロフィール | マイページ（旧 設定メニュー） | 「予約・お気に入り」（参加予定・予約・参加履歴・お気に入り・フォロー中の主催者）、「主催者メニュー」（主催者のみ）、「問い合わせ」、「アカウント」（プロフィール編集）、「ヘルプ・規約」のメニューとログアウトを表示。旧 `/settings` は `/me` へリダイレクト | ログイン | `/me` | — |
+| F-PRF-02 | プロフィール | プロフィール編集 | 表示名（必須、最大 255 文字）と自己紹介（最大 2000 文字）を更新 | ログイン | `/me/profile` | `PATCH /api/auth/me`、`GET /api/auth/me` |
 
 ### 主催者管理（MNG）
 
@@ -124,13 +138,17 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 | 16 | GET | `/api/reservations/me` | 必須 | 自分の予約一覧（作成日時降順） | `backend/app/routers/reservations.py` |
 | 17 | DELETE | `/api/reservations/{reservation_id}` | 必須（予約者本人） | 予約キャンセル（status を canceled に更新、204） | `backend/app/routers/reservations.py` |
 | 18 | GET | `/api/favorites` | 必須 | 自分のお気に入り一覧（登録日時降順） | `backend/app/routers/favorites.py` |
-| 19 | GET | `/api/facilitators/{user_id}` | 不要 | 主催者プロフィール（facilitator / admin 以外は 404） | `backend/app/routers/facilitators.py` |
+| 19 | GET | `/api/facilitators/{user_id}` | 任意 | 主催者プロフィール（facilitator / admin 以外は 404）。ログイン中かつ相手が facilitator のときは `viewer.is_following` を返す（未ログイン・admin のページでは `viewer: null`） | `backend/app/routers/facilitators.py` |
 | 20 | GET | `/api/notifications` | 必須 | 自分の通知一覧（作成日時降順） | `backend/app/routers/notifications.py` |
 | 21 | GET | `/api/notifications/unread-count` | 必須 | 未読件数 `{count}` | `backend/app/routers/notifications.py` |
 | 22 | POST | `/api/notifications/{notification_id}/read` | 必須（宛先本人） | 通知を既読化 | `backend/app/routers/notifications.py` |
 | 23 | POST | `/api/notifications/read-all` | 必須 | 未読通知をすべて既読化（204） | `backend/app/routers/notifications.py` |
 | 24 | GET | `/api/health` | 不要 | ヘルスチェック | `backend/app/main.py` |
 | 25 | GET | `/api/uploads/{path}` | 不要 | アップロード画像の静的配信（`StaticFiles`） | `backend/app/main.py` |
+| 26 | POST | `/api/facilitators/{facilitator_id}/follow` | 必須 | 主催者をフォロー（201、`{"is_following": true}`）。フォロー済みでもエラーにしない。相手が facilitator でなければ 404、自分自身は 409 | `backend/app/routers/follows.py` |
+| 27 | DELETE | `/api/facilitators/{facilitator_id}/follow` | 必須 | フォロー解除（204。フォローしていなくてもエラーにしない） | `backend/app/routers/follows.py` |
+| 28 | GET | `/api/follows/facilitators` | 必須 | フォロー中の主催者一覧（現在 facilitator のもののみ、フォロー日時の新しい順）。各要素の `viewer.is_following` は常に true。クエリ: `limit`（1〜100）, `offset`。`limit` 指定時は総件数を `X-Total-Count` で返す | `backend/app/routers/follows.py` |
+| 29 | GET | `/api/follows/workshops` | 必須 | フォロー中の主催者の開催予定ワークショップ（公開一覧と同じ条件: 公開中・開始前、開始日時の早い順）。クエリ・総件数の返し方は No.28 と同じ | `backend/app/routers/follows.py` |
 
 ### フロントエンド API クライアントとの対応
 
@@ -144,6 +162,7 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 | `listMyFavorites` | No.18 | `frontend/src/api/favorites.ts` |
 | `reserveWorkshop` / `listWorkshopReservations` / `listMyReservations` / `cancelReservation` | No.12 / 13 / 16 / 17 | `frontend/src/api/reservations.ts` |
 | `listNotifications` / `getUnreadNotificationCount` / `markNotificationRead` / `markAllNotificationsRead` | No.20 / 21 / 22 / 23 | `frontend/src/api/notifications.ts` |
+| `followFacilitator` / `unfollowFacilitator` / `listFollowedFacilitators` / `listFollowedWorkshops` | No.26 / 27 / 28 / 29 | `frontend/src/api/follows.ts` |
 
 - No.24（health）はフロントエンドから呼ばれていない。
 
@@ -157,6 +176,9 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 - `backend/app/routers/favorites.py`
 - `backend/app/routers/facilitators.py`
 - `backend/app/routers/notifications.py`
+- `backend/app/routers/follows.py`
+- `backend/app/services/follows.py`
+- `backend/app/schemas/pagination.py`
 - `backend/app/services/workshops.py`
 - `backend/app/services/notifications.py`
 - `backend/app/services/uploads.py`
@@ -169,6 +191,10 @@ Workshop App の機能をカテゴリごとに一覧化し、利用者（権限�
 - `frontend/src/api/*.ts`
 - `frontend/src/components/Navbar.tsx`
 - `frontend/src/components/FavoriteButton.tsx`
+- `frontend/src/components/facilitator/FollowButton.tsx`
+- `frontend/src/pages/me/FollowingPage.tsx`
+- `frontend/src/pages/me/MyPage.tsx`
+- `frontend/src/utils/user.ts`
 - `frontend/src/components/ProtectedRoute.tsx`
 - `frontend/src/components/auth/LoginForm.tsx`
 - `frontend/src/components/auth/RegisterForm.tsx`

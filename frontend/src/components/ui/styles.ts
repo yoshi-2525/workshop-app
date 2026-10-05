@@ -4,6 +4,10 @@
 export const PRIMARY_BUTTON_CLASS =
   'rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground enabled:hover:bg-accent-hover disabled:opacity-50'
 
+// 紙のカードの上に置く補助の操作(フォロー中の解除など)のボタン。紙の上では枠線だけだと輪郭が見えにくいので白い面にする
+export const PAPER_SECONDARY_BUTTON_CLASS =
+  'rounded-md bg-surface px-4 py-2 text-sm font-medium text-fg-secondary shadow-sm hover:bg-white disabled:opacity-50 disabled:hover:bg-surface'
+
 // 1行・複数行のテキスト入力欄と選択欄(<input> / <textarea> / <select>)。ラベルの下に置く
 export const INPUT_CLASS =
   'mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none'

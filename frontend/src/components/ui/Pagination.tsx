@@ -20,11 +20,14 @@ export function Pagination({
   totalPages,
   onChange,
   disabled = false,
+  label = 'ページ送り',
 }: {
   page: number
   totalPages: number
   onChange: (next: number) => void
   disabled?: boolean
+  // 1ページに複数の一覧があるとき、どの一覧のページ送りかを区別する名前
+  label?: string
 }) {
   if (totalPages <= 1) return null
 
@@ -32,7 +35,7 @@ export function Pagination({
     'rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg-secondary transition hover:bg-surface-strong focus-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-40'
 
   return (
-    <nav aria-label="ページ送り" className="mt-8 flex flex-wrap items-center justify-center gap-1">
+    <nav aria-label={label} className="mt-8 flex flex-wrap items-center justify-center gap-1">
       <button
         type="button"
         onClick={() => onChange(page - 1)}

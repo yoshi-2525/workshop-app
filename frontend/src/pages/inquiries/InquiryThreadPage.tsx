@@ -13,11 +13,13 @@ import { parseIdParam } from '@/utils/params'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { BackLink } from '@/components/ui/BackLink'
+import { useBackState } from '@/hooks/useBackState'
 
 // 開いている間に相手から届いたメッセージを表示するため、一定間隔で読み込み直す
 const POLL_INTERVAL_MS = 15_000
 
 export function InquiryThreadPage() {
+  const workshopBackState = useBackState('問い合わせ')
   const { id } = useParams<{ id: string }>()
   const { refreshInquiryUnreadCount } = useNotifications()
   const [inquiry, setInquiry] = useState<InquiryDetail | null>(null)
@@ -126,6 +128,7 @@ export function InquiryThreadPage() {
           </h1>
           <Link
             to={`/workshops/${inquiry.workshop_id}`}
+            state={workshopBackState}
             className="block truncate text-sm text-fg-secondary underline hover:text-fg"
           >
             {inquiry.workshop_title}

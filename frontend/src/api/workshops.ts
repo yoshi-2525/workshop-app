@@ -1,5 +1,5 @@
-import { apiClient, fileFormData } from '@/api/client'
-import type { LocationType, RelatedWorkshops, Workshop, WorkshopInput } from '@/types'
+import { apiClient, fetchPage, fileFormData } from '@/api/client'
+import type { LocationType, Page, RelatedWorkshops, Workshop, WorkshopInput } from '@/types'
 
 // start: 開催日時の近い順 / newest: 公開日時の新しい順 / price: 価格の安い順
 export type WorkshopSort = 'start' | 'newest' | 'price'
@@ -40,14 +40,9 @@ export async function listManagedWorkshops(signal?: AbortSignal): Promise<Worksh
 export async function listWorkshopsPage(
   params: ListWorkshopsParams & { page: number; perPage: number },
   signal?: AbortSignal,
-): Promise<{ items: Workshop[]; total: number }> {
+): Promise<Page<Workshop>> {
   const { page, perPage, ...filters } = params
-  const { data, headers } = await apiClient.get<Workshop[]>('/workshops', {
-    params: { ...filters, limit: perPage, offset: (page - 1) * perPage },
-    signal,
-  })
-  const total = Number(headers['x-total-count'])
-  return { items: data, total: Number.isFinite(total) ? total : data.length }
+  return fetchPage('/workshops', filters, page, perPage, signal)
 }
 
 export async function getWorkshop(id: number, signal?: AbortSignal): Promise<Workshop> {

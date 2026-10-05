@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 
 WORKSHOP_NOT_FOUND = "ワークショップが見つかりません"
 RESERVATION_NOT_FOUND = "予約が見つかりません"
+FACILITATOR_NOT_FOUND = "主催者が見つかりません"
 PERMISSION_DENIED = "この操作を行う権限がありません"
 
 

@@ -1,22 +1,26 @@
+import { useId } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { HELP_DOCUMENTS } from '@/pages/help/helpDocuments'
 import { canManageWorkshops } from '@/utils/user'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { useBackState } from '@/hooks/useBackState'
 
-interface SettingsLink {
+interface MenuLink {
   to: string
   title: string
   description: string
 }
 
-function SettingsLinkList({ links }: { links: SettingsLink[] }) {
+function MenuLinkList({ links }: { links: MenuLink[] }) {
+  const backState = useBackState('マイページ')
   return (
     <ul className="mt-3 space-y-3">
       {links.map((link) => (
         <PaperCard as="li" key={link.to} cornerFold={false} interactive>
           <Link
             to={link.to}
+            state={backState}
             className="flex items-center justify-between rounded-lg p-4 focus:outline-none"
           >
             <div>
@@ -33,7 +37,21 @@ function SettingsLinkList({ links }: { links: SettingsLink[] }) {
   )
 }
 
-export function SettingsPage() {
+// 見出し付きのメニューのまとまり
+function MenuSection({ heading, links }: { heading: string; links: MenuLink[] }) {
+  const headingId = useId()
+  return (
+    <section aria-labelledby={headingId} className="mt-8">
+      <h2 id={headingId} className="text-base font-semibold text-fg-secondary">
+        {heading}
+      </h2>
+      <MenuLinkList links={links} />
+    </section>
+  )
+}
+
+// マイページ(/me)。自分の予約・お気に入り・問い合わせ・アカウントなど、ログイン中の人向けのメニューを性質ごとにまとめる
+export function MyPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   if (!user) return null
@@ -45,21 +63,7 @@ export function SettingsPage() {
 
   const isFacilitator = canManageWorkshops(user)
 
-  const links: SettingsLink[] = [
-    {
-      to: '/settings/profile',
-      title: 'プロフィール編集',
-      description: '表示名や自己紹介を編集します。',
-    },
-    ...(isFacilitator
-      ? [
-          {
-            to: '/manage',
-            title: 'ワークショップの管理',
-            description: '自分のワークショップの作成・編集・削除、予約状況の確認を行います。',
-          },
-        ]
-      : []),
+  const reservationLinks: MenuLink[] = [
     {
       to: '/reservations',
       title: '参加予定のワークショップ',
@@ -71,31 +75,53 @@ export function SettingsPage() {
       description: '過去に参加したワークショップや、キャンセル・中止になったものも含めた予約の履歴を見られます。',
     },
     {
+      to: '/favorites',
+      title: 'お気に入り',
+      description: 'お気に入りに登録したワークショップを確認できます。',
+    },
+    {
+      to: '/following',
+      title: 'フォロー中の主催者のワークショップ',
+      description: 'フォローしている主催者と、その開催予定のワークショップを確認できます。',
+    },
+  ]
+
+  const facilitatorLinks: MenuLink[] = [
+    {
+      to: '/manage',
+      title: 'ワークショップの管理',
+      description: '自分のワークショップの作成・編集・削除、予約状況の確認を行います。',
+    },
+  ]
+
+  const inquiryLinks: MenuLink[] = [
+    {
       to: '/inquiries',
       title: '問い合わせ',
       description: isFacilitator
         ? '主催者への問い合わせや、自分のワークショップに届いた問い合わせのやり取りを確認できます。'
         : '主催者への問い合わせのやり取りを確認できます。',
     },
+  ]
+
+  const accountLinks: MenuLink[] = [
     {
-      to: '/favorites',
-      title: 'お気に入り',
-      description: 'お気に入りに登録したワークショップを確認できます。',
+      to: '/me/profile',
+      title: 'プロフィール編集',
+      description: '表示名や自己紹介を編集します。',
     },
   ]
 
   return (
     <div className="mx-auto max-w-xl">
-      <h1 className="text-xl font-semibold text-fg">設定</h1>
-      <div className="mt-3">
-        <SettingsLinkList links={links} />
-      </div>
-      <section aria-labelledby="help-heading" className="mt-8">
-        <h2 id="help-heading" className="text-base font-semibold text-fg-secondary">
-          ヘルプ・規約
-        </h2>
-        <SettingsLinkList links={HELP_DOCUMENTS} />
-      </section>
+      <h1 className="text-xl font-semibold text-fg">マイページ</h1>
+      <MenuSection heading="予約・お気に入り" links={reservationLinks} />
+      {/* ワークショップを開けるのは主催者と運営だけ */}
+      {isFacilitator && <MenuSection heading="主催者メニュー" links={facilitatorLinks} />}
+      <MenuSection heading="問い合わせ" links={inquiryLinks} />
+      <MenuSection heading="アカウント" links={accountLinks} />
+      <MenuSection heading="ヘルプ・規約" links={HELP_DOCUMENTS} />
+      {/* ログアウトは誤って押さないよう、メニューから離してページの一番下に置く */}
       <button
         type="button"
         onClick={handleLogout}

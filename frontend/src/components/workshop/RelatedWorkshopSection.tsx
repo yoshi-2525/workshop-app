@@ -8,6 +8,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon'
 import { NoImage } from '@/components/ui/NoImage'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { useBackState } from '@/hooks/useBackState'
 
 // 詳細ページの下に並べる、小さめのワークショップカード。
 // リンクはタイトルだけにして、当たり判定(::after)をカード全体に広げる(WorkshopCard と同じ作り)。
@@ -16,6 +17,7 @@ function CompactWorkshopCard({ workshop }: { workshop: Workshop }) {
   const [imageFailed, setImageFailed] = useState(false)
   const isFull = isWorkshopFull(workshop)
   const isClosed = isReservationClosed(workshop)
+  const backState = useBackState('前のワークショップ')
 
   return (
     <PaperCard interactive cornerFold={false} className="flex w-full flex-col p-2">
@@ -33,6 +35,7 @@ function CompactWorkshopCard({ workshop }: { workshop: Workshop }) {
       <h3 className="mt-2 line-clamp-2 text-sm font-semibold text-fg">
         <Link
           to={`/workshops/${workshop.id}`}
+          state={backState}
           className="after:absolute after:inset-0 after:rounded-lg focus:outline-none"
         >
           {workshop.title}

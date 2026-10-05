@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import { LegalDocument } from '@/components/legal/LegalDocument'
+import { LegalDocument, LegalDocLink } from '@/components/legal/LegalDocument'
 
 // 【要記入】の項目は、運営者の実際の情報に置き換えてから公開すること
 const ROWS: { label: string; value: ReactNode }[] = [
@@ -53,9 +52,9 @@ const ROWS: { label: string; value: ReactNode }[] = [
     value: (
       <>
         予約確定後のキャンセルは、各ワークショップ詳細ページに記載の主催者のキャンセルポリシーと、本サービスの
-        <Link to="/help/cancellation-policy" className="underline">
+        <LegalDocLink to="/help/cancellation-policy">
           キャンセルポリシー
-        </Link>
+        </LegalDocLink>
         に従います。ワークショップの性質上、開催後の返金はできません。
       </>
     ),

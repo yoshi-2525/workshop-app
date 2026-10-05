@@ -1,5 +1,5 @@
 -- Workshop App: MySQL schema
--- Matches app/models/*.py and alembic/versions (up to 0016). Keep in sync if models change.
+-- Matches app/models/*.py and alembic/versions (up to 0017). Keep in sync if models change.
 
 CREATE TABLE users (
 	id INTEGER NOT NULL AUTO_INCREMENT,
@@ -64,11 +64,23 @@ CREATE TABLE favorites (
 	FOREIGN KEY(workshop_id) REFERENCES workshops (id)
 );
 
+CREATE TABLE facilitator_follows (
+	id INTEGER NOT NULL AUTO_INCREMENT,
+	follower_id INTEGER NOT NULL,
+	facilitator_id INTEGER NOT NULL,
+	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_follow_follower_facilitator UNIQUE (follower_id, facilitator_id),
+	KEY ix_facilitator_follows_facilitator_id (facilitator_id),
+	FOREIGN KEY(follower_id) REFERENCES users (id),
+	FOREIGN KEY(facilitator_id) REFERENCES users (id)
+);
+
 CREATE TABLE notifications (
 	id INTEGER NOT NULL AUTO_INCREMENT,
 	user_id INTEGER NOT NULL,
 	workshop_id INTEGER NOT NULL,
-	type ENUM('cancellation','reminder','reservation_canceled') NOT NULL,
+	type ENUM('cancellation','reminder','reservation_canceled','new_workshop') NOT NULL,
 	message TEXT NOT NULL,
 	is_read BOOLEAN NOT NULL DEFAULT FALSE,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

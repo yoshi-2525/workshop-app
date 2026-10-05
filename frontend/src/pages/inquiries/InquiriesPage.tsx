@@ -8,9 +8,11 @@ import { useApiResource } from '@/hooks/useApiResource'
 import { formatDateTime } from '@/utils/format'
 import { parseIdParam } from '@/utils/params'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
+import { useBackState } from '@/hooks/useBackState'
 
 // 自分が関わる問い合わせの一覧。?workshop_id= を付けると1つのワークショップへの問い合わせだけを表示する
 export function InquiriesPage() {
+  const backState = useBackState('問い合わせ一覧')
   const [searchParams] = useSearchParams()
   const workshopId = parseIdParam(searchParams.get('workshop_id') ?? undefined) ?? undefined
   const { user } = useAuth()
@@ -61,6 +63,7 @@ export function InquiriesPage() {
             <li key={inquiry.id}>
               <Link
                 to={`/inquiries/${inquiry.id}`}
+                state={backState}
                 className={`flex items-start gap-3 rounded-lg border p-4 transition hover:shadow-md ${
                   unread ? 'border-border bg-surface-muted' : 'border-border-muted bg-surface'
                 }`}

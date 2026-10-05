@@ -107,12 +107,16 @@ describe('toApiParams', () => {
     })
   })
 
-  it('「今日」は端末の時間帯の今日0時から明日0時まで', () => {
+  it('「明日」は端末の時間帯の明日0時から明後日0時まで', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 9, 4, 15, 30))
-    const params = toApiParams({ ...DEFAULT_LIST_STATE, date: 'today' })
-    expect(params.start_from).toBe(new Date(2026, 9, 4).toISOString())
-    expect(params.start_to).toBe(new Date(2026, 9, 5).toISOString())
+    const params = toApiParams({ ...DEFAULT_LIST_STATE, date: 'tomorrow' })
+    expect(params.start_from).toBe(new Date(2026, 9, 5).toISOString())
+    expect(params.start_to).toBe(new Date(2026, 9, 6).toISOString())
+  })
+
+  it('以前の URL の date=today は「すべて」として扱う', () => {
+    expect(readListState(new URLSearchParams('date=today')).date).toBe('all')
   })
 
   it('期間指定の終了日は、その日の終わりまでを含む', () => {

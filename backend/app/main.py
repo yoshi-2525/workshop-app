@@ -10,7 +10,17 @@ from starlette.types import Scope
 from app.config import settings
 from app.core.body_limit import BodySizeLimitMiddleware
 from app.database import SessionLocal
-from app.routers import auth, facilitators, favorites, inquiries, manage, notifications, reservations, workshops
+from app.routers import (
+    auth,
+    facilitators,
+    favorites,
+    follows,
+    inquiries,
+    manage,
+    notifications,
+    reservations,
+    workshops,
+)
 from app.services.notifications import send_upcoming_reminders
 from app.services.uploads import max_request_body_bytes, too_large_message
 
@@ -64,6 +74,7 @@ app.include_router(workshops.router, prefix=api_router_prefix)
 app.include_router(reservations.router, prefix=api_router_prefix)
 app.include_router(favorites.router, prefix=api_router_prefix)
 app.include_router(facilitators.router, prefix=api_router_prefix)
+app.include_router(follows.router, prefix=api_router_prefix)
 app.include_router(notifications.router, prefix=api_router_prefix)
 app.include_router(inquiries.router, prefix=api_router_prefix)
 app.include_router(manage.router, prefix=api_router_prefix)

@@ -10,20 +10,25 @@ import { useAsyncAction } from '@/hooks/useAsyncAction'
 import type { Notification } from '@/types'
 import { formatDateTime } from '@/utils/format'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
+import { useBackState } from '@/hooks/useBackState'
 
 const typeLabel: Record<Notification['type'], string> = {
   cancellation: '中止',
   reminder: 'リマインダー',
   reservation_canceled: '参加キャンセル',
+  new_workshop: '新着',
 }
 
 const typeColor: Record<Notification['type'], string> = {
   cancellation: 'bg-red-400/15 text-red-200',
   reminder: 'bg-sky-400/15 text-sky-200',
   reservation_canceled: 'bg-amber-400/15 text-amber-200',
+  // 新着は注意が必要なものではないので色を付けない
+  new_workshop: 'bg-surface-strong text-fg-secondary',
 }
 
 export function NotificationsPage() {
+  const backState = useBackState('通知')
   const { unreadCount, refreshUnreadCount } = useNotifications()
   const {
     data,
@@ -88,6 +93,7 @@ export function NotificationsPage() {
           <li key={notification.id}>
             <Link
               to={`/workshops/${notification.workshop_id}`}
+              state={backState}
               onClick={() => handleOpen(notification)}
               className={`flex items-start gap-3 rounded-lg border p-4 transition hover:shadow-md ${
                 notification.is_read

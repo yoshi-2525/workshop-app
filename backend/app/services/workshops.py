@@ -17,7 +17,11 @@ from app.schemas.workshop import (
     WorkshopSearchQuery,
     WorkshopViewer,
 )
-from app.services.notifications import add_cancellation_notices
+from app.services.notifications import (
+    add_cancellation_notices,
+    add_new_workshop_notices,
+    remove_new_workshop_notices,
+)
 
 
 # 予約の締め切り。開始日時のこの時間前を過ぎたら予約を受け付けない。
@@ -135,6 +139,18 @@ def cancel_workshop(db: Session, workshop: Workshop) -> None:
         raise conflict("下書きのワークショップは中止できません。取りやめる場合は削除してください")
     workshop.status = WorkshopStatus.canceled
     add_cancellation_notices(db, workshop)
+    remove_new_workshop_notices(db, workshop)
+
+
+def notify_if_first_published(db: Session, workshop: Workshop, *, was_published: bool) -> None:
+    """初めて公開したときだけ、主催者のフォロワーに通知する(commit は呼び出し側)。
+
+    was_published には、変更前に一度でも公開したことがあったか(published_at があったか)を渡す。
+    公開済みのものは下書きに戻せないので、同じワークショップで二度通知することはない。
+    新規作成のときは id が決まっているよう、flush してから呼ぶこと
+    """
+    if not was_published and workshop.status == WorkshopStatus.published:
+        add_new_workshop_notices(db, workshop)
 
 
 # 公開一覧の並び順。同じ値のときの順序が毎回変わらないよう、最後に id を付ける

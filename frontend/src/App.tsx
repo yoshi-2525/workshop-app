@@ -13,16 +13,19 @@ import { ReservationFormPage } from '@/pages/reservations/ReservationFormPage'
 import { FacilitatorProfilePage } from '@/pages/workshops/FacilitatorProfilePage'
 import { MyReservationsPage, ReservationHistoryPage } from '@/pages/reservations/MyReservationsPage'
 import { FavoritesPage } from '@/pages/me/FavoritesPage'
+import { FollowingPage } from '@/pages/me/FollowingPage'
 import { NotificationsPage } from '@/pages/me/NotificationsPage'
 import { InquiriesPage } from '@/pages/inquiries/InquiriesPage'
 import { InquiryThreadPage } from '@/pages/inquiries/InquiryThreadPage'
 import { WorkshopInquiryPage } from '@/pages/inquiries/WorkshopInquiryPage'
-import { SettingsPage } from '@/pages/me/SettingsPage'
+import { MyPage } from '@/pages/me/MyPage'
 import { ManageWorkshopsPage } from '@/pages/manage/ManageWorkshopsPage'
 import { WorkshopFormPage } from '@/pages/manage/WorkshopFormPage'
 import { WorkshopReservationsPage } from '@/pages/manage/WorkshopReservationsPage'
 import { ProfileEditPage } from '@/pages/manage/ProfileEditPage'
 import { HelpPage } from '@/pages/help/HelpPage'
+import { AboutPage } from '@/pages/guide/AboutPage'
+import { DialogueRulesPage } from '@/pages/guide/DialogueRulesPage'
 import { TermsPage } from '@/pages/help/TermsPage'
 import { CancellationPolicyPage } from '@/pages/help/CancellationPolicyPage'
 import { FacilitatorGuidelinesPage } from '@/pages/help/FacilitatorGuidelinesPage'
@@ -45,6 +48,8 @@ export default function App() {
         <Route path="register/facilitator" element={<FacilitatorRegisterPage />} />
 
         {/* 規約は登録前にも読めるよう、ログインしていなくても表示する */}
+        <Route path="about" element={<AboutPage />} />
+        <Route path="rules" element={<DialogueRulesPage />} />
         <Route path="help" element={<HelpPage />} />
         <Route path="help/terms" element={<TermsPage />} />
         <Route path="help/cancellation-policy" element={<CancellationPolicyPage />} />
@@ -56,12 +61,16 @@ export default function App() {
           <Route path="reservations" element={<MyReservationsPage />} />
           <Route path="reservations/history" element={<ReservationHistoryPage />} />
           <Route path="favorites" element={<FavoritesPage />} />
+          <Route path="following" element={<FollowingPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="workshops/:id/inquiry" element={<WorkshopInquiryPage />} />
           <Route path="inquiries" element={<InquiriesPage />} />
           <Route path="inquiries/:id" element={<InquiryThreadPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="settings/profile" element={<ProfileEditPage />} />
+          <Route path="me" element={<MyPage />} />
+          <Route path="me/profile" element={<ProfileEditPage />} />
+          {/* 以前の「設定」ページの URL。ブックマークなどから来ても新しい URL に移す */}
+          <Route path="settings" element={<Navigate to="/me" replace />} />
+          <Route path="settings/profile" element={<Navigate to="/me/profile" replace />} />
         </Route>
 
         <Route element={<ProtectedRoute roles={['admin', 'facilitator']} loginPath="/login/facilitator" />}>

@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom'
 import { getFacilitatorProfile } from '@/api/users'
 import { listWorkshops } from '@/api/workshops'
+import { FollowButton } from '@/components/facilitator/FollowButton'
 import { Avatar } from '@/components/ui/Avatar'
 import { WorkshopCard } from '@/components/workshop/WorkshopCard'
 import { useApiResource } from '@/hooks/useApiResource'
@@ -32,14 +33,17 @@ export function FacilitatorProfilePage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PaperCard cornerFold={false} className="p-6">
-        <div className="flex items-center gap-4">
-          <Avatar url={profile.avatar_url} name={profile.name} className="h-16 w-16 text-2xl" />
-          <div>
-            <h1 className="text-xl font-semibold text-fg">{profile.name}</h1>
-            <p className="mt-1 text-xs font-medium text-fg-subtle">
-              {profile.role === 'admin' ? '運営' : '主催者'}
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Avatar url={profile.avatar_url} name={profile.name} className="h-16 w-16 text-2xl" />
+            <div>
+              <h1 className="text-xl font-semibold text-fg">{profile.name}</h1>
+              <p className="mt-1 text-xs font-medium text-fg-subtle">
+                {profile.role === 'admin' ? '運営' : '主催者'}
+              </p>
+            </div>
           </div>
+          <FollowButton facilitator={profile} isFollowing={profile.viewer?.is_following ?? false} />
         </div>
         {profile.bio ? (
           <p className="mt-4 whitespace-pre-wrap text-sm text-fg-secondary">{profile.bio}</p>
@@ -54,7 +58,7 @@ export function FacilitatorProfilePage() {
       ) : (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {workshops.map((workshop) => (
-            <WorkshopCard key={workshop.id} workshop={workshop} />
+            <WorkshopCard key={workshop.id} workshop={workshop} backLabel={`${profile.name}さんのページ`} />
           ))}
         </div>
       )}

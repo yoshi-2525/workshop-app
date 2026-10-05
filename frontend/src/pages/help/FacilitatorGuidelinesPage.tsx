@@ -1,5 +1,4 @@
-import { Link } from 'react-router-dom'
-import { LegalDocument, LegalList, LegalSection } from '@/components/legal/LegalDocument'
+import { LegalDocument, LegalList, LegalSection, LegalDocLink } from '@/components/legal/LegalDocument'
 
 // 主催者向けのガイドライン。ここに書いた編集・中止の制限は、ワークショップの作成・編集画面と API の動作に合わせている
 export function FacilitatorGuidelinesPage() {
@@ -8,9 +7,9 @@ export function FacilitatorGuidelinesPage() {
       <p>
         このガイドラインは、TAIWA でワークショップを主催する方に守っていただくルールです。
         参加者が安心して申し込めるよう、
-        <Link to="/help/terms" className="underline">
+        <LegalDocLink to="/help/terms">
           利用規約
-        </Link>
+        </LegalDocLink>
         とあわせてご確認ください。
       </p>
 
@@ -81,9 +80,9 @@ export function FacilitatorGuidelinesPage() {
             '有料のワークショップを販売する場合、主催者は特定商取引法などの法令に従い、必要な事項を表示する責任を負います。',
             <>
               本サービスの
-              <Link to="/help/tokushoho" className="underline">
+              <LegalDocLink to="/help/tokushoho">
                 特定商取引法に基づく表記
-              </Link>
+              </LegalDocLink>
               もあわせてご確認ください。
             </>,
           ]}

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { getDayInfo, parseDateInput, toDateInputValue, toDateTimeInputValue } from '@/utils/date'
 import { formatDateTime, formatPrice, formatPriceYen, formatTime } from '@/utils/format'
 import { parseIdParam } from '@/utils/params'
-import { canManageWorkshops } from '@/utils/user'
+import { canManageWorkshops, followButtonMode } from '@/utils/user'
 
 describe('parseIdParam', () => {
   it.each([
@@ -57,5 +57,34 @@ describe('canManageWorkshops', () => {
     expect(canManageWorkshops({ role: 'admin' })).toBe(true)
     expect(canManageWorkshops({ role: 'participant' })).toBe(false)
     expect(canManageWorkshops(null)).toBe(false)
+  })
+})
+
+describe('followButtonMode', () => {
+  const facilitator = { id: 10, role: 'facilitator' as const }
+
+  it('未ログインならログインへの案内を出す', () => {
+    expect(followButtonMode(null, facilitator)).toBe('login')
+  })
+
+  it('ほかのユーザーにはフォローボタンを出す', () => {
+    expect(followButtonMode({ id: 1 }, facilitator)).toBe('toggle')
+  })
+
+  it('自分自身のページには出さない', () => {
+    expect(followButtonMode({ id: 10 }, facilitator)).toBe('hidden')
+  })
+
+  it('閲覧者の役割にかかわらず、ほかの主催者はフォローできる', () => {
+    expect(followButtonMode({ id: 2 }, facilitator)).toBe('toggle')
+  })
+
+  it('主催者でない人のページには出さない', () => {
+    expect(followButtonMode({ id: 1 }, { id: 30, role: 'participant' })).toBe('hidden')
+  })
+
+  it('運営のページには、ログインの有無にかかわらず出さない', () => {
+    expect(followButtonMode(null, { id: 20, role: 'admin' })).toBe('hidden')
+    expect(followButtonMode({ id: 1 }, { id: 20, role: 'admin' })).toBe('hidden')
   })
 })

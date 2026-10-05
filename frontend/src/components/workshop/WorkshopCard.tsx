@@ -10,6 +10,7 @@ import { MaterialIcon } from '@/components/ui/MaterialIcon'
 import { NoImage } from '@/components/ui/NoImage'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { useBackState } from '@/hooks/useBackState'
 
 // 項目名はアイコンで見せ、読み上げ用に文字のラベルも残す。
 // 高さを文字1行分(1lh)にして、その中でアイコンを上下中央に置く。文字サイズを変えても1行目とそろい、
@@ -23,7 +24,9 @@ function FieldIcon({ icon, label, className = '' }: { icon: string; label: strin
   )
 }
 
-export function WorkshopCard({ workshop }: { workshop: Workshop }) {
+// backLabel: 詳細ページの「○○に戻る」で、このカードを並べたページに戻すときの名前(省略時はワークショップ一覧に戻る)
+export function WorkshopCard({ workshop, backLabel }: { workshop: Workshop; backLabel?: string }) {
+  const backState = useBackState(backLabel ?? '')
   // 画像の読み込みに失敗したときも、画像なしと同じ表示にしてカードの高さをそろえる
   const [imageFailed, setImageFailed] = useState(false)
 
@@ -48,6 +51,7 @@ export function WorkshopCard({ workshop }: { workshop: Workshop }) {
           <h3 className="line-clamp-2 min-w-0 text-lg font-semibold text-fg" title={workshop.title}>
             <Link
               to={`/workshops/${workshop.id}`}
+              state={backLabel ? backState : undefined}
               className="after:absolute after:inset-0 after:rounded-lg focus:outline-none"
             >
               {workshop.title}

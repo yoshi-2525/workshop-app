@@ -1,5 +1,4 @@
-import { Link } from 'react-router-dom'
-import { LegalDocument, LegalList, LegalSection } from '@/components/legal/LegalDocument'
+import { LegalDocument, LegalList, LegalSection, LegalDocLink } from '@/components/legal/LegalDocument'
 
 export function TermsPage() {
   return (
@@ -36,9 +35,9 @@ export function TermsPage() {
             '予約は、予約の手続きが完了した時点で確定します。',
             <>
               予約確定後のキャンセルについては、
-              <Link to="/help/cancellation-policy" className="underline">
+              <LegalDocLink to="/help/cancellation-policy">
                 キャンセルポリシー
-              </Link>
+              </LegalDocLink>
               に従うものとします。
             </>,
           ]}
@@ -55,9 +54,9 @@ export function TermsPage() {
       <LegalSection title="第5条(主催者の責任)">
         <p>
           主催者は、
-          <Link to="/help/facilitator-guidelines" className="underline">
+          <LegalDocLink to="/help/facilitator-guidelines">
             主催者ガイドライン
-          </Link>
+          </LegalDocLink>
           を守ってワークショップを企画・公開・開催するものとします。
           主催者は、ワークショップの内容と運営、参加者との間で生じた問題について責任を負います。
         </p>

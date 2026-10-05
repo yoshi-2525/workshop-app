@@ -32,6 +32,7 @@ from app.services.workshops import (
     ensure_editable,
     get_managed_workshop,
     get_viewable_workshop,
+    notify_if_first_published,
     public_workshops_select,
     to_workshop_read,
     to_workshop_reads,
@@ -85,6 +86,9 @@ def create_workshop(
     check_workshop_input(db, payload)
     workshop = Workshop(**payload.model_dump(), facilitator_id=current_user.id)
     db.add(workshop)
+    db.flush()
+    # 公開の状態で作成したら、フォロワーへの通知も同じトランザクションで確定する
+    notify_if_first_published(db, workshop, was_published=False)
     db.commit()
     db.refresh(workshop)
     return to_workshop_read(db, workshop, current_user)
@@ -102,8 +106,10 @@ def update_workshop(
     workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
     ensure_editable(workshop)
     check_workshop_input(db, payload, workshop)
+    was_published = workshop.published_at is not None
     for field, value in payload.model_dump().items():
         setattr(workshop, field, value)
+    notify_if_first_published(db, workshop, was_published=was_published)
     db.commit()
     db.refresh(workshop)
     return to_workshop_read(db, workshop, current_user)

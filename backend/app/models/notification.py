@@ -18,6 +18,8 @@ class NotificationType(str, enum.Enum):
     reminder = "reminder"
     # 主催者による参加(予約)のキャンセル
     reservation_canceled = "reservation_canceled"
+    # フォロー中の主催者が新しいワークショップを公開した
+    new_workshop = "new_workshop"
 
 
 class Notification(Base):

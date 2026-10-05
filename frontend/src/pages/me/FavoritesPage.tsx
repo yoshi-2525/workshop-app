@@ -17,7 +17,7 @@ export function FavoritesPage() {
       )}
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {workshops.map((workshop) => (
-          <WorkshopCard key={workshop.id} workshop={workshop} />
+          <WorkshopCard key={workshop.id} workshop={workshop} backLabel="お気に入り" />
         ))}
       </div>
     </div>

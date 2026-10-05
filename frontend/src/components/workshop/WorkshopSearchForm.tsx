@@ -20,7 +20,6 @@ export type WorkshopSearchConditions = Pick<
 
 const DATE_OPTIONS: ToggleOption<DateFilter>[] = [
   { value: 'all', label: 'すべて' },
-  { value: 'today', label: '今日' },
   { value: 'tomorrow', label: '明日' },
   { value: 'week', label: '直近1週間' },
   { value: 'range', label: '期間を指定' },

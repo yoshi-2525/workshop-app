@@ -12,12 +12,25 @@ export interface User {
   avatar_url: string
 }
 
+// 一覧 API の1ページ分と、条件に一致する総件数
+export interface Page<T> {
+  items: T[]
+  total: number
+}
+
+// 閲覧者(ログイン中のユーザー)によって値が変わる項目
+export interface FacilitatorViewer {
+  is_following: boolean
+}
+
 export interface FacilitatorProfile {
   id: number
   name: string
   bio: string
   role: UserRole
   avatar_url: string
+  // 未ログインのとき、またはフォローの対象でない(運営の)ページでは null
+  viewer: FacilitatorViewer | null
 }
 
 export type WorkshopStatus = 'draft' | 'published' | 'canceled'
@@ -110,7 +123,7 @@ export interface ReservationCreate {
   ticket_count: number
 }
 
-export type NotificationType = 'cancellation' | 'reminder' | 'reservation_canceled'
+export type NotificationType = 'cancellation' | 'reminder' | 'reservation_canceled' | 'new_workshop'
 
 export interface Notification {
   id: number

@@ -1,4 +1,4 @@
-// ヘルプ・規約の文書の一覧。設定ページとヘルプ・規約ページの両方に並べる
+// ヘルプ・規約の文書の一覧。マイページとヘルプ・規約ページの両方に並べる
 export interface HelpDocumentLink {
   to: string
   title: string
@@ -6,6 +6,11 @@ export interface HelpDocumentLink {
 }
 
 export const HELP_DOCUMENTS: HelpDocumentLink[] = [
+  {
+    to: '/rules',
+    title: '対話のルール',
+    description: 'ワークショップの場を、誰もが安心して話せる場所にするための約束ごとです。',
+  },
   {
     to: '/help/terms',
     title: '利用規約',

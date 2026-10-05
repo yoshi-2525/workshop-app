@@ -50,6 +50,12 @@ class UserUpdate(BaseModel):
     bio: TrimmedStr | None = Field(default=None, max_length=2000)
 
 
+class FacilitatorViewer(BaseModel):
+    """閲覧者(リクエストしたユーザー)によって値が変わる項目"""
+
+    is_following: bool = False
+
+
 class FacilitatorProfile(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -58,3 +64,5 @@ class FacilitatorProfile(BaseModel):
     bio: str
     role: UserRole
     avatar_url: str
+    # 未ログインのとき、またはフォローの対象でない(運営の)ページでは null
+    viewer: FacilitatorViewer | None = None

@@ -88,6 +88,10 @@ class RelatedWorkshops(BaseModel):
     nearby: list[WorkshopRead]
 
 
+# 公開ワークショップの並び順。start: 開催日時の近い順 / newest: 公開日時の新しい順 / price: 参加費の安い順
+WorkshopSort = Literal["start", "newest", "price"]
+
+
 class WorkshopSearchQuery(PageQuery):
     """公開ワークショップ一覧(GET /api/workshops)の検索条件。URL のクエリパラメータから組み立てる。
 
@@ -111,7 +115,7 @@ class WorkshopSearchQuery(PageQuery):
     # 範囲の計算はフロントエンドで行い、API は受け取った範囲で絞り込むだけにする
     start_from: NaiveUTCDateTime | None = None
     start_to: NaiveUTCDateTime | None = None
-    sort: Literal["start", "newest", "price"] = "start"
+    sort: WorkshopSort = "start"
 
     @model_validator(mode="after")
     def check_start_range(self) -> "WorkshopSearchQuery":
@@ -119,3 +123,9 @@ class WorkshopSearchQuery(PageQuery):
             # ValueError だとメッセージの先頭に "Value error, " が付くので、専用のエラーにする
             raise PydanticCustomError("start_range", "start_to は start_from より後の日時を指定してください")
         return self
+
+
+class FollowedWorkshopsQuery(PageQuery):
+    """フォロー中の主催者のワークショップ一覧(GET /api/follows/workshops)の条件"""
+
+    sort: WorkshopSort = "start"

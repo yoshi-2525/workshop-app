@@ -1,4 +1,5 @@
 from app.models.favorite import Favorite
+from app.models.follow import FacilitatorFollow
 from app.models.inquiry import Inquiry, InquiryMessage
 from app.models.notification import Notification, NotificationType
 from app.models.reservation import AttendanceStatus, Reservation, ReservationStatus
@@ -14,6 +15,7 @@ __all__ = [
     "AttendanceStatus",
     "ReservationStatus",
     "Favorite",
+    "FacilitatorFollow",
     "Notification",
     "NotificationType",
     "Inquiry",

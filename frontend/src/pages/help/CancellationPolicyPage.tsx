@@ -1,5 +1,4 @@
-import { Link } from 'react-router-dom'
-import { LegalDocument, LegalList, LegalSection } from '@/components/legal/LegalDocument'
+import { LegalDocument, LegalList, LegalSection, LegalDocLink } from '@/components/legal/LegalDocument'
 
 // 参加者向けのキャンセルポリシー(サービス全体の共通ルール)。
 // 有料のワークショップごとのキャンセル料などは、各主催者がワークショップ詳細ページに記載する
@@ -38,9 +37,9 @@ export function CancellationPolicyPage() {
         <p>
           連絡のないまま欠席されると、主催者や他の参加者の迷惑になります。参加できなくなった場合は、できるだけ早く主催者にご連絡ください。
           無断欠席が続く場合は、
-          <Link to="/help/terms" className="underline">
+          <LegalDocLink to="/help/terms">
             利用規約
-          </Link>
+          </LegalDocLink>
           に基づき、本サービスの利用を制限することがあります。
         </p>
       </LegalSection>

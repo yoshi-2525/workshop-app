@@ -9,6 +9,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.favorite import Favorite
+    from app.models.follow import FacilitatorFollow
     from app.models.notification import Notification
     from app.models.reservation import Reservation
     from app.models.workshop import Workshop
@@ -42,4 +43,11 @@ class User(Base):
     favorites: Mapped[list["Favorite"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     notifications: Mapped[list["Notification"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
+    )
+    # 自分がフォローしている主催者 / 自分(主催者)をフォローしているユーザー
+    following: Mapped[list["FacilitatorFollow"]] = relationship(
+        foreign_keys="FacilitatorFollow.follower_id", back_populates="follower", cascade="all, delete-orphan"
+    )
+    followers: Mapped[list["FacilitatorFollow"]] = relationship(
+        foreign_keys="FacilitatorFollow.facilitator_id", back_populates="facilitator", cascade="all, delete-orphan"
     )

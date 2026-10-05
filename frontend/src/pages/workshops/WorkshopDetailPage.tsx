@@ -30,11 +30,16 @@ import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 import { BackLink } from '@/components/ui/BackLink'
 import { CancellationPolicy } from '@/components/workshop/CancellationPolicy'
 
+// 予約済み・主催者による参加のキャンセルは、ボタンの下に理由と案内の文章を出すので、予約ボタン自体を出さない
+type HiddenButtonBlocker = 'reserved' | 'reservation_canceled'
+
+function hidesReserveButton(blocker: ReservationBlocker | null): blocker is HiddenButtonBlocker {
+  return blocker === 'reserved' || blocker === 'reservation_canceled'
+}
+
 // 予約できないときの予約ボタンの文言(予約ボタンは公開中のときだけ出すので、not_published は出ない)
-const RESERVE_BUTTON_BLOCKED_LABEL: Record<ReservationBlocker, string> = {
+const RESERVE_BUTTON_BLOCKED_LABEL: Record<Exclude<ReservationBlocker, HiddenButtonBlocker>, string> = {
   not_published: '予約できません',
-  reserved: '予約済みです',
-  reservation_canceled: '予約できません',
   started: '開始済みのため予約できません',
   closed: '予約の受付は終了しました',
   full: '空席がないため予約できません',
@@ -226,22 +231,24 @@ export function WorkshopDetailPage() {
         {workshop.status === 'published' && (
           <>
             {/* 予約ボタンと、その下の案内はカードの右下(予約フォームと同じ位置)に右寄せで置く */}
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => navigateWithLogin(`/workshops/${workshop.id}/reserve`)}
-                disabled={reservationBlocker !== null}
-                className={PRIMARY_BUTTON_CLASS}
-              >
-                {reservationBlocker !== null
-                  ? RESERVE_BUTTON_BLOCKED_LABEL[reservationBlocker]
-                  : user
-                    ? '予約する'
-                    : 'ログインして予約する'}
-              </button>
-            </div>
+            {!hidesReserveButton(reservationBlocker) && (
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => navigateWithLogin(`/workshops/${workshop.id}/reserve`)}
+                  disabled={reservationBlocker !== null}
+                  className={PRIMARY_BUTTON_CLASS}
+                >
+                  {reservationBlocker !== null
+                    ? RESERVE_BUTTON_BLOCKED_LABEL[reservationBlocker]
+                    : user
+                      ? '予約する'
+                      : 'ログインして予約する'}
+                </button>
+              </div>
+            )}
             {workshop.viewer.is_reserved && (
-              <p className="mt-2 text-right text-sm text-fg-muted">
+              <p className="mt-6 text-right text-sm text-fg-muted">
                 このワークショップは予約済みです。内容は{' '}
                 <Link to="/reservations" className="underline">
                   参加予定のワークショップ
@@ -250,7 +257,7 @@ export function WorkshopDetailPage() {
               </p>
             )}
             {workshop.viewer.is_reservation_canceled && (
-              <p className="mt-2 text-right text-sm text-fg-muted">
+              <p className="mt-6 text-right text-sm text-fg-muted">
                 主催者により参加がキャンセルされたため、このワークショップは予約できません。
               </p>
             )}

@@ -1,10 +1,11 @@
 from datetime import timedelta
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.timeutil import utcnow_naive
+from app.models.follow import FOLLOWABLE_ROLE, FacilitatorFollow
 from app.models.notification import Notification, NotificationType
 from app.models.reservation import Reservation
 from app.models.workshop import Workshop, WorkshopStatus
@@ -59,6 +60,38 @@ def add_reservation_canceled_notice(db: Session, reservation: Reservation) -> in
     return len(
         _add_missing(
             db, reservation.workshop_id, [reservation.user_id], NotificationType.reservation_canceled, message
+        )
+    )
+
+
+def add_new_workshop_notices(db: Session, workshop: Workshop) -> int:
+    """フォロワーに、主催者が新しいワークショップを公開したことを通知する。
+
+    初めて公開したときに、公開と同じトランザクションで呼ぶこと(commit は呼び出し側)。
+    通知するかはワークショップの持ち主で決める。運営が主催者の下書きを公開した場合も、主催者の新着として通知する。
+    フォローの対象は主催者(FOLLOWABLE_ROLE)だけなので、運営が持ち主のものは通知しない
+    """
+    facilitator = workshop.facilitator
+    if facilitator.role != FOLLOWABLE_ROLE:
+        return 0
+    follower_ids = list(
+        db.scalars(
+            select(FacilitatorFollow.follower_id).where(
+                FacilitatorFollow.facilitator_id == facilitator.id,
+                FacilitatorFollow.follower_id != facilitator.id,
+            )
+        )
+    )
+    message = f"フォロー中の{facilitator.name}さんが、新しいワークショップ「{workshop.title}」を公開しました。"
+    return len(_add_missing(db, workshop.id, follower_ids, NotificationType.new_workshop, message))
+
+
+def remove_new_workshop_notices(db: Session, workshop: Workshop) -> None:
+    """新着の通知を取り消す。中止したワークショップは予約していない人には見えず、通知のリンク先がなくなるため
+    (commit は呼び出し側)"""
+    db.execute(
+        delete(Notification).where(
+            Notification.workshop_id == workshop.id, Notification.type == NotificationType.new_workshop
         )
     )
 

@@ -1,3 +1,4 @@
+import type { Page } from '@/types'
 import axios from 'axios'
 import { readStorage, writeStorage } from '@/utils/storage'
 
@@ -60,4 +61,20 @@ export function extractErrorMessage(error: unknown, fallback = 'エラーが発�
     }
   }
   return fallback
+}
+
+// 一覧 API の1ページ分を取得する。総件数はバックエンドが X-Total-Count ヘッダーで返す
+export async function fetchPage<T>(
+  url: string,
+  params: Record<string, unknown>,
+  page: number,
+  perPage: number,
+  signal?: AbortSignal,
+): Promise<Page<T>> {
+  const { data, headers } = await apiClient.get<T[]>(url, {
+    params: { ...params, limit: perPage, offset: (page - 1) * perPage },
+    signal,
+  })
+  const total = Number(headers['x-total-count'])
+  return { items: data, total: Number.isFinite(total) ? total : data.length }
 }

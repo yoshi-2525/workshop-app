@@ -1,6 +1,8 @@
 # システム構成図
 
-最終更新日: 2026-09-25
+最終更新日: 2026-10-05
+
+> 注記（2026-10-05）: 今回の更新では主催者フォロー機能（`follows` ルーター・サービス、`facilitator_follows` テーブル）のみを図に追加した。それ以前に追加されたルーター（`manage`、問い合わせ関連など）やテーブルは本書にまだ反映していない。
 
 ブラウザ上の React SPA（Vite 開発サーバー）から、Vite のプロキシ経由で FastAPI バックエンドの REST API を呼び出し、MySQL にデータを保存する構成。画像はバックエンドのローカルディレクトリに保存し、リマインド通知は FastAPI プロセス内の APScheduler が定期実行する。本書はコードから読み取れる開発環境の構成のみを示し、本番環境のホスティング先等は扱わない。
 
@@ -19,15 +21,15 @@ flowchart LR
 
     subgraph BE["バックエンド（FastAPI / uvicorn :8000）"]
         CORS["CORSMiddleware<br/>allow_origins = CORS_ORIGINS"]
-        ROUTERS["APIRouter（/api 配下）<br/>auth / workshops / reservations /<br/>favorites / facilitators / notifications"]
+        ROUTERS["APIRouter（/api 配下）<br/>auth / workshops / reservations /<br/>favorites / facilitators / notifications /<br/>follows"]
         DEPS["認証依存性<br/>OAuth2PasswordBearer + JWT 検証<br/>require_roles()"]
-        SERVICES["services<br/>workshops / notifications / uploads"]
+        SERVICES["services<br/>workshops / notifications / uploads /<br/>follows"]
         STATIC["StaticFiles<br/>/api/uploads"]
         SCHED["APScheduler<br/>BackgroundScheduler<br/>30 分間隔"]
         ORM["SQLAlchemy 2.0<br/>SessionLocal<br/>（接続時 time_zone = '+00:00'）"]
     end
 
-    DB[("MySQL<br/>users / workshops / reservations /<br/>favorites / notifications")]
+    DB[("MySQL<br/>users / workshops / reservations /<br/>favorites / notifications /<br/>facilitator_follows")]
     FS[("ローカルファイル<br/>backend/uploads/workshops/")]
     GMAP["Google マップ<br/>（外部サイト）"]
 
@@ -159,6 +161,8 @@ flowchart LR
 - `backend/app/schemas/types.py`
 - `backend/app/routers/auth.py`
 - `backend/app/routers/workshops.py`
+- `backend/app/routers/follows.py`
+- `backend/app/services/follows.py`
 - `backend/requirements.txt`
 - `backend/.env.example`
 - `backend/alembic/env.py`

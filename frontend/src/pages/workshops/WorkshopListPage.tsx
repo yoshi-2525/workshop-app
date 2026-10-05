@@ -1,9 +1,8 @@
 import { useEffect, useId, useMemo, useRef } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
-import type { WorkshopSort } from '@/api/workshops'
 import { Pagination } from '@/components/ui/Pagination'
-import type { ToggleOption } from '@/components/ui/ToggleGroup'
 import { WorkshopCard } from '@/components/workshop/WorkshopCard'
+import { WorkshopSortSelect } from '@/components/workshop/WorkshopSortSelect'
 import { WorkshopSearchForm, type WorkshopSearchConditions } from '@/components/workshop/WorkshopSearchForm'
 import { useListScrollRestoration } from '@/hooks/useListScrollRestoration'
 import { useWorkshopListPage } from '@/hooks/useWorkshopListPage'
@@ -17,12 +16,6 @@ import {
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 
 const PER_PAGE = 30
-
-const SORT_OPTIONS: ToggleOption<WorkshopSort>[] = [
-  { value: 'start', label: '開催日時の近い順' },
-  { value: 'newest', label: '公開日時の新しい順' },
-  { value: 'price', label: '参加費の安い順' },
-]
 
 export function WorkshopListPage() {
   const [urlParams, setUrlParams] = useSearchParams()
@@ -51,7 +44,6 @@ export function WorkshopListPage() {
   }, [listUrl])
 
   const onlyAvailableId = useId()
-  const sortId = useId()
   const resultsRef = useRef<HTMLDivElement>(null)
 
   function handleSearch(conditions: WorkshopSearchConditions) {
@@ -95,23 +87,7 @@ export function WorkshopListPage() {
             参加可能なワークショップを表示する
           </label>
         </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor={sortId} className="text-sm font-medium text-fg-secondary">
-            並び替え
-          </label>
-          <select
-            id={sortId}
-            value={sort}
-            onChange={(e) => updateList({ sort: e.target.value as WorkshopSort, page: 1 })}
-            className="rounded-md border border-border px-3 py-1.5 text-sm focus-ring focus:border-ring focus:outline-none"
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <WorkshopSortSelect value={sort} onChange={(next) => updateList({ sort: next, page: 1 })} />
       </div>
       {/* 検索結果の更新をスクリーンリーダーに通知する */}
       <div ref={resultsRef} aria-live="polite" className="scroll-mt-4">

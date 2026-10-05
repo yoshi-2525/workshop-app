@@ -1,8 +1,10 @@
 # ER 図
 
-最終更新日: 2026-09-25
+最終更新日: 2026-10-05
 
-MySQL 上の全 5 テーブル（`users` / `workshops` / `reservations` / `favorites` / `notifications`）の構造とリレーションを示す。SQLAlchemy モデル（`backend/app/models/`）を正とし、Alembic マイグレーション（最新 `0011`）および `backend/schema.sql` との整合性を末尾に記載する。
+MySQL 上のテーブル（`users` / `workshops` / `reservations` / `favorites` / `notifications` / `facilitator_follows` ほか）の構造とリレーションを示す。SQLAlchemy モデル（`backend/app/models/`）を正とし、Alembic マイグレーションおよび `backend/schema.sql` との整合性を末尾に記載する。
+
+> 注記（2026-10-05）: 今回の更新では主催者フォロー機能（マイグレーション `0017`）のみを反映した。`0012`〜`0016`（`users.avatar_url`、通知種別 `reservation_canceled`、問い合わせ関連テーブル、当日の案内など）は本書にまだ反映していない。
 
 ## ER 図
 
@@ -15,6 +17,8 @@ erDiagram
     workshops ||--o{ favorites : "お気に入り登録される（workshop_id）"
     users ||--o{ notifications : "受け取る（user_id）"
     workshops ||--o{ notifications : "対象となる（workshop_id）"
+    users ||--o{ facilitator_follows : "フォローする（follower_id）"
+    users ||--o{ facilitator_follows : "フォローされる（facilitator_id）"
 
     users {
         int id PK
@@ -66,9 +70,16 @@ erDiagram
         int id PK
         int user_id FK "users.id / UK(user_id, workshop_id, type)"
         int workshop_id FK "workshops.id / UK(user_id, workshop_id, type)"
-        enum type "cancellation / reminder"
+        enum type "cancellation / reminder / reservation_canceled / new_workshop"
         text message
         boolean is_read
+        datetime created_at
+    }
+
+    facilitator_follows {
+        int id PK
+        int follower_id FK "users.id / UK(follower_id, facilitator_id)"
+        int facilitator_id FK "users.id / UK(follower_id, facilitator_id)"
         datetime created_at
     }
 ```
@@ -84,10 +95,13 @@ erDiagram
 | workshops | favorites | 1 対 0..多 | `favorites.workshop_id` FK | ORM で `cascade="all, delete-orphan"` |
 | users | notifications | 1 対 0..多 | `notifications.user_id` FK | ORM で `cascade="all, delete-orphan"` |
 | workshops | notifications | 1 対 0..多 | `notifications.workshop_id` FK | ORM で `cascade="all, delete-orphan"` |
+| users（フォローする側） | facilitator_follows | 1 対 0..多 | `facilitator_follows.follower_id` FK | ORM で `cascade="all, delete-orphan"`（`User.following`） |
+| users（フォローされる主催者） | facilitator_follows | 1 対 0..多 | `facilitator_follows.facilitator_id` FK | ORM で `cascade="all, delete-orphan"`（`User.followers`） |
 
 - `reservations` は `(workshop_id, user_id)` の一意制約により、1 ユーザーは 1 ワークショップにつき 1 行のみ。キャンセル後に再予約すると、同じ行の `status` を `confirmed` に戻して再利用する（`backend/app/routers/workshops.py:212-224`）。
 - `favorites` は `(user_id, workshop_id)` で一意。`users` と `workshops` の多対多を表す中間テーブル。
 - `notifications` は `(user_id, workshop_id, type)` で一意。同じユーザー・ワークショップ・種別の通知は 1 件しか作られない（重複作成時は `IntegrityError` をロールバックして無視。`backend/app/services/notifications.py:26-33`）。
+- `facilitator_follows` は `(follower_id, facilitator_id)` で一意。`users` 同士（フォローする側と主催者）の多対多を表す自己参照の中間テーブル。フォロー先は role が `facilitator` のユーザーだけで、admin と自分自身はフォローできない（DB 制約ではなく API 側で判定。`backend/app/services/follows.py:16-42`）。フォロー後に相手の role が変わった場合、行は残るが一覧には出なくなる（`backend/app/services/follows.py:12-13, 67-86`）。
 - DB レベルの外部キーに `ON DELETE` 指定はない。削除のカスケードは SQLAlchemy の ORM セッション経由（`db.delete(workshop)`）でのみ働く（`backend/app/models/workshop.py`、`backend/app/models/user.py` の relationship 定義）。
 - `DELETE /api/workshops/{id}` は、確定済み予約のチケット合計（`reserved_count`）が 1 以上なら 409 を返して削除しない。このため、カスケードで削除される予約はキャンセル済みのものだけになる（`backend/app/routers/workshops.py:180-195`）。
 
@@ -166,17 +180,30 @@ erDiagram
 
 ### notifications（通知）
 
-根拠: `backend/app/models/notification.py`、`backend/alembic/versions/0008_notifications.py`
+根拠: `backend/app/models/notification.py`、`backend/alembic/versions/0008_notifications.py`、`0017_facilitator_follows.py`
 
 | カラム名 | 型 | NULL | デフォルト | 制約 | 説明 |
 |---|---|---|---|---|---|
 | id | INTEGER | 不可 | AUTO_INCREMENT | PK | 通知 ID |
 | user_id | INTEGER | 不可 | — | FK → users.id、UK `uq_notification_user_workshop_type`(user_id, workshop_id, type) | 宛先ユーザー |
 | workshop_id | INTEGER | 不可 | — | FK → workshops.id、UK（同上） | 対象ワークショップ |
-| type | ENUM('cancellation','reminder') | 不可 | — | UK（同上） | 種別（中止 / 開催前日リマインド） |
+| type | ENUM('cancellation','reminder','reservation_canceled','new_workshop') | 不可 | — | UK（同上） | 種別（中止 / 開催前日リマインド / 主催者による参加キャンセル / フォロー中の主催者の新着ワークショップ） |
 | message | TEXT | 不可 | — | — | 本文 |
 | is_read | BOOLEAN | 不可 | ORM: `False` / DB: `false` | — | 既読フラグ |
 | created_at | DATETIME | 不可 | DB: `CURRENT_TIMESTAMP` | — | 作成日時（UTC） |
+
+- `new_workshop` は、主催者（role が `facilitator`）がワークショップを初めて公開したときに、その主催者のフォロワーへ作成する。本文は「フォロー中の{主催者名}さんが、新しいワークショップ「{タイトル}」を公開しました。」。admin が公開したものは通知しない。一意制約により同じワークショップで同じユーザーに 2 回は作られない（`backend/app/services/notifications.py:68-86`、`backend/app/services/workshops.py:140-148`）。
+
+### facilitator_follows（主催者フォロー）
+
+根拠: `backend/app/models/follow.py`、`backend/alembic/versions/0017_facilitator_follows.py`、`backend/schema.sql:67-77`
+
+| カラム名 | 型 | NULL | デフォルト | 制約 | 説明 |
+|---|---|---|---|---|---|
+| id | INTEGER | 不可 | AUTO_INCREMENT | PK | フォロー ID |
+| follower_id | INTEGER | 不可 | — | FK → users.id、UK `uq_follow_follower_facilitator`(follower_id, facilitator_id) | フォローしたユーザー（ロールは問わない） |
+| facilitator_id | INTEGER | 不可 | — | FK → users.id、UK（同上）、インデックス `ix_facilitator_follows_facilitator_id` | フォローされた主催者 |
+| created_at | DATETIME | 不可 | DB: `CURRENT_TIMESTAMP` | — | フォロー日時（UTC。フォロー中の主催者一覧を新しい順に並べるのに使用） |
 
 ## マイグレーション履歴
 
@@ -193,10 +220,12 @@ erDiagram
 | 0009 | 全 5 テーブルの `created_at` を NOT NULL 化（既存の NULL 行は `CURRENT_TIMESTAMP` で補完） | `backend/alembic/versions/0009_created_at_not_null.py` |
 | 0010 | `reservations.ticket_count` に CHECK 制約 `ck_reservation_ticket_count`（1〜4）を追加（範囲外の既存行があれば中断し、データは書き換えない） | `backend/alembic/versions/0010_reservation_ticket_count_check.py` |
 | 0011 | `workshops.published_at` 追加（既存の公開中データは `created_at` で補完） | `backend/alembic/versions/0011_workshop_published_at.py` |
+| 0012〜0016 | （本書に未反映。ファイル名: `0012_user_avatar_url.py`、`0013_notification_reservation_canceled.py`、`0014_inquiries.py`、`0015_inquiry_message_broadcast.py`、`0016_participant_guide_and_attendance.py`） | `backend/alembic/versions/` |
+| 0017 | `facilitator_follows` 作成（一意制約 `uq_follow_follower_facilitator`、インデックス `ix_facilitator_follows_facilitator_id`）、`notifications.type` に `new_workshop` を追加。ダウングレード時は `new_workshop` の通知を削除してから型を戻す | `backend/alembic/versions/0017_facilitator_follows.py` |
 
 ## 定義間の整合性
 
-モデル（`app/models/`）、最新マイグレーション（0011 まで適用後）、`backend/schema.sql`（冒頭コメントに「up to 0011」と記載）の 3 つで、カラム構成・型・NULL 可否・DB デフォルト・制約は一致している。
+`facilitator_follows` と `notifications.type` については、モデル（`app/models/follow.py`、`app/models/notification.py`）、マイグレーション `0017`、`backend/schema.sql`（冒頭コメントに「up to 0017」と記載）の 3 つで、カラム構成・型・NULL 可否・DB デフォルト・制約・インデックスは一致している。その他のテーブルの 0012〜0016 による変更は本書では未確認。
 
 - `users.bio` / `workshops.cancellation_policy`（TEXT 型）の `DEFAULT ''` は、`schema.sql` とマイグレーション（0003 / 0006）の両方にある。MySQL は TEXT 型にリテラルの既定値を付けることを制限しているため、MySQL のバージョンや SQL モードによっては DDL がエラーまたは警告になる可能性がある（※推測。実行しての確認はしていない）。
 
@@ -220,6 +249,9 @@ erDiagram
 - `backend/alembic/versions/0009_created_at_not_null.py`
 - `backend/alembic/versions/0010_reservation_ticket_count_check.py`
 - `backend/alembic/versions/0011_workshop_published_at.py`
+- `backend/alembic/versions/0017_facilitator_follows.py`
+- `backend/app/models/follow.py`
+- `backend/app/services/follows.py`
 - `backend/schema.sql`
 - `backend/app/database.py`
 - `backend/app/schemas/types.py`

@@ -82,11 +82,14 @@ export function ReservationFormPage() {
   // 初期値として一度だけ入れ、あとから user が更新されても入力中の内容は上書きしない
   const [contact, setContact] = useState(user?.email ?? '')
   const [ticketCount, setTicketCount] = useState(1)
+  // 内容を確認したことのチェック。チェックするまで予約を確定できない
+  const [confirmed, setConfirmed] = useState(false)
 
   const contactId = useId()
   const contactHelpId = useId()
   const ticketCountId = useId()
   const ticketCountHelpId = useId()
+  const confirmedId = useId()
 
   function handleCancelClick() {
     if (!workshop) return
@@ -204,6 +207,22 @@ export function ReservationFormPage() {
             />
           </div>
 
+          <div className="flex items-start gap-2">
+            <input
+              id={confirmedId}
+              type="checkbox"
+              required
+              checked={confirmed}
+              onChange={(e) => setConfirmed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-accent focus-ring focus:outline-none"
+            />
+            <label htmlFor={confirmedId} className="text-sm text-fg">
+              {workshop.price > 0 && workshop.cancellation_policy
+                ? 'ワークショップの内容とキャンセルポリシーを確認しました'
+                : 'ワークショップの内容を確認しました'}
+            </label>
+          </div>
+
           <ErrorMessage message={submitAction.error} className="text-sm" />
 
           <div className="flex gap-3 justify-end">
@@ -216,10 +235,10 @@ export function ReservationFormPage() {
             </button>
             <button
               type="submit"
-              disabled={submitAction.pending}
+              disabled={submitAction.pending || !confirmed}
               className={PRIMARY_BUTTON_CLASS}
             >
-              {submitAction.pending ? '登録中...' : 'この内容で予約を確定する'}
+              {submitAction.pending ? '登録中...' : '予約を確定する'}
             </button>
 
           </div>

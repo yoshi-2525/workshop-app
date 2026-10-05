@@ -9,7 +9,8 @@ import { readStorage, writeStorage } from '@/utils/storage'
 
 export type LocationTypeFilter = 'all' | LocationType
 export type PriceFilter = 'all' | 'free' | 'paid'
-export type DateFilter = 'all' | 'today' | 'tomorrow' | 'week' | 'range'
+// 当日のワークショップは予約の受付が終わっているので、「今日」の絞り込みは設けない
+export type DateFilter = 'all' | 'tomorrow' | 'week' | 'range'
 
 export interface WorkshopListState {
   q: string
@@ -40,7 +41,8 @@ export const DEFAULT_LIST_STATE: WorkshopListState = {
 }
 
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/
-const DATE_FILTERS: DateFilter[] = ['all', 'today', 'tomorrow', 'week', 'range']
+// 以前の URL の date=today などの、今は使わない値は「すべて」として扱う
+const DATE_FILTERS: DateFilter[] = ['all', 'tomorrow', 'week', 'range']
 const SORTS: WorkshopSort[] = ['start', 'newest', 'price']
 
 function pick<T extends string>(value: string | null, allowed: readonly T[], fallback: T): T {
@@ -132,14 +134,12 @@ function addDays(base: Date, days: number): Date {
 }
 
 // 端末の時間帯での日付の区切り(0時)を基準に、開催日時の範囲 [start_from, start_to) を返す。
-// 「今日」などは一覧を表示した時点の日付で決まる。期間の終了日はその日の終わりまでを含む
+// 「明日」などは一覧を表示した時点の日付で決まる。期間の終了日はその日の終わりまでを含む
 function startRangeFor(state: WorkshopListState, now = new Date()): Pick<ListWorkshopsParams, 'start_from' | 'start_to'> {
   const today = addDays(now, 0)
   switch (state.date) {
     case 'all':
       return {}
-    case 'today':
-      return { start_from: today.toISOString(), start_to: addDays(today, 1).toISOString() }
     case 'tomorrow':
       return { start_from: addDays(today, 1).toISOString(), start_to: addDays(today, 2).toISOString() }
     case 'week':
