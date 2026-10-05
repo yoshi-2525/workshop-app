@@ -1,15 +1,16 @@
 from datetime import timedelta
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.timeutil import utcnow_naive
 from app.models.follow import FOLLOWABLE_ROLE, FacilitatorFollow
 from app.models.notification import Notification, NotificationType
-from app.models.reservation import Reservation
+from app.models.reservation import CancelReason, Reservation
 from app.models.workshop import Workshop, WorkshopStatus
 from app.services.inquiries import add_message, get_or_create_inquiry
+from app.services.job_lock import named_lock
 from app.services.participants import confirmed_participant_ids
 
 # リマインダーは、ワークショップごと・参加者ごとに1回だけ送る。定期実行のたびに
@@ -44,9 +45,14 @@ def _add_missing(
     return new_ids
 
 
-def add_cancellation_notices(db: Session, workshop: Workshop) -> int:
-    """中止の通知を追加する。中止への変更と同じトランザクションで commit すること"""
+def add_cancellation_notices(db: Session, workshop: Workshop, *, refunds_online_payment: bool = False) -> int:
+    """中止の通知を追加する。中止への変更と同じトランザクションで commit すること。
+
+    refunds_online_payment: オンライン決済のワークショップで、支払った参加費を全額返金するか
+    """
     message = f"「{workshop.title}」は主催者により中止になりました。"
+    if refunds_online_payment:
+        message += "オンラインでお支払いいただいた参加費は全額返金します。"
     return len(
         _add_missing(
             db, workshop.id, confirmed_participant_ids(db, workshop), NotificationType.cancellation, message
@@ -54,12 +60,60 @@ def add_cancellation_notices(db: Session, workshop: Workshop) -> int:
     )
 
 
-def add_reservation_canceled_notice(db: Session, reservation: Reservation) -> int:
-    """主催者が参加をキャンセルしたことを参加者に通知する。キャンセルと同じトランザクションで commit すること"""
+def add_reservation_canceled_notice(
+    db: Session, reservation: Reservation, *, refund_amount: int | None = None, reason: CancelReason | None = None
+) -> int:
+    """主催者が参加をキャンセルしたことを参加者に通知する。キャンセルと同じトランザクションで commit すること。
+
+    オンライン決済で支払い済みなら、取消の理由と返金額も伝える(参加者都合では手数料を差し引くため、
+    額を知らせて、納得できなければ問い合わせられるようにする)
+    """
     message = f"「{reservation.workshop.title}」への参加は主催者によりキャンセルされました。"
+    if refund_amount is not None:
+        if reason == CancelReason.facilitator:
+            message += f"主催者の都合による取消のため、お支払いいただいた参加費{refund_amount:,}円を全額返金します。"
+        elif refund_amount > 0:
+            message += (
+                f"参加者のご都合による取消のため、決済手数料と本サービスの手数料を差し引いた{refund_amount:,}円を返金します。"
+                "ご不明な点は主催者にお問い合わせください。"
+            )
+        else:
+            message += (
+                "参加者のご都合による取消のため、決済手数料と本サービスの手数料を差し引くと、返金できる額は残りませんでした。"
+                "ご不明な点は主催者にお問い合わせください。"
+            )
     return len(
         _add_missing(
             db, reservation.workshop_id, [reservation.user_id], NotificationType.reservation_canceled, message
+        )
+    )
+
+
+def add_payment_refunded_notice(db: Session, reservation: Reservation, amount: int) -> int:
+    """参加費の返金が済んだことを参加者に通知する。返金の記録と同じトランザクションで commit すること。
+
+    通知は (参加者, ワークショップ, 種類) で一意なので、同じワークショップで2回目の返金があった場合
+    (期限切れ後に届いた支払いを返金し、予約し直した支払いもさらに返金した、など)は通知を追加しない。
+    返金そのものは行われ、予約一覧の表示で確かめられる
+    """
+    message = (
+        f"「{reservation.workshop.title}」の参加費{amount:,}円を返金しました。"
+        "カード会社の処理により、ご利用明細に反映されるまで日数がかかることがあります。"
+    )
+    return len(
+        _add_missing(db, reservation.workshop_id, [reservation.user_id], NotificationType.payment_refunded, message)
+    )
+
+
+def add_payment_refund_failed_notice(db: Session, reservation: Reservation) -> int:
+    """返金済みと知らせたあとに、Stripe 側で返金が失敗したことを参加者に知らせる(commit は呼び出し側)"""
+    message = (
+        f"「{reservation.workshop.title}」の参加費の返金を、カード会社の都合で完了できませんでした。"
+        "運営で確認し、あらためてご連絡します。"
+    )
+    return len(
+        _add_missing(
+            db, reservation.workshop_id, [reservation.user_id], NotificationType.payment_refund_failed, message
         )
     )
 
@@ -133,17 +187,11 @@ def _send_participant_guide(db: Session, workshop: Workshop, user_ids: list[int]
 
 def send_upcoming_reminders(db: Session) -> int:
     """開催が近いワークショップの予約者にリマインダーを作り、作った件数を返す"""
-    # GET_LOCK は接続ごとに持つロック。セッションの接続は commit のたびにプールへ返るので、
-    # ロック専用の接続を別に確保して、処理が終わるまで持ち続ける
-    with db.get_bind().connect() as lock_conn:
-        got_lock = lock_conn.scalar(text("SELECT GET_LOCK(:name, 0)"), {"name": _REMINDER_LOCK_NAME})
-        if got_lock != 1:
+    with named_lock(db, _REMINDER_LOCK_NAME) as got_lock:
+        if not got_lock:
             # 他のプロセスが実行中
             return 0
-        try:
-            return _send_upcoming_reminders(db)
-        finally:
-            lock_conn.scalar(text("SELECT RELEASE_LOCK(:name)"), {"name": _REMINDER_LOCK_NAME})
+        return _send_upcoming_reminders(db)
 
 
 def _send_upcoming_reminders(db: Session) -> int:

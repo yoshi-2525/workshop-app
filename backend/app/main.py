@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -24,9 +25,14 @@ from app.routers import (
     workshops,
 )
 from app.services.notifications import send_upcoming_reminders
+from app.services.reservations import run_payment_maintenance
 from app.services.uploads import max_request_body_bytes, too_large_message
 
+logger = logging.getLogger(__name__)
+
 REMINDER_JOB_INTERVAL_MINUTES = 30
+# 返金の再試行と、期限切れの支払い待ちの片付けの間隔
+PAYMENT_JOB_INTERVAL_MINUTES = 10
 
 
 def _run_reminder_job() -> None:
@@ -37,12 +43,23 @@ def _run_reminder_job() -> None:
         db.close()
 
 
+def _run_payment_job() -> None:
+    db = SessionLocal()
+    try:
+        run_payment_maintenance(db)
+    except Exception:
+        logger.exception("オンライン決済の定期処理に失敗しました")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.check_jwt_secret()
     settings.check_stripe_settings()
     scheduler = BackgroundScheduler()
     scheduler.add_job(_run_reminder_job, "interval", minutes=REMINDER_JOB_INTERVAL_MINUTES)
+    scheduler.add_job(_run_payment_job, "interval", minutes=PAYMENT_JOB_INTERVAL_MINUTES)
     scheduler.start()
     yield
     scheduler.shutdown(wait=False)

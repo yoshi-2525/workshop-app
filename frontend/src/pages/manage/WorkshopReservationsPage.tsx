@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getWorkshop } from '@/api/workshops'
 import {
@@ -8,12 +9,15 @@ import {
 import { useApiResource } from '@/hooks/useApiResource'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
-import type { AttendanceStatus, Reservation, Workshop } from '@/types'
+import type { AttendanceStatus, CancelReason, Reservation, Workshop } from '@/types'
+import { paymentStatusLabel } from '@/utils/payment'
+import { CancelReservationForm } from '@/pages/manage/CancelReservationForm'
 import { formatDateTime } from '@/utils/format'
 import { parseIdParam } from '@/utils/params'
 import { ATTENDANCE_OPEN_HOURS_BEFORE, isAttendanceOpen, isWorkshopStarted } from '@/utils/workshop'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { DANGER_SMALL_BUTTON_CLASS } from '@/components/ui/styles'
 
 const ATTENDANCE_OPTIONS: ToggleOption<AttendanceStatus>[] = [
   { value: 'unconfirmed', label: '未確認' },
@@ -21,11 +25,31 @@ const ATTENDANCE_OPTIONS: ToggleOption<AttendanceStatus>[] = [
   { value: 'absent', label: '欠席' },
 ]
 
+const CANCEL_REASON_LABEL: Record<CancelReason, string> = {
+  participant: '参加者からの申し出による取消',
+  facilitator: '主催者の都合による取消',
+}
+
+// 予約ごとのオンライン決済の状態と、取り消したときの理由
+function PaymentAndReasonLine({ reservation }: { reservation: Reservation }) {
+  const payment = paymentStatusLabel(reservation.payment)
+  // 理由は、参加を取り消した予約にだけ出す(中止のときは中止の表示で分かる)
+  const reason = reservation.status === 'canceled' && reservation.cancel_reason ? CANCEL_REASON_LABEL[reservation.cancel_reason] : null
+  if (!payment && !reason) return null
+  return <p className="mt-1 text-fg-muted">{[payment, reason].filter(Boolean).join(' ・ ')}</p>
+}
+
 export function WorkshopReservationsPage() {
   const { id } = useParams<{ id: string }>()
   // どちらも実行中の予約の ID を持つ
   const cancelAction = useAsyncAction<number>()
   const attendanceAction = useAsyncAction<number>()
+  // 取消のフォームを開いている予約
+  const [cancelingId, setCancelingId] = useState<number | null>(null)
+  // 取消が済んだことを読み上げる文言
+  const [cancelDoneMessage, setCancelDoneMessage] = useState<string | null>(null)
+  // フォームを閉じたら、開いたボタンへフォーカスを戻す
+  const cancelTriggerRefs = useRef(new Map<number, HTMLButtonElement>())
 
   const workshopId = parseIdParam(id)
   const { data, loading, error, setData } = useApiResource(
@@ -66,22 +90,30 @@ export function WorkshopReservationsPage() {
   const isActive = (reservation: Reservation) =>
     reservation.status === 'confirmed' && workshop.status !== 'canceled'
 
-  async function handleCancel(reservation: Reservation) {
-    if (
-      !confirm(
-        `${reservation.user_name}さんの参加をキャンセルしますか?
-
-` +
-          'キャンセルすると参加者に通知が届き、この参加者は同じワークショップを再予約できなくなります。',
-      )
-    )
-      return
+  async function handleCancel(reservation: Reservation, reason: CancelReason) {
     const result = await cancelAction.run(
-      () => cancelWorkshopReservation(reservation.workshop_id, reservation.id),
+      () => cancelWorkshopReservation(reservation.workshop_id, reservation.id, reason),
       'キャンセルに失敗しました',
       reservation.id,
     )
-    if (result.ok) replaceReservation(result.value)
+    if (result.ok) {
+      replaceReservation(result.value)
+      setCancelingId(null)
+      setCancelDoneMessage(`${reservation.user_name}さんの参加をキャンセルしました。`)
+    }
+  }
+
+  function openCancelForm(reservationId: number) {
+    // 別の予約で失敗したときのメッセージを持ち越さない
+    cancelAction.clearError()
+    setCancelDoneMessage(null)
+    setCancelingId(reservationId)
+  }
+
+  function closeCancelForm(reservationId: number) {
+    cancelAction.clearError()
+    setCancelingId(null)
+    cancelTriggerRefs.current.get(reservationId)?.focus()
   }
 
   // 出欠を記録できるのは、公開中のワークショップの確定済みの予約だけ(バックエンドの update_reservation_attendance と同じ条件)
@@ -130,7 +162,10 @@ export function WorkshopReservationsPage() {
         </PaperCard>
       )}
       <ErrorMessage message={attendanceAction.error} className="mt-4 text-sm" />
-      <ErrorMessage message={cancelAction.error} className="mt-4 text-sm" />
+      {/* 取消の失敗はフォームの中に出す。済んだことはここで読み上げる(フォームが閉じてフォーカスの行き先がなくなるため) */}
+      <p role="status" className="mt-4 text-sm text-fg-secondary empty:hidden">
+        {cancelDoneMessage}
+      </p>
       {reservations.length === 0 ? (
         <p className="mt-6 text-fg-muted">まだ予約はありません。</p>
       ) : (
@@ -158,12 +193,20 @@ export function WorkshopReservationsPage() {
                   {canCancel(reservation) && (
                     <button
                       type="button"
-                      onClick={() => handleCancel(reservation)}
+                      ref={(el) => {
+                        if (el) cancelTriggerRefs.current.set(reservation.id, el)
+                        else cancelTriggerRefs.current.delete(reservation.id)
+                      }}
+                      onClick={() =>
+                        cancelingId === reservation.id ? closeCancelForm(reservation.id) : openCancelForm(reservation.id)
+                      }
                       disabled={cancelAction.pending}
                       aria-label={`${reservation.user_name}さんの参加をキャンセル`}
-                      className="rounded-md border border-red-400/30 px-2.5 py-1 text-xs text-red-300 hover:bg-red-400/10 disabled:opacity-50"
+                      aria-expanded={cancelingId === reservation.id}
+                      aria-controls={cancelingId === reservation.id ? `cancel-form-${reservation.id}` : undefined}
+                      className={DANGER_SMALL_BUTTON_CLASS}
                     >
-                      {cancelAction.pendingKey === reservation.id ? 'キャンセル中...' : '参加をキャンセル'}
+                      参加をキャンセル
                     </button>
                   )}
                 </div>
@@ -174,6 +217,17 @@ export function WorkshopReservationsPage() {
                 </span>
                 <span>{formatDateTime(reservation.created_at)}</span>
               </div>
+              <PaymentAndReasonLine reservation={reservation} />
+              {cancelingId === reservation.id && (
+                <CancelReservationForm
+                  id={`cancel-form-${reservation.id}`}
+                  reservation={reservation}
+                  pending={cancelAction.pendingKey === reservation.id}
+                  error={cancelAction.error}
+                  onConfirm={(reason) => handleCancel(reservation, reason)}
+                  onClose={() => closeCancelForm(reservation.id)}
+                />
+              )}
               {attendanceOpen && isActive(reservation) && (
                 <ToggleGroup
                   label={`${reservation.user_name}さんの出欠`}

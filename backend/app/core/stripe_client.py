@@ -245,3 +245,55 @@ def construct_event(payload: bytes, signature: str | None) -> dict:
     except stripe.SignatureVerificationError as exc:
         raise ValueError("署名を確かめられませんでした") from exc
     return json.loads(payload)
+
+
+# ---- 返金 ----
+
+
+def create_refund(
+    *,
+    account_id: str,
+    payment_intent_id: str,
+    amount: int,
+    refund_application_fee: bool,
+    idempotency_key: str,
+    metadata: dict[str, str],
+) -> str:
+    """支払いを返金し、返金の ID を返す。
+
+    direct charge なので主催者の連結アカウント上で返金する。refund_application_fee を付けると、
+    運営の手数料も主催者へ戻す(全額返金のとき)。Stripe の決済手数料は戻らない
+    """
+    try:
+        refund = _client().v1.refunds.create(
+            {
+                "payment_intent": payment_intent_id,
+                "amount": amount,
+                "refund_application_fee": refund_application_fee,
+                "metadata": metadata,
+            },
+            {"stripe_account": account_id, "idempotency_key": idempotency_key},
+        )
+    except stripe.StripeError as exc:
+        logger.exception("Stripe で返金できませんでした (%s)", idempotency_key)
+        raise StripeUnavailable(str(exc)) from exc
+    return refund.id
+
+
+def find_active_refund(*, account_id: str, payment_intent_id: str, payment_id: int) -> str | None:
+    """この支払いのために作った返金のうち、失敗・取り消しになっていないものの ID。なければ None。
+
+    返金の依頼の応答を受け取れなかった場合に、二重に返金しないよう再試行の前に確かめる
+    """
+    try:
+        refunds = _client().v1.refunds.list(
+            {"payment_intent": payment_intent_id, "limit": 100}, {"stripe_account": account_id}
+        )
+    except stripe.StripeError as exc:
+        logger.exception("Stripe の返金を確認できませんでした (%s)", payment_intent_id)
+        raise StripeUnavailable(str(exc)) from exc
+    for refund in refunds.data:
+        metadata = refund.metadata or {}
+        if metadata.get("payment_id") == str(payment_id) and refund.status not in ("failed", "canceled"):
+            return refund.id
+    return None

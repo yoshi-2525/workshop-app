@@ -98,7 +98,7 @@ class TestCancelReservation:
         reservation_id = _reserve(client, workshop.id, participant).json()["reservation"]["id"]
 
         res = client.post(
-            f"/api/workshops/{workshop.id}/reservations/{reservation_id}/cancel", headers=auth_headers(owner)
+            f"/api/workshops/{workshop.id}/reservations/{reservation_id}/cancel", json={"reason": "facilitator"}, headers=auth_headers(owner)
         )
         assert res.status_code == 200
         assert res.json()["status"] == "canceled"
@@ -108,7 +108,7 @@ class TestCancelReservation:
 
         # 2回目は既にキャンセル済み
         again = client.post(
-            f"/api/workshops/{workshop.id}/reservations/{reservation_id}/cancel", headers=auth_headers(owner)
+            f"/api/workshops/{workshop.id}/reservations/{reservation_id}/cancel", json={"reason": "facilitator"}, headers=auth_headers(owner)
         )
         assert again.status_code == 409
 
@@ -117,7 +117,7 @@ class TestCancelReservation:
         reservation_id = _reserve(client, workshop.id, make_user()).json()["reservation"]["id"]
         other = make_user(UserRole.facilitator)
         res = client.post(
-            f"/api/workshops/{workshop.id}/reservations/{reservation_id}/cancel", headers=auth_headers(other)
+            f"/api/workshops/{workshop.id}/reservations/{reservation_id}/cancel", json={"reason": "facilitator"}, headers=auth_headers(other)
         )
         assert res.status_code == 403
 
@@ -127,7 +127,7 @@ class TestCancelReservation:
         another = make_workshop(make_user(UserRole.facilitator))
         reservation_id = _reserve(client, another.id, make_user()).json()["reservation"]["id"]
         res = client.post(
-            f"/api/workshops/{workshop.id}/reservations/{reservation_id}/cancel", headers=auth_headers(owner)
+            f"/api/workshops/{workshop.id}/reservations/{reservation_id}/cancel", json={"reason": "facilitator"}, headers=auth_headers(owner)
         )
         assert res.status_code == 404
 

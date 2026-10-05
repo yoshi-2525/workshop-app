@@ -124,6 +124,9 @@ export interface PaymentSummary {
   refund_amount: number | null
 }
 
+// 主催者が予約を取り消した理由。participant: 参加者からの申し出 / facilitator: 主催者の都合(中止を含む)
+export type CancelReason = 'participant' | 'facilitator'
+
 // 開催当日に主催者が記録する出欠
 export type AttendanceStatus = 'unconfirmed' | 'present' | 'absent'
 
@@ -138,6 +141,8 @@ export interface Reservation {
   ticket_count: number
   status: ReservationStatus
   attendance: AttendanceStatus
+  // 主催者が取り消したときの理由。取り消されていなければ null
+  cancel_reason: CancelReason | null
   // 支払い待ちの席を確保している期限。支払い待ちでなければ null
   payment_expires_at: string | null
   // オンライン決済でなければ null
@@ -156,7 +161,7 @@ export interface ReservationCreate {
   ticket_count: number
 }
 
-export type NotificationType = 'cancellation' | 'reminder' | 'reservation_canceled' | 'new_workshop'
+export type NotificationType = 'cancellation' | 'reminder' | 'reservation_canceled' | 'new_workshop' | 'payment_refunded' | 'payment_refund_failed'
 
 export interface Notification {
   id: number

@@ -18,6 +18,7 @@ import { toDateTimeInputValue } from '@/utils/date'
 import { formatDateTime, formatTime } from '@/utils/format'
 import { parseIdParam } from '@/utils/params'
 import { isWorkshopFinished } from '@/utils/workshop'
+import { isOnlinePayment } from '@/utils/payment'
 import { WorkshopFormFields } from '@/pages/manage/WorkshopFormFields'
 import { removeWorkshopDraft, useWorkshopDraft, workshopDraftKey } from '@/pages/manage/useWorkshopDraft'
 import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
@@ -160,6 +161,9 @@ export function WorkshopFormPage() {
     if (!savedWorkshop) return
     const message =
       'このワークショップを中止にしますか?予約済みの参加者には中止のお知らせが自動で届きます。' +
+      (isOnlinePayment(savedWorkshop)
+        ? '\nオンラインで支払われた参加費は全額を返金します(決済手数料は戻らず、主催者の負担になります)。'
+        : '') +
       (isDirty ? '\n(編集中の内容は保存されません)' : '')
     if (!confirm(message)) return
     setError(null)

@@ -1,5 +1,5 @@
 import { apiClient } from '@/api/client'
-import type { AttendanceStatus, Reservation, ReservationCreate, ReservationCreateResult } from '@/types'
+import type { AttendanceStatus, CancelReason, Reservation, ReservationCreate, ReservationCreateResult } from '@/types'
 import { isStripeRedirectUrl } from '@/utils/payment'
 
 export async function listMyReservations(signal?: AbortSignal): Promise<Reservation[]> {
@@ -38,9 +38,17 @@ export async function abandonPayment(reservationId: number): Promise<Reservation
   return data
 }
 
-// 参加者は自分で予約をキャンセルできない。キャンセルはワークショップの主催者(と運営)だけが行える
-export async function cancelWorkshopReservation(workshopId: number, reservationId: number): Promise<Reservation> {
-  const { data } = await apiClient.post<Reservation>(`/workshops/${workshopId}/reservations/${reservationId}/cancel`)
+// 参加者は自分で予約をキャンセルできない。キャンセルはワークショップの主催者(と運営)だけが行える。
+// オンライン決済で支払い済みなら、理由に応じた額が返金される
+export async function cancelWorkshopReservation(
+  workshopId: number,
+  reservationId: number,
+  reason: CancelReason,
+): Promise<Reservation> {
+  const { data } = await apiClient.post<Reservation>(
+    `/workshops/${workshopId}/reservations/${reservationId}/cancel`,
+    { reason },
+  )
   return data
 }
 

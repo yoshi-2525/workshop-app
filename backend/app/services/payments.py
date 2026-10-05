@@ -19,10 +19,11 @@ from app.core import stripe_client
 from app.core.errors import ONLINE_PAYMENT_DISABLED, conflict, service_unavailable
 from app.core.timeutil import utcnow_naive
 from app.models.payment import PAYMENT_CURRENCY, Payment, PaymentStatus
-from app.models.reservation import Reservation, ReservationStatus
+from app.models.reservation import CancelReason, Reservation, ReservationStatus
 from app.models.user import User
-from app.models.workshop import Workshop
+from app.models.workshop import Workshop, WorkshopStatus
 from app.schemas.payment import PayoutAccountRead, PayoutAccountStatus
+from app.services.notifications import add_payment_refund_failed_notice, add_payment_refunded_notice
 
 logger = logging.getLogger(__name__)
 
@@ -201,6 +202,18 @@ def start_checkout(db: Session, reservation: Reservation, payment: Payment) -> s
         _release_hold(db, reservation, payment)
         raise service_unavailable(CHECKOUT_UNAVAILABLE)
     db.commit()
+    # Stripe を待つ間に、ワークショップが中止された・参加者が取りやめた場合は、作った画面を閉じて支払わせない
+    db.refresh(reservation)
+    db.refresh(workshop)
+    if reservation.status != ReservationStatus.pending_payment or workshop.status != WorkshopStatus.published:
+        try:
+            stripe_client.expire_checkout_session(state.session_id, account_id=payment.stripe_account_id)
+            payment.status = PaymentStatus.expired
+            db.commit()
+        except stripe_client.StripeUnavailable:
+            # 閉じられなくても、支払われたら確定できないので全額返金の対象になる
+            pass
+        raise conflict("このワークショップは現在予約を受け付けていません")
     return state.url
 
 
@@ -218,14 +231,160 @@ def record_paid(payment: Payment, *, payment_intent_id: str | None, stripe_fee: 
     payment.paid_at = utcnow_naive()
 
 
+def refund_amount_for(payment: Payment, reason: CancelReason) -> int:
+    """取消の理由ごとの返金額。返金額の定義はここだけに置く。
+
+    主催者都合は全額。参加者都合は、Stripe の決済手数料と運営の手数料を差し引く(主催者の収支が 0 になる)。
+    フロントエンドの utils/payment.ts の refundAmountFor と揃える
+    """
+    if reason == CancelReason.facilitator:
+        return payment.amount
+    return max(0, payment.amount - (payment.stripe_fee_amount or 0) - payment.application_fee_amount)
+
+
+def request_refund(payment: Payment, reason: CancelReason) -> int:
+    """支払い済みの参加費を返金の対象にし、返金額を返す(commit は呼び出し側)。
+
+    Stripe への依頼は commit の後に process_refund で行う(失敗したら定期処理が再試行する)
+    """
+    payment.status = PaymentStatus.refund_pending
+    payment.refund_amount = refund_amount_for(payment, reason)
+    return payment.refund_amount
+
+
 def request_full_refund(payment: Payment) -> None:
     """支払われたが参加を確定できない(期限切れ後の支払い・満席・中止など)支払いを、全額返金の対象にする。
 
-    返金は参加者に落ち度のない取り消しなので全額にする。Stripe への依頼は定期処理が行う(commit は呼び出し側)
+    参加者に落ち度のない取り消しなので全額にする(commit は呼び出し側)
     """
-    payment.status = PaymentStatus.refund_pending
-    payment.refund_amount = payment.amount
+    request_refund(payment, CancelReason.facilitator)
     logger.warning("参加を確定できない支払いを全額返金の対象にしました (payment_id=%s)", payment.id)
+
+
+def paid_payment(reservation: Reservation) -> Payment | None:
+    """予約の今の支払いが支払い済みなら、その支払い"""
+    payment = latest_payment(reservation)
+    return payment if payment is not None and payment.status == PaymentStatus.paid else None
+
+
+# ---- 返金の依頼 ----
+
+# 返金の依頼に続けて失敗したら、自動の再試行をやめて運営の対応に回す回数
+MAX_REFUND_ATTEMPTS = 5
+
+
+def _mark_refunded(db: Session, payment: Payment) -> None:
+    payment.status = PaymentStatus.refunded
+    payment.refunded_at = utcnow_naive()
+    if payment.refund_amount:
+        add_payment_refunded_notice(db, payment.reservation, payment.refund_amount)
+
+
+def process_refund(db: Session, payment_id: int) -> None:
+    """返金の対象になった支払い1件を Stripe で返金する。
+
+    例外として service の中で commit する: 取消・中止を確定した後や定期処理から、1件ずつ結果を確定させるため
+    (途中で失敗しても、済んだ返金の記録は残る)。二重に依頼しないよう支払いの行をロックする。
+    このロックは Stripe の応答まで持つ(外部 API を待つ間ロックを持たない方針の例外)。支払い1行だけで、
+    返金待ちの支払いを他の処理が変えることはほぼないため。
+    失敗したら回数を数えて残し、定期処理が再試行する。Stripe は同じ冪等キーに前回と同じ応答(失敗も含む)を
+    返すので、再試行では先に Stripe 上の返金を確かめ、なければ試行回数を含めた新しいキーで依頼する
+    """
+    if not settings.online_payment_enabled:
+        # 運営側の設定が外れている間は依頼しない(失敗として数えると、設定を戻す前に返金失敗になってしまう)
+        return
+    payment = db.get(Payment, payment_id, with_for_update=True, populate_existing=True)
+    if payment is None or payment.status != PaymentStatus.refund_pending:
+        db.rollback()
+        return
+    amount = payment.refund_amount or 0
+    if amount <= 0:
+        # 参加者都合で手数料を差し引くと返金額が残らない場合。Stripe には依頼しない
+        _mark_refunded(db, payment)
+        db.commit()
+        return
+    try:
+        if payment.stripe_payment_intent_id is None:
+            raise stripe_client.StripeUnavailable("PaymentIntent が記録されていません")
+        refund_id = None
+        if payment.refund_attempts > 0:
+            # 前回の依頼が Stripe に届いていたのに応答を受け取れなかった場合に、二重に返金しない
+            refund_id = stripe_client.find_active_refund(
+                account_id=payment.stripe_account_id,
+                payment_intent_id=payment.stripe_payment_intent_id,
+                payment_id=payment.id,
+            )
+        if refund_id is None:
+            refund_id = stripe_client.create_refund(
+                account_id=payment.stripe_account_id,
+                payment_intent_id=payment.stripe_payment_intent_id,
+                amount=amount,
+                # 全額返金なら運営の手数料も主催者へ戻す。差し引いて返すとき(参加者都合)は戻さない
+                refund_application_fee=amount == payment.amount,
+                idempotency_key=f"refund-payment-{payment.id}-{payment.refund_attempts}",
+                metadata={"payment_id": str(payment.id)},
+            )
+    except stripe_client.StripeUnavailable:
+        payment.refund_attempts += 1
+        if payment.refund_attempts >= MAX_REFUND_ATTEMPTS:
+            payment.status = PaymentStatus.refund_failed
+            logger.error("返金を自動で行えませんでした。運営が対応してください (payment_id=%s)", payment.id)
+        db.commit()
+        return
+    payment.stripe_refund_id = refund_id
+    _mark_refunded(db, payment)
+    db.commit()
+
+
+def process_pending_refunds(db: Session, payment_ids: list[int] | None = None) -> None:
+    """返金の対象になっている支払いを返金する。payment_ids を省くと、返金待ちのものすべて(定期処理)。
+
+    取消・中止を確定した後に呼ぶので、1件の予期しない失敗で残りの返金や呼び出し側の処理を止めない
+    (失敗したものは返金待ちのまま残り、定期処理が拾う)
+    """
+    if payment_ids is None:
+        payment_ids = list(db.scalars(select(Payment.id).where(Payment.status == PaymentStatus.refund_pending)))
+    for payment_id in payment_ids:
+        try:
+            process_refund(db, payment_id)
+        except Exception:
+            db.rollback()
+            logger.exception("返金の処理に失敗しました (payment_id=%s)", payment_id)
+
+
+def mark_refund_failed(db: Session, payment_intent_id: str, account_id: str | None) -> None:
+    """依頼した返金が Stripe 側で失敗した(カードが使えなくなったなど)ことを記録する(commit は呼び出し側)。
+
+    返金済みと知らせていた参加者には、完了できなかったことを知らせる
+    """
+    payment = db.scalar(
+        select(Payment).where(Payment.stripe_payment_intent_id == payment_intent_id).with_for_update()
+    )
+    if payment is None or payment.stripe_account_id != account_id:
+        return
+    if payment.status == PaymentStatus.refunded:
+        add_payment_refund_failed_notice(db, payment.reservation)
+    payment.status = PaymentStatus.refund_failed
+    logger.error("Stripe で返金が失敗しました。運営が対応してください (payment_id=%s)", payment.id)
+
+
+def expire_open_checkouts(db: Session, payments: list[Payment]) -> None:
+    """支払い待ちの支払い画面を Stripe で閉じる(ワークショップの中止の後に呼ぶ)。
+
+    例外として service の中で commit する: 1件ずつ結果を確定させるため。閉じられなかったもの(その間に支払いが
+    済んだなど)は Webhook で反映され、中止済みなので全額返金の対象になる
+    """
+    for payment in payments:
+        if payment.status != PaymentStatus.pending or payment.stripe_checkout_session_id is None:
+            continue
+        try:
+            stripe_client.expire_checkout_session(
+                payment.stripe_checkout_session_id, account_id=payment.stripe_account_id
+            )
+        except stripe_client.StripeUnavailable:
+            continue
+        payment.status = PaymentStatus.expired
+        db.commit()
 
 
 def find_payment_by_session(db: Session, session_id: str) -> Payment | None:

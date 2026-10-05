@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getDayInfo, parseDateInput, toDateInputValue, toDateTimeInputValue } from '@/utils/date'
-import { formatDateTime, formatPrice, formatPriceYen, formatTime } from '@/utils/format'
+import { formatDateTime, formatPrice, formatPriceYen, formatTime, formatYen } from '@/utils/format'
 import { parseIdParam } from '@/utils/params'
 import { canManageWorkshops, followButtonMode } from '@/utils/user'
 
@@ -86,5 +86,12 @@ describe('followButtonMode', () => {
   it('運営のページには、ログインの有無にかかわらず出さない', () => {
     expect(followButtonMode(null, { id: 20, role: 'admin' })).toBe('hidden')
     expect(followButtonMode({ id: 1 }, { id: 20, role: 'admin' })).toBe('hidden')
+  })
+})
+
+describe('formatYen', () => {
+  it('0円も「無料」と言い換えずに出す', () => {
+    expect(formatYen(0)).toBe('0円')
+    expect(formatYen(2592)).toBe('2,592円')
   })
 })

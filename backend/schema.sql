@@ -1,5 +1,5 @@
 -- Workshop App: MySQL schema
--- Matches app/models/*.py and alembic/versions (up to 0018). Keep in sync if models change.
+-- Matches app/models/*.py and alembic/versions (up to 0019). Keep in sync if models change.
 
 CREATE TABLE users (
 	id INTEGER NOT NULL AUTO_INCREMENT,
@@ -65,6 +65,7 @@ CREATE TABLE payments (
 	stripe_account_id VARCHAR(255) NOT NULL,
 	stripe_checkout_session_id VARCHAR(255) NULL,
 	stripe_payment_intent_id VARCHAR(255) NULL,
+	stripe_refund_id VARCHAR(255) NULL,
 	amount INTEGER NOT NULL,
 	application_fee_amount INTEGER NOT NULL,
 	stripe_fee_amount INTEGER NULL,
@@ -120,7 +121,7 @@ CREATE TABLE notifications (
 	id INTEGER NOT NULL AUTO_INCREMENT,
 	user_id INTEGER NOT NULL,
 	workshop_id INTEGER NOT NULL,
-	type ENUM('cancellation','reminder','reservation_canceled','new_workshop','payment_refunded') NOT NULL,
+	type ENUM('cancellation','reminder','reservation_canceled','new_workshop','payment_refunded','payment_refund_failed') NOT NULL,
 	message TEXT NOT NULL,
 	is_read BOOLEAN NOT NULL DEFAULT FALSE,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

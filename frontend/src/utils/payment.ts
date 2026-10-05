@@ -1,4 +1,5 @@
-import type { PaymentSummary, Workshop } from '@/types'
+import type { CancelReason, PaymentSummary, Workshop } from '@/types'
+import { formatYen } from '@/utils/format'
 
 // オンライン決済(Stripe)まわりの値と判定
 
@@ -39,7 +40,8 @@ export function paymentNote(workshop: Pick<Workshop, 'price' | 'payment_method'>
   return isOnlinePayment(workshop) ? '予約時にカードでお支払いいただきます' : '当日会場にてお支払いください'
 }
 
-// オンライン決済の返金の状況。返金の対象でなければ null
+// 参加者向けの、オンライン決済の返金の状況。返金の対象でなければ null。
+// 主催者向けは paymentStatusLabel(返金額と、返金できていないことまで出す)
 export function refundLabel(payment: Pick<PaymentSummary, 'status'> | null): string | null {
   switch (payment?.status) {
     case 'refund_pending':
@@ -47,6 +49,37 @@ export function refundLabel(payment: Pick<PaymentSummary, 'status'> | null): str
       return '返金手続き中'
     case 'refunded':
       return '返金済み'
+    default:
+      return null
+  }
+}
+
+// 取消の理由ごとの返金額と、差し引く手数料。主催者都合は全額、参加者都合は決済手数料と本サービスの手数料を差し引く。
+// 画面で事前に見せるための計算で、実際の額はバックエンドの services/payments.py の refund_amount_for が決める
+export function refundAmountFor(
+  payment: Pick<PaymentSummary, 'amount' | 'stripe_fee_amount' | 'application_fee_amount'>,
+  reason: CancelReason,
+): { refund: number; stripeFee: number; serviceFee: number } {
+  if (reason === 'facilitator') return { refund: payment.amount, stripeFee: 0, serviceFee: 0 }
+  const stripeFee = payment.stripe_fee_amount ?? 0
+  const serviceFee = payment.application_fee_amount ?? 0
+  return { refund: Math.max(0, payment.amount - stripeFee - serviceFee), stripeFee, serviceFee }
+}
+
+// 主催者向けの、予約ごとのオンライン決済の状態。返金は額まで出す(いくら返したかを確かめられるように)。
+// 表示しないもの(支払い待ち・期限切れ)は null
+export function paymentStatusLabel(payment: Pick<PaymentSummary, 'status' | 'refund_amount'> | null): string | null {
+  const refund = payment?.refund_amount ?? 0
+  switch (payment?.status) {
+    case 'paid':
+      return 'オンライン決済済み'
+    case 'refund_pending':
+      return `返金手続き中(${formatYen(refund)})`
+    case 'refunded':
+      // 参加者都合で手数料を差し引くと返金額が残らない場合は、返金していない
+      return refund > 0 ? `返金済み(${formatYen(refund)})` : '返金なし(手数料の差し引きにより0円)'
+    case 'refund_failed':
+      return `返金できていません(${formatYen(refund)}。運営が対応します)`
     default:
       return null
   }

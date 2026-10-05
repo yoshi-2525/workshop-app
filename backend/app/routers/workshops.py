@@ -12,10 +12,16 @@ from app.database import get_db
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User, UserRole
 from app.models.workshop import Workshop, WorkshopStatus
-from app.schemas.reservation import AttendanceUpdate, ReservationCreate, ReservationCreateResult, ReservationRead
+from app.schemas.reservation import (
+    AttendanceUpdate,
+    ReservationCancel,
+    ReservationCreate,
+    ReservationCreateResult,
+    ReservationRead,
+)
 from app.schemas.workshop import RelatedWorkshops, WorkshopInput, WorkshopRead, WorkshopSearchQuery
 from app.services.pagination import paginate
-from app.services.payments import start_checkout
+from app.services.payments import expire_open_checkouts, process_pending_refunds, start_checkout
 from app.services.related import related_workshops
 from app.services.reservations import (
     RESERVATION_LOAD_OPTIONS,
@@ -35,6 +41,7 @@ from app.services.workshops import (
     get_managed_workshop,
     get_viewable_workshop,
     notify_if_first_published,
+    open_checkouts_of,
     public_workshops_select,
     to_workshop_read,
     to_workshop_reads,
@@ -123,10 +130,16 @@ def cancel_published_workshop(
     db: Session = Depends(get_db),
     current_user: User = Depends(_manager),
 ) -> WorkshopRead:
-    """公開中のワークショップを中止にする。予約済みの参加者には中止のお知らせが届く。中止は取り消せない"""
+    """公開中のワークショップを中止にする。予約済みの参加者には中止のお知らせが届く。中止は取り消せない。
+
+    オンライン決済で支払われた参加費は全額返金する(主催者都合のため)。返金の依頼に失敗したものは定期処理が再試行する
+    """
     workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
-    cancel_workshop(db, workshop)
+    refund_ids = cancel_workshop(db, workshop)
     db.commit()
+    # 中止を確定してから Stripe を呼ぶ(返金・支払い画面の終了は1件ずつ service の中で確定する)
+    process_pending_refunds(db, refund_ids)
+    expire_open_checkouts(db, open_checkouts_of(db, workshop))
     db.refresh(workshop)
     return to_workshop_read(db, workshop, current_user)
 
@@ -238,13 +251,22 @@ def list_workshop_reservations(
 def cancel_workshop_reservation(
     workshop_id: int,
     reservation_id: int,
+    payload: ReservationCancel,
     db: Session = Depends(get_db),
     current_user: User = Depends(_manager),
 ) -> ReservationRead:
+    """参加をキャンセルする。参加者に通知が届く。
+
+    オンライン決済で支払い済みなら返金する。主催者都合は全額、参加者都合は決済手数料と本サービスの手数料を差し引いた額。
+    返金の依頼に失敗したら定期処理が再試行する
+    """
     workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
     reservation = get_workshop_reservation(db, workshop, reservation_id)
-    cancel_reservation(db, workshop, reservation)
+    payment = cancel_reservation(db, workshop, reservation, payload.reason)
     db.commit()
+    if payment is not None:
+        # 取消は確定済み。返金に失敗しても返金待ちのまま残り、定期処理が再試行する
+        process_pending_refunds(db, [payment.id])
     db.refresh(reservation)
     return to_reservation_read(db, reservation, current_user)
 

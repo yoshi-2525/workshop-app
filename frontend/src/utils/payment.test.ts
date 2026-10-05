@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isStripeRedirectUrl, paymentNote, refundLabel } from '@/utils/payment'
+import { isStripeRedirectUrl, paymentNote, paymentStatusLabel, refundAmountFor, refundLabel } from '@/utils/payment'
 
 describe('isStripeRedirectUrl', () => {
   it.each([
@@ -50,5 +50,38 @@ describe('refundLabel', () => {
 
   it('支払いがなければ null', () => {
     expect(refundLabel(null)).toBeNull()
+  })
+})
+
+describe('refundAmountFor', () => {
+  const payment = { amount: 3000, stripe_fee_amount: 108, application_fee_amount: 300 }
+
+  it('主催者都合は全額を返金する', () => {
+    expect(refundAmountFor(payment, 'facilitator')).toEqual({ refund: 3000, stripeFee: 0, serviceFee: 0 })
+  })
+
+  it('参加者都合は手数料を差し引く', () => {
+    expect(refundAmountFor(payment, 'participant')).toEqual({ refund: 2592, stripeFee: 108, serviceFee: 300 })
+  })
+
+  it('差し引いて負にはならない', () => {
+    expect(refundAmountFor({ ...payment, stripe_fee_amount: 2900 }, 'participant').refund).toBe(0)
+  })
+})
+
+describe('paymentStatusLabel', () => {
+  it('支払い待ち・期限切れは出さない', () => {
+    expect(paymentStatusLabel({ status: 'pending', refund_amount: null })).toBeNull()
+    expect(paymentStatusLabel({ status: 'expired', refund_amount: null })).toBeNull()
+    expect(paymentStatusLabel(null)).toBeNull()
+  })
+
+  it('支払い済み・返金の状態を、返金額を添えて出す', () => {
+    expect(paymentStatusLabel({ status: 'paid', refund_amount: null })).toBe('オンライン決済済み')
+    expect(paymentStatusLabel({ status: 'refunded', refund_amount: 2592 })).toBe('返金済み(2,592円)')
+  })
+
+  it('返金額が0円なら「返金済み」とは出さない', () => {
+    expect(paymentStatusLabel({ status: 'refunded', refund_amount: 0 })).toBe('返金なし(手数料の差し引きにより0円)')
   })
 })

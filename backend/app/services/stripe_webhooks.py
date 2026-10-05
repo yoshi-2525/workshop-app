@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core import stripe_client
 from app.models.stripe_event import StripeEvent
-from app.services.payments import apply_account_state, find_payment_by_session
+from app.services.payments import apply_account_state, find_payment_by_session, mark_refund_failed
 from app.services.reservations import apply_checkout_state
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,11 @@ def handle_stripe_event(db: Session, event: dict[str, Any]) -> None:
 
     if event["type"] in _CHECKOUT_EVENTS:
         _apply_checkout_event(db, event)
+    elif event["type"] in ("charge.refund.updated", "refund.failed"):
+        refund = event["data"]["object"]
+        # 依頼した返金が、後から Stripe 側で失敗した(カードが使えなくなったなど)
+        if refund.get("status") == "failed" and refund.get("payment_intent"):
+            mark_refund_failed(db, refund["payment_intent"], event.get("account"))
     elif event["type"] == "account.updated":
         account = event["data"]["object"]
         apply_account_state(

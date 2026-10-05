@@ -17,6 +17,8 @@ const typeLabel: Record<Notification['type'], string> = {
   reminder: 'リマインダー',
   reservation_canceled: '参加キャンセル',
   new_workshop: '新着',
+  payment_refunded: '返金',
+  payment_refund_failed: '返金',
 }
 
 const typeColor: Record<Notification['type'], string> = {
@@ -25,6 +27,9 @@ const typeColor: Record<Notification['type'], string> = {
   reservation_canceled: 'bg-amber-400/15 text-amber-200',
   // 新着は注意が必要なものではないので色を付けない
   new_workshop: 'bg-surface-strong text-fg-secondary',
+  payment_refunded: 'bg-emerald-400/15 text-emerald-200',
+  // 返金を完了できなかったことは、参加者に確かめてもらう必要があるので目立たせる
+  payment_refund_failed: 'bg-amber-400/15 text-amber-200',
 }
 
 export function NotificationsPage() {

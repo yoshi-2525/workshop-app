@@ -12,6 +12,10 @@ export const PAPER_SECONDARY_BUTTON_CLASS =
 export const PAPER_SECONDARY_SMALL_BUTTON_CLASS =
   'inline-flex shrink-0 items-center gap-1 rounded-md bg-surface px-3 py-1.5 text-sm text-fg-secondary shadow-sm hover:bg-white'
 
+// 参加の取り消しなど、元に戻せない操作の小さなボタン
+export const DANGER_SMALL_BUTTON_CLASS =
+  'rounded-md border border-red-400/30 px-3 py-1.5 text-xs text-red-300 hover:bg-red-400/10 disabled:opacity-50'
+
 // 1行・複数行のテキスト入力欄と選択欄(<input> / <textarea> / <select>)。ラベルの下に置く
 export const INPUT_CLASS =
   'mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none'

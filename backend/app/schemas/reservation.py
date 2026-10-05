@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.payment import PaymentStatus
-from app.models.reservation import MAX_TICKETS_PER_RESERVATION, AttendanceStatus, ReservationStatus
+from app.models.reservation import MAX_TICKETS_PER_RESERVATION, AttendanceStatus, CancelReason, ReservationStatus
 from app.schemas.types import EmailAddress, UTCDateTime
 from app.schemas.workshop import WorkshopRead
 
@@ -38,6 +38,8 @@ class ReservationRead(BaseModel):
     ticket_count: int
     status: ReservationStatus
     attendance: AttendanceStatus
+    # 主催者が取り消したときの理由。取り消されていなければ null
+    cancel_reason: CancelReason | None = None
     # 支払い待ちの席を確保している期限。支払い待ちでなければ null
     payment_expires_at: UTCDateTime | None = None
     # オンライン決済でなければ null
@@ -49,6 +51,11 @@ class ReservationCreateResult(BaseModel):
     reservation: ReservationRead
     # オンライン決済のとき、移動する Stripe の支払い画面の URL。当日払いなら null(予約はこの時点で確定)
     checkout_url: str | None = None
+
+
+class ReservationCancel(BaseModel):
+    # 参加者都合なら、オンライン決済の返金で決済手数料と運営の手数料を差し引く
+    reason: CancelReason
 
 
 class AttendanceUpdate(BaseModel):

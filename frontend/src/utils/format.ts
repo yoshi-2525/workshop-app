@@ -9,6 +9,11 @@ export function formatPriceYen(price: number): string {
   return `${price.toLocaleString('ja-JP')}円`
 }
 
+// 金額を「3,000円」の形式で出す。返金額・手数料など、0円を「無料」と言い換えてはいけない金額に使う
+export function formatYen(amount: number): string {
+  return `${amount.toLocaleString('ja-JP')}円`
+}
+
 export function formatDateTime(value: string, dateStyle: 'full' | 'medium' = 'medium'): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'

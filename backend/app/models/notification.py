@@ -22,6 +22,8 @@ class NotificationType(str, enum.Enum):
     new_workshop = "new_workshop"
     # オンライン決済した参加費の返金が完了した
     payment_refunded = "payment_refunded"
+    # 返金したあとに Stripe 側で返金が失敗した(運営が対応する)
+    payment_refund_failed = "payment_refund_failed"
 
 
 class Notification(Base):

@@ -56,6 +56,8 @@ class Payment(Base):
     stripe_account_id: Mapped[str] = mapped_column(String(STRIPE_ID_MAX_LENGTH), nullable=False)
     stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(STRIPE_ID_MAX_LENGTH), nullable=True)
     stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(STRIPE_ID_MAX_LENGTH), nullable=True)
+    # 返金の ID(re_...)。運営の手動対応や、Stripe 側の返金との照合に使う
+    stripe_refund_id: Mapped[str | None] = mapped_column(String(STRIPE_ID_MAX_LENGTH), nullable=True)
     # 参加者が支払う金額(参加費 × 枚数)。予約時の値を残す
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
     # 運営の手数料

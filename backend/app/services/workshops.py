@@ -8,7 +8,7 @@ from app.config import settings
 from app.core.errors import ONLINE_PAYMENT_DISABLED, WORKSHOP_NOT_FOUND, conflict, forbidden, not_found
 from app.core.timeutil import utcnow_naive
 from app.models.favorite import Favorite
-from app.models.reservation import Reservation, ReservationStatus
+from app.models.reservation import CancelReason, Reservation, ReservationStatus
 from app.models.user import User, UserRole
 from app.models.workshop import PaymentMethod, Workshop, WorkshopStatus
 from app.schemas.workshop import (
@@ -18,7 +18,8 @@ from app.schemas.workshop import (
     WorkshopSearchQuery,
     WorkshopViewer,
 )
-from app.services.payments import can_accept_online_payment
+from app.models.payment import Payment, PaymentStatus
+from app.services.payments import can_accept_online_payment, paid_payment, request_refund
 from app.services.notifications import (
     add_cancellation_notices,
     add_new_workshop_notices,
@@ -152,10 +153,12 @@ def check_workshop_input(
         raise conflict(f"定員は予約済みのチケット枚数({booked}枚)以上にしてください")
 
 
-def cancel_workshop(db: Session, workshop: Workshop) -> None:
+def cancel_workshop(db: Session, workshop: Workshop) -> list[int]:
     """公開中のワークショップを中止にし、予約済みの参加者に通知する(commit は呼び出し側)。
 
-    中止への変更と中止の通知は、同じトランザクションでまとめて確定する。
+    中止は主催者都合なので、オンライン決済で支払い済みの参加費は全額を返金の対象にし、その支払いの ID を返す。
+    Stripe への返金の依頼と、支払い待ちの支払い画面を閉じるのは、commit の後に呼び出し側が行う。
+    中止への変更・返金の決定・中止の通知は、同じトランザクションでまとめて確定する。
     予約の受付と同時に走っても通知の対象が食い違わないよう、workshop は lock_workshop で取得したものを渡すこと
     """
     ensure_editable(workshop)
@@ -163,8 +166,29 @@ def cancel_workshop(db: Session, workshop: Workshop) -> None:
     if workshop.status == WorkshopStatus.draft:
         raise conflict("下書きのワークショップは中止できません。取りやめる場合は削除してください")
     workshop.status = WorkshopStatus.canceled
-    add_cancellation_notices(db, workshop)
+    refund_ids: list[int] = []
+    for reservation in workshop.reservations:
+        if reservation.status == ReservationStatus.pending_payment:
+            # 支払い待ちの席は手放す。この後に支払いが済んでも、中止済みなので全額返金の対象になる
+            reservation.status = ReservationStatus.expired
+        elif reservation.status == ReservationStatus.confirmed and (payment := paid_payment(reservation)) is not None:
+            # 予約は確定のまま残す(中止は予約の取消とは別に、ワークショップの状態で伝える)
+            request_refund(payment, CancelReason.facilitator)
+            refund_ids.append(payment.id)
+    add_cancellation_notices(db, workshop, refunds_online_payment=bool(refund_ids))
     remove_new_workshop_notices(db, workshop)
+    return refund_ids
+
+
+def open_checkouts_of(db: Session, workshop: Workshop) -> list[Payment]:
+    """ワークショップの、支払い待ちのままの支払い(中止の後に Stripe の支払い画面を閉じるため)"""
+    return list(
+        db.scalars(
+            select(Payment)
+            .join(Reservation, Payment.reservation_id == Reservation.id)
+            .where(Reservation.workshop_id == workshop.id, Payment.status == PaymentStatus.pending)
+        )
+    )
 
 
 def notify_if_first_published(db: Session, workshop: Workshop, *, was_published: bool) -> None:

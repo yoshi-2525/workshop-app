@@ -3,25 +3,29 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.core import stripe_client
 from app.core.errors import RESERVATION_NOT_FOUND, WORKSHOP_NOT_FOUND, conflict, not_found, service_unavailable
 from app.core.timeutil import hours_label, utcnow_naive
 from app.models.payment import Payment, PaymentStatus
-from app.models.reservation import AttendanceStatus, Reservation, ReservationStatus
+from app.models.reservation import AttendanceStatus, CancelReason, Reservation, ReservationStatus
 from app.models.user import User
 from app.models.workshop import PaymentMethod, Workshop, WorkshopStatus
 from app.schemas.reservation import PaymentSummary, ReservationCreate, ReservationRead
+from app.services.job_lock import named_lock
 from app.services.notifications import add_reservation_canceled_notice
 from app.services.payments import (
     PAYMENT_HOLD,
     add_payment,
     ensure_can_accept_online_payment,
     latest_payment,
+    paid_payment,
+    process_pending_refunds,
     record_paid,
     request_full_refund,
+    request_refund,
 )
 from app.services.workshops import (
     RESERVATION_DEADLINE_BEFORE,
@@ -88,6 +92,7 @@ def to_reservation_reads(
             ticket_count=r.ticket_count,
             status=r.status,
             attendance=r.attendance,
+            cancel_reason=r.cancel_reason,
             payment_expires_at=r.payment_expires_at if r.status == ReservationStatus.pending_payment else None,
             payment=_payment_summary(r, show_fees=can_manage(current_user, r.workshop)),
             created_at=r.created_at,
@@ -337,9 +342,13 @@ def resume_checkout(db: Session, reservation: Reservation, payment: Payment) -> 
     raise conflict("お支払いの状態が変わりました。参加予定のワークショップでご確認ください")
 
 
-def cancel_reservation(db: Session, workshop: Workshop, reservation: Reservation) -> None:
+def cancel_reservation(
+    db: Session, workshop: Workshop, reservation: Reservation, reason: CancelReason
+) -> Payment | None:
     """主催者(と運営)が予約をキャンセルし、参加者に通知する(commit は呼び出し側)。
 
+    オンライン決済で支払い済みなら、理由に応じた額を返金の対象にし、その支払いを返す。
+    Stripe への返金の依頼は、commit の後に呼び出し側が process_refund で行う。
     予約の受付と同時に走っても残席の数が食い違わないよう、workshop は lock_workshop で取得したものを渡すこと
     """
     if reservation.status == ReservationStatus.canceled:
@@ -353,8 +362,30 @@ def cancel_reservation(db: Session, workshop: Workshop, reservation: Reservation
         raise conflict("開始済みのワークショップの予約はキャンセルできません")
 
     reservation.status = ReservationStatus.canceled
-    # キャンセルと参加者への通知は、同じトランザクションでまとめて確定する
-    add_reservation_canceled_notice(db, reservation)
+    reservation.cancel_reason = reason
+    payment = paid_payment(reservation)
+    refund_amount = request_refund(payment, reason) if payment is not None else None
+    # キャンセル・返金の決定と参加者への通知は、同じトランザクションでまとめて確定する
+    add_reservation_canceled_notice(db, reservation, refund_amount=refund_amount, reason=reason)
+    return payment
+
+
+def release_stale_holds(db: Session) -> None:
+    """期限を過ぎた支払い待ちの予約を期限切れにする(定期処理。commit は呼び出し側)。
+
+    定員の計算は期限で除外しているので、表示と状態をそろえるための片付け。支払いの記録は Webhook で反映する。
+    読んでから書き換えると、その間に支払いが済んで確定した予約を上書きしてしまうので、条件付きの UPDATE 1文で行う
+    (READ COMMITTED では、行ロックを取ったあと最新の値で条件を評価し直すので、確定済みの予約は対象から外れる)
+    """
+    db.execute(
+        update(Reservation)
+        .where(
+            Reservation.status == ReservationStatus.pending_payment,
+            Reservation.payment_expires_at <= utcnow_naive(),
+        )
+        .values(status=ReservationStatus.expired)
+        .execution_options(synchronize_session=False)
+    )
 
 
 def record_attendance(workshop: Workshop, reservation: Reservation, attendance: AttendanceStatus) -> None:
@@ -366,3 +397,17 @@ def record_attendance(workshop: Workshop, reservation: Reservation, attendance: 
     if utcnow_naive() < workshop.start_at - ATTENDANCE_OPEN_BEFORE:
         raise conflict(f"出欠は開始日時の{hours_label(ATTENDANCE_OPEN_BEFORE)}前から記録できます")
     reservation.attendance = attendance
+
+
+# 複数のワーカー・プロセスで同時に返金を依頼しないための MySQL の名前付きロック
+_PAYMENT_JOB_LOCK_NAME = "workshop_app_payment_job"
+
+
+def run_payment_maintenance(db: Session) -> None:
+    """定期処理: 期限を過ぎた支払い待ちを片付け、依頼に失敗した返金を再試行する"""
+    with named_lock(db, _PAYMENT_JOB_LOCK_NAME) as got_lock:
+        if not got_lock:
+            return
+        release_stale_holds(db)
+        db.commit()
+        process_pending_refunds(db)
