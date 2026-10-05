@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { HELP_DOCUMENTS } from '@/pages/help/helpDocuments'
 import { canManageWorkshops } from '@/utils/user'
+import { PAYOUT_SETTINGS_PATH } from '@/utils/payment'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { useBackState } from '@/hooks/useBackState'
 
@@ -91,6 +92,11 @@ export function MyPage() {
       to: '/manage',
       title: 'ワークショップの管理',
       description: '自分のワークショップの作成・編集・削除、予約状況の確認を行います。',
+    },
+    {
+      to: PAYOUT_SETTINGS_PATH,
+      title: '参加費の受け取り設定',
+      description: 'オンライン決済で参加費を受け取るための設定と、売上・入金の確認を行います。',
     },
   ]
 

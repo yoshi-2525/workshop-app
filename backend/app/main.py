@@ -18,6 +18,7 @@ from app.routers import (
     inquiries,
     manage,
     notifications,
+    payouts,
     reservations,
     workshops,
 )
@@ -38,6 +39,7 @@ def _run_reminder_job() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.check_jwt_secret()
+    settings.check_stripe_settings()
     scheduler = BackgroundScheduler()
     scheduler.add_job(_run_reminder_job, "interval", minutes=REMINDER_JOB_INTERVAL_MINUTES)
     scheduler.start()
@@ -78,6 +80,7 @@ app.include_router(follows.router, prefix=api_router_prefix)
 app.include_router(notifications.router, prefix=api_router_prefix)
 app.include_router(inquiries.router, prefix=api_router_prefix)
 app.include_router(manage.router, prefix=api_router_prefix)
+app.include_router(payouts.router, prefix=api_router_prefix)
 
 settings.upload_path.mkdir(parents=True, exist_ok=True)
 app.mount("/api/uploads", _UploadedFiles(directory=settings.upload_path), name="uploads")

@@ -165,3 +165,13 @@ export interface InquirySummary {
 export interface InquiryDetail extends InquirySummary {
   messages: InquiryMessage[]
 }
+
+// 主催者の参加費の受け取り設定(Stripe の連結アカウント)の状態
+// not_registered: 未設定 / pending: 設定の途中・Stripe の審査中 / enabled: オンライン決済を受け付けられる
+export type PayoutAccountStatus = 'not_registered' | 'pending' | 'enabled'
+
+export interface PayoutAccount {
+  status: PayoutAccountStatus
+  // 運営側でオンライン決済を使える設定になっているか
+  online_payment_available: boolean
+}

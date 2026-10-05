@@ -20,6 +20,8 @@ class NotificationType(str, enum.Enum):
     reservation_canceled = "reservation_canceled"
     # フォロー中の主催者が新しいワークショップを公開した
     new_workshop = "new_workshop"
+    # オンライン決済した参加費の返金が完了した
+    payment_refunded = "payment_refunded"
 
 
 class Notification(Base):

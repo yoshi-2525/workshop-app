@@ -102,6 +102,7 @@ except IntegrityError as exc:
 | `facilitators.py` | `/facilitators` | 主催者の公開プロフィール。主催者・運営以外の ID は 404。ログイン中は `viewer.is_following` を付ける |
 | `follows.py` | なし | 主催者のフォロー・解除（`/facilitators/{id}/follow`）と、フォロー中の主催者・その開催予定のワークショップの一覧（`/follows/...`） |
 | `notifications.py` | `/notifications` | 自分宛ての通知の一覧・未読数・既読（1件／すべて）。通知の作成はここではなく `services/notifications.py` |
+| `payouts.py` | `/facilitators/me/payout-account` | 主催者の参加費の受け取り設定（Stripe の連結アカウント）。状態の取得（設定の途中なら Stripe から読み直す）、受け取り設定の画面・売上ダッシュボードへの URL。主催者・運営だけ |
 | `inquiries.py` | なし | 参加者と主催者のやり取り（問い合わせ）。一覧・未読数・詳細・既読・返信（`/inquiries/...`）と、ワークショップからの問い合わせ・主催者の一斉送信（`/workshops/{id}/inquiry...`）。一斉送信は運営でも他人のワークショップからは送れない |
 
 ## テスト

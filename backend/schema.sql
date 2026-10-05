@@ -1,5 +1,5 @@
 -- Workshop App: MySQL schema
--- Matches app/models/*.py and alembic/versions (up to 0017). Keep in sync if models change.
+-- Matches app/models/*.py and alembic/versions (up to 0018). Keep in sync if models change.
 
 CREATE TABLE users (
 	id INTEGER NOT NULL AUTO_INCREMENT,
@@ -9,9 +9,12 @@ CREATE TABLE users (
 	role ENUM('admin','facilitator','participant') NOT NULL DEFAULT 'participant',
 	bio TEXT NOT NULL DEFAULT '',
 	avatar_url VARCHAR(2000) NOT NULL DEFAULT '',
+	stripe_account_id VARCHAR(255) NULL,
+	stripe_charges_enabled BOOLEAN NOT NULL DEFAULT FALSE,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
-	UNIQUE KEY ix_users_email (email)
+	UNIQUE KEY ix_users_email (email),
+	CONSTRAINT uq_users_stripe_account_id UNIQUE (stripe_account_id)
 );
 
 CREATE TABLE workshops (
@@ -25,6 +28,7 @@ CREATE TABLE workshops (
 	end_at DATETIME NOT NULL,
 	capacity INTEGER NOT NULL DEFAULT 10,
 	price INTEGER NOT NULL DEFAULT 0,
+	payment_method ENUM('onsite','online') NOT NULL DEFAULT 'onsite',
 	cancellation_policy TEXT NOT NULL DEFAULT '',
 	participant_guide TEXT NOT NULL DEFAULT '',
 	emergency_contact VARCHAR(255) NOT NULL DEFAULT '',
@@ -43,14 +47,50 @@ CREATE TABLE reservations (
 	attendee_name VARCHAR(255) NOT NULL DEFAULT '',
 	contact VARCHAR(255) NOT NULL DEFAULT '',
 	ticket_count INTEGER NOT NULL DEFAULT 1,
-	status ENUM('confirmed','canceled') NOT NULL DEFAULT 'confirmed',
+	status ENUM('confirmed','canceled','pending_payment','expired') NOT NULL DEFAULT 'confirmed',
 	attendance ENUM('unconfirmed','present','absent') NOT NULL DEFAULT 'unconfirmed',
+	payment_expires_at DATETIME NULL,
+	cancel_reason ENUM('participant','facilitator') NULL,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
 	CONSTRAINT uq_reservation_workshop_user UNIQUE (workshop_id, user_id),
 	CONSTRAINT ck_reservation_ticket_count CHECK (ticket_count BETWEEN 1 AND 4),
 	FOREIGN KEY(workshop_id) REFERENCES workshops (id),
 	FOREIGN KEY(user_id) REFERENCES users (id)
+);
+
+CREATE TABLE payments (
+	id INTEGER NOT NULL AUTO_INCREMENT,
+	reservation_id INTEGER NOT NULL,
+	stripe_account_id VARCHAR(255) NOT NULL,
+	stripe_checkout_session_id VARCHAR(255) NULL,
+	stripe_payment_intent_id VARCHAR(255) NULL,
+	amount INTEGER NOT NULL,
+	application_fee_amount INTEGER NOT NULL,
+	stripe_fee_amount INTEGER NULL,
+	refund_amount INTEGER NULL,
+	currency VARCHAR(3) NOT NULL,
+	status ENUM('pending','paid','expired','refund_pending','refunded','refund_failed') NOT NULL,
+	refund_attempts INTEGER NOT NULL DEFAULT 0,
+	paid_at DATETIME NULL,
+	refunded_at DATETIME NULL,
+	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_payments_stripe_checkout_session_id UNIQUE (stripe_checkout_session_id),
+	CONSTRAINT uq_payments_stripe_payment_intent_id UNIQUE (stripe_payment_intent_id),
+	CONSTRAINT ck_payments_amount CHECK (amount > 0),
+	CONSTRAINT ck_payments_application_fee CHECK (application_fee_amount >= 0 AND application_fee_amount <= amount),
+	CONSTRAINT ck_payments_refund CHECK (refund_amount IS NULL OR (refund_amount >= 0 AND refund_amount <= amount)),
+	CONSTRAINT ck_payments_refund_attempts CHECK (refund_attempts >= 0),
+	KEY ix_payments_reservation_id (reservation_id),
+	FOREIGN KEY(reservation_id) REFERENCES reservations (id)
+);
+
+CREATE TABLE stripe_events (
+	event_id VARCHAR(255) NOT NULL,
+	type VARCHAR(255) NOT NULL,
+	received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (event_id)
 );
 
 CREATE TABLE favorites (
@@ -80,7 +120,7 @@ CREATE TABLE notifications (
 	id INTEGER NOT NULL AUTO_INCREMENT,
 	user_id INTEGER NOT NULL,
 	workshop_id INTEGER NOT NULL,
-	type ENUM('cancellation','reminder','reservation_canceled','new_workshop') NOT NULL,
+	type ENUM('cancellation','reminder','reservation_canceled','new_workshop','payment_refunded') NOT NULL,
 	message TEXT NOT NULL,
 	is_read BOOLEAN NOT NULL DEFAULT FALSE,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

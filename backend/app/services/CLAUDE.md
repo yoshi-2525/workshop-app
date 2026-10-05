@@ -23,6 +23,7 @@ service は `db.add` / 属性の変更 / `db.flush()` までにとどめ、`db.c
 - `uploads.replace_image()` — commit に失敗したら新しい画像ファイルを消し、成功したら古い画像ファイルを消す必要があり、DB の確定とファイル操作の順序を service 内で決めるため
 - `follows.follow_facilitator()` / `unfollow_facilitator()` — 同時に同じフォローを作ったときの `IntegrityError` を成功として扱うため
 - `notifications.send_upcoming_reminders()` — ルーターを通らない定期処理のため
+- `payments.start_payout_onboarding()` — Stripe に作った連結アカウントの ID を、受け取り設定の URL を作る前に確定させるため（URL の作成に失敗してもアカウントを失わない）
 
 新しく commit する service を作るときは、理由を docstring に書く。
 
@@ -67,6 +68,7 @@ service は `db.add` / 属性の変更 / `db.flush()` までにとどめ、`db.c
 
 ```
 pagination  participants  uploads           （どこにも依存しない）
+payments ─→ notifications                 （Stripe の呼び出しは core/stripe_client だけ）
 inquiries ─→ participants
 notifications ─→ inquiries, participants
 workshops ─→ notifications
@@ -84,6 +86,7 @@ related / follows ─→ workshops
 | `inquiries.py` | 参加者と主催者のやり取り。関わっている人だけが見られる（それ以外は 404）、既読位置（`*_last_read_id`）による未読数、メッセージの追加、一斉送信（公開中のワークショップの、予約が確定している参加者全員へ） | `get_my_inquiry`, `my_inquiries_select`, `unread_count`, `add_message`, `mark_read`, `get_or_create_inquiry`, `send_participant_inquiry`, `broadcast_to_participants` |
 | `follows.py` | 主催者のフォロー。対象は `FOLLOWABLE_ROLE`（主催者）だけで、自分自身はフォローできない。フォロー中の主催者の開催予定は、公開一覧と同じ条件を使う | `follow_facilitator`, `unfollow_facilitator`, `is_following`, `followed_facilitators_select`, `followed_workshops_select` |
 | `related.py` | 詳細ページの「関連するワークショップ」。同じ主催者 → 類似（文字 bigram の TF-IDF コサイン類似度）→ 近く（同じ会場 > 市区町村 > 都道府県。オンラインは他のオンライン）の順に選び、上の欄で選んだものは下の欄から除く。候補は `CANDIDATE_LIMIT` 件まで | `related_workshops` |
+| `payments.py` | 参加費のオンライン決済（Stripe Connect の direct charge）。主催者の受け取り設定（連結アカウントの作成・状態の同期）。Stripe の失敗は `_stripe_call()` で 503 に変える | `payout_account_status`, `sync_payout_account`, `start_payout_onboarding`, `payout_dashboard_url`, `apply_account_state` |
 | `participants.py` | 予約が確定している参加者の ID（お知らせの送り先） | `confirmed_participant_ids` |
 | `uploads.py` | 画像の保存・削除。種類はファイル先頭のバイト列で判定（jpg / png / gif / webp）、サイズは読みながら上限を確認、保存名は UUID。`ImageStore` ごとにサブディレクトリを分ける（`WORKSHOP_IMAGES`、`AVATAR_IMAGES`）。このアプリが保存した URL 以外は消さない | `replace_image`, `ImageStore.save` / `delete`, `max_request_body_bytes` |
 | `pagination.py` | 一覧のページ分けと `X-Total-Count` ヘッダー | `paginate` |

@@ -27,6 +27,15 @@ class LocationType(str, enum.Enum):
     offline = "offline"
 
 
+class PaymentMethod(str, enum.Enum):
+    """参加費の支払方法。有料のワークショップごとに主催者が選ぶ"""
+
+    # 開催当日に会場で主催者へ直接支払う
+    onsite = "onsite"
+    # 予約時に Stripe でカード決済する
+    online = "online"
+
+
 class Workshop(Base):
     __tablename__ = "workshops"
 
@@ -42,6 +51,12 @@ class Workshop(Base):
     end_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
     price: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    payment_method: Mapped[PaymentMethod] = mapped_column(
+        Enum(PaymentMethod, name="payment_method"),
+        default=PaymentMethod.onsite,
+        server_default=PaymentMethod.onsite.value,
+        nullable=False,
+    )
     cancellation_policy: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # 予約した参加者と主催者にだけ見せる、当日の詳しい案内(集合場所・持ち物・参加 URL など)。
     # 開催前日のリマインダーにも載せる
