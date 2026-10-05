@@ -82,6 +82,8 @@ export function getReservationBlocker(workshop: Workshop): ReservationBlocker | 
   if (workshop.viewer.is_reservation_canceled) return 'reservation_canceled'
   if (isWorkshopStarted(workshop)) return 'started'
   if (isReservationClosed(workshop)) return 'closed'
+  // 支払い待ちの人は自分の席を確保しているので、満員に見えても支払いを再開できる
+  if (workshop.viewer.is_payment_pending) return null
   if (isWorkshopFull(workshop)) return 'full'
   return null
 }

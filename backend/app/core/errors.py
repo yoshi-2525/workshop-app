@@ -10,6 +10,10 @@ ONLINE_PAYMENT_DISABLED = "現在、オンライン決済はご利用いただ�
 PAYMENT_SERVICE_UNAVAILABLE = "決済サービスに接続できませんでした。時間をおいてもう一度お試しください"
 
 
+def bad_request(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+
 def not_found(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 

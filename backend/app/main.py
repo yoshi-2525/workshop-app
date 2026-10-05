@@ -20,6 +20,7 @@ from app.routers import (
     notifications,
     payouts,
     reservations,
+    stripe_webhook,
     workshops,
 )
 from app.services.notifications import send_upcoming_reminders
@@ -81,6 +82,7 @@ app.include_router(notifications.router, prefix=api_router_prefix)
 app.include_router(inquiries.router, prefix=api_router_prefix)
 app.include_router(manage.router, prefix=api_router_prefix)
 app.include_router(payouts.router, prefix=api_router_prefix)
+app.include_router(stripe_webhook.router, prefix=api_router_prefix)
 
 settings.upload_path.mkdir(parents=True, exist_ok=True)
 app.mount("/api/uploads", _UploadedFiles(directory=settings.upload_path), name="uploads")

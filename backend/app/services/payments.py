@@ -9,6 +9,7 @@
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -16,7 +17,11 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.core import stripe_client
 from app.core.errors import ONLINE_PAYMENT_DISABLED, conflict, service_unavailable
+from app.core.timeutil import utcnow_naive
+from app.models.payment import PAYMENT_CURRENCY, Payment, PaymentStatus
+from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User
+from app.models.workshop import Workshop
 from app.schemas.payment import PayoutAccountRead, PayoutAccountStatus
 
 logger = logging.getLogger(__name__)
@@ -33,6 +38,17 @@ def _stripe_call() -> Iterator[None]:
         yield
     except stripe_client.StripeUnavailable as exc:
         raise service_unavailable() from exc
+
+
+def can_accept_online_payment(facilitator: User) -> bool:
+    """主催者がいまオンライン決済を受け付けられるか(運営側の設定と、主催者の受け取り設定の両方)"""
+    return settings.online_payment_enabled and payout_account_status(facilitator) == PayoutAccountStatus.enabled
+
+
+def ensure_can_accept_online_payment(facilitator: User) -> None:
+    """予約の受付時に確かめる。公開後に Stripe 側で止められた場合もここで断る"""
+    if not can_accept_online_payment(facilitator):
+        raise conflict("このワークショップは現在オンライン決済を受け付けていません。主催者にお問い合わせください")
 
 
 def _ensure_online_payment_enabled() -> None:
@@ -110,3 +126,107 @@ def apply_account_state(db: Session, state: stripe_client.AccountState) -> None:
     user = db.scalar(select(User).where(User.stripe_account_id == state.account_id))
     if user is not None:
         user.stripe_charges_enabled = state.charges_enabled
+
+
+# ---- 参加者の支払い(Checkout) ----
+
+# 支払い待ちの席を確保しておく時間。Stripe の Checkout は作成から 30 分以上先の期限しか受け付けないので、
+# 予約を記録してから Stripe を呼ぶまでの時間を見込んで少し長くする
+PAYMENT_HOLD = timedelta(minutes=32)
+
+CHECKOUT_UNAVAILABLE = "お支払いの準備ができませんでした。時間をおいてもう一度お試しください"
+
+
+def application_fee_for(amount: int) -> int:
+    """運営の手数料。1 円未満は切り捨てる(参加者・主催者に不利にならないように)"""
+    return amount * settings.platform_fee_percent // 100
+
+
+def latest_payment(reservation: Reservation) -> Payment | None:
+    """予約の最新の支払い試行。予約し直すたびに増えるので、最後のものが今の支払いになる"""
+    return reservation.payments[-1] if reservation.payments else None
+
+
+def add_payment(db: Session, reservation: Reservation, workshop: Workshop, facilitator: User) -> Payment:
+    """予約の支払いを1回分記録する(commit は呼び出し側)。金額は予約時の参加費 × 枚数で確定する"""
+    if facilitator.stripe_account_id is None:
+        raise conflict("このワークショップは現在オンライン決済を受け付けていません")
+    amount = workshop.price * reservation.ticket_count
+    payment = Payment(
+        reservation=reservation,
+        stripe_account_id=facilitator.stripe_account_id,
+        amount=amount,
+        application_fee_amount=application_fee_for(amount),
+        currency=PAYMENT_CURRENCY,
+    )
+    db.add(payment)
+    return payment
+
+
+def _epoch_seconds(naive_utc: datetime) -> int:
+    return int(naive_utc.replace(tzinfo=timezone.utc).timestamp())
+
+
+def start_checkout(db: Session, reservation: Reservation, payment: Payment) -> str:
+    """Stripe に支払い画面を作り、その URL を返す。
+
+    例外として service の中で commit する: 予約(席の確保)を先に確定してロックを外してから Stripe を呼び、
+    結果(Checkout Session の ID)をもう一度確定する。外部 API を待つ間ワークショップの行をロックし続けないため。
+    Stripe が失敗したら、確保した席をすぐ手放して 503 を返す
+    """
+    workshop = reservation.workshop
+    base = settings.frontend_base_url
+    try:
+        state = stripe_client.create_checkout_session(
+            account_id=payment.stripe_account_id,
+            # 同じ支払いで二重に作らない(再試行しても同じ画面が返る)
+            idempotency_key=f"checkout-payment-{payment.id}",
+            item=stripe_client.CheckoutLineItem(
+                name=workshop.title, unit_amount=workshop.price, quantity=reservation.ticket_count
+            ),
+            currency=payment.currency,
+            application_fee_amount=payment.application_fee_amount,
+            customer_email=reservation.contact,
+            expires_at=_epoch_seconds(reservation.payment_expires_at),
+            success_url=f"{base}/reservations/{reservation.id}/payment/complete",
+            cancel_url=f"{base}/workshops/{workshop.id}/reserve?payment=canceled",
+            metadata={"reservation_id": str(reservation.id), "payment_id": str(payment.id)},
+        )
+    except stripe_client.StripeUnavailable as exc:
+        _release_hold(db, reservation, payment)
+        raise service_unavailable(CHECKOUT_UNAVAILABLE) from exc
+    payment.stripe_checkout_session_id = state.session_id
+    if state.url is None:
+        # 支払える画面がないまま席を確保し続けないよう、失敗と同じく手放す
+        _release_hold(db, reservation, payment)
+        raise service_unavailable(CHECKOUT_UNAVAILABLE)
+    db.commit()
+    return state.url
+
+
+def _release_hold(db: Session, reservation: Reservation, payment: Payment) -> None:
+    payment.status = PaymentStatus.expired
+    reservation.status = ReservationStatus.expired
+    db.commit()
+
+
+def record_paid(payment: Payment, *, payment_intent_id: str | None, stripe_fee: int) -> None:
+    """支払いが済んだことを記録する(commit は呼び出し側)"""
+    payment.status = PaymentStatus.paid
+    payment.stripe_payment_intent_id = payment_intent_id
+    payment.stripe_fee_amount = stripe_fee
+    payment.paid_at = utcnow_naive()
+
+
+def request_full_refund(payment: Payment) -> None:
+    """支払われたが参加を確定できない(期限切れ後の支払い・満席・中止など)支払いを、全額返金の対象にする。
+
+    返金は参加者に落ち度のない取り消しなので全額にする。Stripe への依頼は定期処理が行う(commit は呼び出し側)
+    """
+    payment.status = PaymentStatus.refund_pending
+    payment.refund_amount = payment.amount
+    logger.warning("参加を確定できない支払いを全額返金の対象にしました (payment_id=%s)", payment.id)
+
+
+def find_payment_by_session(db: Session, session_id: str) -> Payment | None:
+    return db.scalar(select(Payment).where(Payment.stripe_checkout_session_id == session_id))

@@ -24,6 +24,7 @@ service は `db.add` / 属性の変更 / `db.flush()` までにとどめ、`db.c
 - `follows.follow_facilitator()` / `unfollow_facilitator()` — 同時に同じフォローを作ったときの `IntegrityError` を成功として扱うため
 - `notifications.send_upcoming_reminders()` — ルーターを通らない定期処理のため
 - `payments.start_payout_onboarding()` — Stripe に作った連結アカウントの ID を、受け取り設定の URL を作る前に確定させるため（URL の作成に失敗してもアカウントを失わない）
+- `payments.start_checkout()` / `resume_checkout()` — 席の確保を確定してワークショップの行ロックを外してから Stripe を呼び、結果をもう一度確定するため（外部 API を待つ間ロックを持ち続けない）
 
 新しく commit する service を作るときは、理由を docstring に書く。
 
@@ -51,7 +52,7 @@ service は `db.add` / 属性の変更 / `db.flush()` までにとどめ、`db.c
 
 ### 定義は1か所に
 
-- 予約数（確定済みチケットの合計）: `workshops.confirmed_tickets_select()`
+- 予約数（確保済みチケットの合計。確定済みと期限内の支払い待ち）: `workshops.reserved_tickets_select()` / `holds_seat()`
 - 予約の締め切り: `workshops.RESERVATION_DEADLINE_BEFORE` / `reservation_deadline()`
 - 管理できるか: `workshops.can_manage()`
 - お知らせ・リマインダーの送り先: `participants.confirmed_participant_ids()`（主催者本人は含めない）
@@ -72,7 +73,8 @@ payments ─→ notifications                 （Stripe の呼び出しは core/
 inquiries ─→ participants
 notifications ─→ inquiries, participants
 workshops ─→ notifications
-reservations ─→ workshops, notifications
+reservations ─→ workshops, notifications, payments
+stripe_webhooks ─→ reservations, payments
 related / follows ─→ workshops
 ```
 
@@ -80,13 +82,14 @@ related / follows ─→ workshops
 
 | ファイル | 役割 | 主な関数 |
 |---|---|---|
-| `workshops.py` | ワークショップの土台。行ロック・管理権限・閲覧権限、作成・更新の可否、中止、公開時の通知、公開一覧の検索、予約数の定義、レスポンスへの変換。参加者向けの案内（`participant_info`）は予約済みの参加者と主催者・運営にだけ返す | `lock_workshop`, `get_managed_workshop`, `get_viewable_workshop`, `ensure_editable`, `check_workshop_input`, `cancel_workshop`, `public_workshops_select`, `confirmed_tickets_select`, `to_workshop_reads` |
-| `reservations.py` | 予約の作成（締め切り・自分の主催・重複・キャンセル済みからの再予約・定員を確認）、主催者によるキャンセル、出欠の記録（開始 24 時間前から、開催後も修正可）、レスポンスへの変換 | `create_reservation`, `cancel_reservation`, `record_attendance`, `get_workshop_reservation`, `to_reservation_reads` |
+| `workshops.py` | ワークショップの土台。行ロック・管理権限・閲覧権限、作成・更新の可否、中止、公開時の通知、公開一覧の検索、予約数の定義、レスポンスへの変換。参加者向けの案内（`participant_info`）は予約済みの参加者と主催者・運営にだけ返す | `lock_workshop`, `get_managed_workshop`, `get_viewable_workshop`, `ensure_editable`, `check_workshop_input`, `cancel_workshop`, `public_workshops_select`, `reserved_tickets_select`, `to_workshop_reads` |
+| `reservations.py` | 予約の作成（締め切り・自分の主催・重複・キャンセル済みからの再予約・定員を確認。オンライン決済なら支払い待ちで席を確保し、期限切れの行は使い回す）、決済の完了・期限切れの反映（完了時は行ロックして定員を確かめ、確定できなければ全額返金の対象にする）、支払いの取りやめ、主催者によるキャンセル、出欠の記録（開始 24 時間前から、開催後も修正可）、レスポンスへの変換 | `create_reservation`, `confirm_paid_checkout`, `apply_checkout_state`, `sync_pending_payment`, `abandon_payment`, `cancel_reservation`, `record_attendance`, `get_workshop_reservation`, `get_my_reservation`, `to_reservation_reads` |
+| `stripe_webhooks.py` | Stripe の Webhook イベントの反映。処理したイベントの ID を `stripe_events` に記録して二重に反映しない | `handle_stripe_event` |
 | `notifications.py` | 通知の作成。中止・予約キャンセル・フォロー中の主催者の新着・開催前日のリマインダー。`_add_missing` で同じ種類の通知を同じ人に二度作らない。リマインダーと一緒に、当日の案内を主催者からのメッセージとして送る | `add_cancellation_notices`, `add_reservation_canceled_notice`, `add_new_workshop_notices`, `send_upcoming_reminders` |
 | `inquiries.py` | 参加者と主催者のやり取り。関わっている人だけが見られる（それ以外は 404）、既読位置（`*_last_read_id`）による未読数、メッセージの追加、一斉送信（公開中のワークショップの、予約が確定している参加者全員へ） | `get_my_inquiry`, `my_inquiries_select`, `unread_count`, `add_message`, `mark_read`, `get_or_create_inquiry`, `send_participant_inquiry`, `broadcast_to_participants` |
 | `follows.py` | 主催者のフォロー。対象は `FOLLOWABLE_ROLE`（主催者）だけで、自分自身はフォローできない。フォロー中の主催者の開催予定は、公開一覧と同じ条件を使う | `follow_facilitator`, `unfollow_facilitator`, `is_following`, `followed_facilitators_select`, `followed_workshops_select` |
 | `related.py` | 詳細ページの「関連するワークショップ」。同じ主催者 → 類似（文字 bigram の TF-IDF コサイン類似度）→ 近く（同じ会場 > 市区町村 > 都道府県。オンラインは他のオンライン）の順に選び、上の欄で選んだものは下の欄から除く。候補は `CANDIDATE_LIMIT` 件まで | `related_workshops` |
-| `payments.py` | 参加費のオンライン決済（Stripe Connect の direct charge）。主催者の受け取り設定（連結アカウントの作成・状態の同期）。Stripe の失敗は `_stripe_call()` で 503 に変える | `payout_account_status`, `sync_payout_account`, `start_payout_onboarding`, `payout_dashboard_url`, `apply_account_state` |
+| `payments.py` | 参加費のオンライン決済（Stripe Connect の direct charge）。主催者の受け取り設定（連結アカウントの作成・状態の同期）、支払いの記録（金額・手数料）と Checkout の作成・再開。Stripe の失敗は `_stripe_call()` で 503 に変える。ワークショップの行ロックや定員が要る判定は `reservations.py` に置く | `payout_account_status`, `sync_payout_account`, `start_payout_onboarding`, `payout_dashboard_url`, `apply_account_state`, `add_payment`, `start_checkout`, `resume_checkout`, `request_full_refund` |
 | `participants.py` | 予約が確定している参加者の ID（お知らせの送り先） | `confirmed_participant_ids` |
 | `uploads.py` | 画像の保存・削除。種類はファイル先頭のバイト列で判定（jpg / png / gif / webp）、サイズは読みながら上限を確認、保存名は UUID。`ImageStore` ごとにサブディレクトリを分ける（`WORKSHOP_IMAGES`、`AVATAR_IMAGES`）。このアプリが保存した URL 以外は消さない | `replace_image`, `ImageStore.save` / `delete`, `max_request_body_bytes` |
 | `pagination.py` | 一覧のページ分けと `X-Total-Count` ヘッダー | `paginate` |

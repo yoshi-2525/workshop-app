@@ -29,6 +29,7 @@ import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 import { BackLink } from '@/components/ui/BackLink'
 import { CancellationPolicy } from '@/components/workshop/CancellationPolicy'
+import { paymentNote } from '@/utils/payment'
 
 // 予約済み・主催者による参加のキャンセルは、ボタンの下に理由と案内の文章を出すので、予約ボタン自体を出さない
 type HiddenButtonBlocker = 'reserved' | 'reservation_canceled'
@@ -93,6 +94,7 @@ export function WorkshopDetailPage() {
   const imageFailed = workshop.image_url === failedImageUrl
 
   const reservationBlocker = getReservationBlocker(workshop)
+  const note = paymentNote(workshop)
   const isStarted = isWorkshopStarted(workshop)
   const isClosed = isReservationClosed(workshop)
   // 満員・残席僅かは予約を受け付けている(公開中で開始前の)ときだけ意味があるので、それ以外は出さない
@@ -210,7 +212,7 @@ export function WorkshopDetailPage() {
             <dt className="w-20 font-medium text-fg-muted">参加費</dt>
             <dd className="text-fg">
               {formatPriceYen(workshop.price)}
-              {workshop.price > 0 && <span className="ml-1 text-xs text-fg-muted">(当日会場にてお支払いください)</span>}
+              {note && <span className="ml-1 text-xs text-fg-muted">({note})</span>}
             </dd>
           </div>
           <div className="flex gap-2">
@@ -241,9 +243,11 @@ export function WorkshopDetailPage() {
                 >
                   {reservationBlocker !== null
                     ? RESERVE_BUTTON_BLOCKED_LABEL[reservationBlocker]
-                    : user
-                      ? '予約する'
-                      : 'ログインして予約する'}
+                    : !user
+                      ? 'ログインして予約する'
+                      : workshop.viewer.is_payment_pending
+                        ? 'お支払いを再開する'
+                        : '予約する'}
                 </button>
               </div>
             )}

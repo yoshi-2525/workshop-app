@@ -99,6 +99,10 @@ export function WorkshopReservationsPage() {
 
   const confirmed = reservations.filter((r) => r.status === 'confirmed')
   const confirmedTickets = confirmed.reduce((sum, r) => sum + r.ticket_count, 0)
+  // 支払い待ちも席を確保しているので、残席の表示と数が合うよう別に添える
+  const pendingTickets = reservations
+    .filter((r) => r.status === 'pending_payment')
+    .reduce((sum, r) => sum + r.ticket_count, 0)
   // 出欠は予約ごとに記録し、人数はその予約のチケット枚数で数える
   const ticketsBy = (attendance: AttendanceStatus) =>
     confirmed.filter((r) => r.attendance === attendance).reduce((sum, r) => sum + r.ticket_count, 0)
@@ -108,6 +112,7 @@ export function WorkshopReservationsPage() {
       <h1 className="text-xl font-semibold text-fg">{workshop.title}の予約状況</h1>
       <p className="mt-1 text-sm text-fg-muted">
         参加人数 {confirmedTickets} / {workshop.capacity}名（予約件数：{confirmed.length}件）
+        {pendingTickets > 0 && `・ほかにお支払い待ち ${pendingTickets}名`}
       </p>
       {workshop.status === 'published' && confirmed.length > 0 && (
         <PaperCard cornerFold={false} className="mt-4 p-3 text-sm">
@@ -140,11 +145,16 @@ export function WorkshopReservationsPage() {
               <div className="flex items-center justify-between">
                 <span className="font-medium text-fg">{reservation.user_name}</span>
                 <div className="flex items-center gap-3">
-                  {/* ワークショップを中止しても予約の状態は確定のまま残る(参加者側で「中止」と区別して伝えるため)ので、
-                      表示ではキャンセル済みとして扱う */}
-                  <span className={isActive(reservation) ? 'text-emerald-300' : 'text-fg-subtle'}>
-                    {isActive(reservation) ? '確定' : 'キャンセル済み'}
-                  </span>
+                  {/* 支払い待ちは、期限までに支払われなければ自動で席が空く */}
+                  {reservation.status === 'pending_payment' && workshop.status !== 'canceled' ? (
+                    <span className="text-fg-muted">お支払い待ち</span>
+                  ) : (
+                    // ワークショップを中止しても予約の状態は確定のまま残る(参加者側で「中止」と区別して伝えるため)ので、
+                    // 表示ではキャンセル済みとして扱う
+                    <span className={isActive(reservation) ? 'text-emerald-300' : 'text-fg-subtle'}>
+                      {isActive(reservation) ? '確定' : 'キャンセル済み'}
+                    </span>
+                  )}
                   {canCancel(reservation) && (
                     <button
                       type="button"

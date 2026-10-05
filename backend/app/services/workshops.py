@@ -1,15 +1,16 @@
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 
-from sqlalchemy import ColumnElement, Select, exists, func, or_, select
+from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.errors import WORKSHOP_NOT_FOUND, conflict, forbidden, not_found
+from app.config import settings
+from app.core.errors import ONLINE_PAYMENT_DISABLED, WORKSHOP_NOT_FOUND, conflict, forbidden, not_found
 from app.core.timeutil import utcnow_naive
 from app.models.favorite import Favorite
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User, UserRole
-from app.models.workshop import Workshop, WorkshopStatus
+from app.models.workshop import PaymentMethod, Workshop, WorkshopStatus
 from app.schemas.workshop import (
     ParticipantInfo,
     WorkshopInput,
@@ -17,6 +18,7 @@ from app.schemas.workshop import (
     WorkshopSearchQuery,
     WorkshopViewer,
 )
+from app.services.payments import can_accept_online_payment
 from app.services.notifications import (
     add_cancellation_notices,
     add_new_workshop_notices,
@@ -72,12 +74,34 @@ def ensure_editable(workshop: Workshop) -> None:
         raise conflict("開催済みのワークショップは編集できません")
 
 
-def check_workshop_input(db: Session, payload: WorkshopInput, workshop: Workshop | None = None) -> None:
+def _check_payment_method(payload: WorkshopInput, facilitator: User, workshop: Workshop | None) -> None:
+    """オンライン決済のワークショップを公開できるかを確かめる。
+
+    下書きのうちは受け取り設定の前でも保存できるようにし、新しく公開するとき(参加者が予約できるようになるとき)に
+    確かめる。公開中のものは確かめない(公開後に Stripe 側が止まっても、説明や定員の編集・中止はできるように。
+    予約の受付は ensure_can_accept_online_payment で断る)
+    """
+    is_publishing = payload.status == WorkshopStatus.published and (
+        workshop is None or workshop.status != WorkshopStatus.published
+    )
+    if payload.payment_method != PaymentMethod.online or not is_publishing:
+        return
+    if not settings.online_payment_enabled:
+        raise conflict(ONLINE_PAYMENT_DISABLED)
+    if not can_accept_online_payment(facilitator):
+        raise conflict("オンライン決済のワークショップを公開するには、先に参加費の受け取り設定を済ませてください")
+
+
+def check_workshop_input(
+    db: Session, payload: WorkshopInput, facilitator: User, workshop: Workshop | None = None
+) -> None:
     """作成(workshop=None)・更新の内容が、ワークショップの状態と予約に照らして許されるかを確かめる。
 
+    facilitator はワークショップの主催者(運営が他人のワークショップを編集するときも主催者本人)を渡す。
     更新時は ensure_editable を通した、lock_workshop で取得したワークショップを渡すこと(予約数を数えるため)。
     """
     now = utcnow_naive()
+    _check_payment_method(payload, facilitator, workshop)
 
     # 中止は、参加者への通知を伴う別の操作(cancel_workshop)で行う
     if payload.status == WorkshopStatus.canceled:
@@ -111,6 +135,7 @@ def check_workshop_input(db: Session, payload: WorkshopInput, workshop: Workshop
             label
             for label, new, old in (
                 ("参加費", payload.price, workshop.price),
+                ("支払方法", payload.payment_method, workshop.payment_method),
                 ("開始日時", payload.start_at, workshop.start_at),
                 ("終了日時", payload.end_at, workshop.end_at),
                 ("開催形式", payload.location_type, workshop.location_type),
@@ -212,9 +237,9 @@ def public_workshops_select(query: WorkshopSearchQuery, current_user: User | Non
     if query.exclude_own and current_user is not None:
         stmt = stmt.where(Workshop.facilitator_id != current_user.id)
     if query.available:
-        # 確定済みチケットの合計が定員に達していない(満員でない)ものだけ
+        # 確保済みチケットの合計が定員に達していない(満員でない)ものだけ
         booked = (
-            confirmed_tickets_select(Reservation.workshop_id == Workshop.id)
+            reserved_tickets_select(Reservation.workshop_id == Workshop.id)
             .correlate(Workshop)
             .scalar_subquery()
         )
@@ -226,19 +251,45 @@ def public_workshops_select(query: WorkshopSearchQuery, current_user: User | Non
     return stmt
 
 
-def confirmed_tickets_select(*criteria: ColumnElement[bool]) -> Select[tuple[int]]:
-    """確定済みチケットの合計を求める SELECT。予約数(定員に対する埋まり具合)の定義はここだけに置く。
+def holds_seat() -> ColumnElement[bool]:
+    """席を確保している予約の条件。確定済みと、期限内の支払い待ち(オンライン決済の途中)。
+
+    支払い中に席が埋まって「払ったのに参加できない」ことがないよう、支払いを待つ間も席を確保しておく。
+    期限を過ぎた支払い待ちは、状態を expired に変える前でもここで数えなくなる
+    """
+    return or_(
+        Reservation.status == ReservationStatus.confirmed,
+        and_(
+            Reservation.status == ReservationStatus.pending_payment,
+            Reservation.payment_expires_at > utcnow_naive(),
+        ),
+    )
+
+
+def is_holding_seat(status: ReservationStatus, payment_expires_at: datetime | None) -> bool:
+    """holds_seat() の支払い待ちの部分と同じ条件を、読み込んだ予約について Python で判定する"""
+    return (
+        status == ReservationStatus.pending_payment
+        and payment_expires_at is not None
+        and payment_expires_at > utcnow_naive()
+    )
+
+
+def reserved_tickets_select(*criteria: ColumnElement[bool]) -> Select[tuple[int]]:
+    """確保済みチケットの合計を求める SELECT。予約数(定員に対する埋まり具合)の定義はここだけに置く。
 
     criteria で対象の予約を絞る。ワークショップごとに集計するときは
     .add_columns(Reservation.workshop_id).group_by(Reservation.workshop_id) を付ける。
     """
-    return select(func.coalesce(func.sum(Reservation.ticket_count), 0)).where(
-        Reservation.status == ReservationStatus.confirmed, *criteria
-    )
+    return select(func.coalesce(func.sum(Reservation.ticket_count), 0)).where(holds_seat(), *criteria)
 
 
-def reserved_count(db: Session, workshop_id: int) -> int:
-    return db.scalar(confirmed_tickets_select(Reservation.workshop_id == workshop_id)) or 0
+def reserved_count(db: Session, workshop_id: int, *, excluding_reservation_id: int | None = None) -> int:
+    """確保済みのチケット枚数。excluding_reservation_id の予約は数えない(その予約自身の確定を判定するとき)"""
+    criteria = [Reservation.workshop_id == workshop_id]
+    if excluding_reservation_id is not None:
+        criteria.append(Reservation.id != excluding_reservation_id)
+    return db.scalar(reserved_tickets_select(*criteria)) or 0
 
 
 def _can_see_participant_info(workshop: Workshop, user: User | None, reserved_ids: set[int]) -> bool:
@@ -261,7 +312,7 @@ def to_workshop_reads(
     counts = {
         workshop_id: total
         for total, workshop_id in db.execute(
-            confirmed_tickets_select(Reservation.workshop_id.in_(ids))
+            reserved_tickets_select(Reservation.workshop_id.in_(ids))
             .add_columns(Reservation.workshop_id)
             .group_by(Reservation.workshop_id)
         ).all()
@@ -270,6 +321,7 @@ def to_workshop_reads(
     favorited_ids: set[int] = set()
     reserved_ids: set[int] = set()
     canceled_ids: set[int] = set()
+    payment_pending_ids: set[int] = set()
     if current_user is not None:
         favorited_ids = set(
             db.scalars(
@@ -279,17 +331,20 @@ def to_workshop_reads(
                 )
             )
         )
-        # 予約は1人1ワークショップ1件なので、状態ごとに振り分ける
-        for workshop_id, reservation_status in db.execute(
-            select(Reservation.workshop_id, Reservation.status).where(
+        # 予約は1人1ワークショップ1件なので、状態ごとに振り分ける。
+        # 支払われずに期限が過ぎた予約(expired)は、予約していないのと同じに扱う(もう一度予約できる)
+        for workshop_id, reservation_status, expires_at in db.execute(
+            select(Reservation.workshop_id, Reservation.status, Reservation.payment_expires_at).where(
                 Reservation.user_id == current_user.id,
                 Reservation.workshop_id.in_(ids),
             )
         ).all():
             if reservation_status == ReservationStatus.confirmed:
                 reserved_ids.add(workshop_id)
-            else:
+            elif reservation_status == ReservationStatus.canceled:
                 canceled_ids.add(workshop_id)
+            elif is_holding_seat(reservation_status, expires_at):
+                payment_pending_ids.add(workshop_id)
 
     return [
         WorkshopRead(
@@ -303,6 +358,7 @@ def to_workshop_reads(
             end_at=w.end_at,
             capacity=w.capacity,
             price=w.price,
+            payment_method=w.payment_method,
             cancellation_policy=w.cancellation_policy,
             status=w.status,
             facilitator_id=w.facilitator_id,
@@ -313,6 +369,7 @@ def to_workshop_reads(
                 is_favorited=w.id in favorited_ids,
                 is_reserved=w.id in reserved_ids,
                 is_reservation_canceled=w.id in canceled_ids,
+                is_payment_pending=w.id in payment_pending_ids,
             ),
             participant_info=(
                 ParticipantInfo(guide=w.participant_guide, emergency_contact=w.emergency_contact)

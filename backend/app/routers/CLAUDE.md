@@ -97,7 +97,8 @@ except IntegrityError as exc:
 | `auth.py` | `/auth` | 登録・ログイン・自分のプロフィール（名前・自己紹介）とアイコン。ログインは `core/rate_limit.py` の `FailureLimiter` で IP とメールアドレスごとに失敗回数を数え、上限で 429。存在しないメールでも `burn_password_check` で応答時間をそろえる。アイコンは主催者・運営だけ |
 | `workshops.py` | `/workshops` | 公開一覧と検索・詳細・関連ワークショップ、作成・更新・中止・削除・画像、予約の受付、主催者による予約一覧・キャンセル・出欠の記録。削除できるのは下書きだけ（公開・中止したものは記録として残す） |
 | `manage.py` | `/manage` | 主催者の管理画面用の一覧。下書き・中止を含む自分のワークショップ（admin は全員分） |
-| `reservations.py` | `/reservations` | 自分の予約一覧だけ。参加者は自分で予約をキャンセルできない（キャンセルは主催者が `workshops.py` で行う） |
+| `reservations.py` | `/reservations` | 自分の予約の一覧・1件（支払い待ちなら Stripe から読み直す。決済完了画面の確認用）と、オンライン決済の支払いの取りやめ。支払われずに期限が過ぎた予約は一覧に出さない。参加者は自分で予約をキャンセルできない（キャンセルは主催者が `workshops.py` で行う） |
+| `stripe_webhook.py` | `/stripe` | Stripe の Webhook（Connect 用）。認証の代わりに署名を確かめる。署名は受け取ったままの本文で計算されるため、例外として `async def` で本文を読み、DB の処理はスレッドプールで行う |
 | `favorites.py` | なし | お気に入りの一覧（`/favorites`）と追加・削除（`/workshops/{id}/favorite`）。見られるワークショップならお気に入りにできる |
 | `facilitators.py` | `/facilitators` | 主催者の公開プロフィール。主催者・運営以外の ID は 404。ログイン中は `viewer.is_following` を付ける |
 | `follows.py` | なし | 主催者のフォロー・解除（`/facilitators/{id}/follow`）と、フォロー中の主催者・その開催予定のワークショップの一覧（`/follows/...`） |

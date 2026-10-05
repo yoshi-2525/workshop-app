@@ -79,8 +79,8 @@ return to_workshop_read(db, workshop, current_user)
 
 ## データの整合性
 
-- 定員・状態が関わる処理は、`lock_workshop()`（`SELECT ... FOR UPDATE`）でワークショップの行をロックしてから予約数を数える。更新系では `get_managed_workshop(..., for_update=True)` を使う。ロックは commit / rollback で外れる。
-- 「予約数（確定済みチケットの合計）」の定義は `confirmed_tickets_select()` だけに置く。ほかの場所で数え方を書かない。
+- 定員・状態が関わる処理は、`lock_workshop()`（`SELECT ... FOR UPDATE`）でワークショップの行をロックしてから予約数を数える。ロックの後に他のリクエストの確定済みの変更が見えるよう、DB の接続は READ COMMITTED にしている（`database.py`）。更新系では `get_managed_workshop(..., for_update=True)` を使う。ロックは commit / rollback で外れる。
+- 「予約数（確保済みチケットの合計。確定済みと、期限内のオンライン決済の支払い待ち）」の定義は `reserved_tickets_select()`（条件は `holds_seat()`）だけに置く。ほかの場所で数え方を書かない。
 - 一度公開したものは下書きに戻せない、中止は取り消せない、公開中は参加者が予約したときの条件（参加費・日時・場所）を変えられない、など参加者の目に触れた後の変更は制限する。
 - 複数プロセスで二重に実行してはいけない定期処理は、MySQL の `GET_LOCK` で排他する（`services/notifications.py`）。
 

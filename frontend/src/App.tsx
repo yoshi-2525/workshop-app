@@ -12,6 +12,7 @@ import { WorkshopDetailPage } from '@/pages/workshops/WorkshopDetailPage'
 import { ReservationFormPage } from '@/pages/reservations/ReservationFormPage'
 import { FacilitatorProfilePage } from '@/pages/workshops/FacilitatorProfilePage'
 import { MyReservationsPage, ReservationHistoryPage } from '@/pages/reservations/MyReservationsPage'
+import { PaymentCompletePage } from '@/pages/reservations/PaymentCompletePage'
 import { FavoritesPage } from '@/pages/me/FavoritesPage'
 import { FollowingPage } from '@/pages/me/FollowingPage'
 import { NotificationsPage } from '@/pages/me/NotificationsPage'
@@ -62,6 +63,8 @@ export default function App() {
           <Route path="workshops/:id/reserve" element={<ReservationFormPage />} />
           <Route path="reservations" element={<MyReservationsPage />} />
           <Route path="reservations/history" element={<ReservationHistoryPage />} />
+          {/* Stripe の支払い画面から戻ってくる先。バックエンドの start_checkout の success_url と揃える */}
+          <Route path="reservations/:id/payment/complete" element={<PaymentCompletePage />} />
           <Route path="favorites" element={<FavoritesPage />} />
           <Route path="following" element={<FollowingPage />} />
           <Route path="notifications" element={<NotificationsPage />} />

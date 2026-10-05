@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_core import PydanticCustomError
 
-from app.models.workshop import LocationType, WorkshopStatus
+from app.models.workshop import LocationType, PaymentMethod, WorkshopStatus
 from app.schemas.pagination import PageQuery
 from app.schemas.types import NaiveUTCDateTime, TrimmedStr, UTCDateTime
 
@@ -12,6 +12,9 @@ from app.schemas.types import NaiveUTCDateTime, TrimmedStr, UTCDateTime
 TITLE_MAX_LENGTH = 50
 CAPACITY_MAX = 100
 PRICE_MAX = 100_000
+# オンライン決済で受け付ける参加費の下限。Stripe の日本円の最低決済額(50円)に合わせる。
+# フロントエンドの utils/payment.ts の ONLINE_PAYMENT_MIN_PRICE と揃える
+ONLINE_PAYMENT_MIN_PRICE = 50
 PARTICIPANT_GUIDE_MAX_LENGTH = 2000
 EMERGENCY_CONTACT_MAX_LENGTH = 255
 
@@ -25,6 +28,7 @@ class WorkshopInput(BaseModel):
     end_at: NaiveUTCDateTime
     capacity: int = Field(ge=1, le=CAPACITY_MAX)
     price: int = Field(ge=0, le=PRICE_MAX, default=0)
+    payment_method: PaymentMethod = PaymentMethod.onsite
     cancellation_policy: TrimmedStr = Field(default="", max_length=2000)
     participant_guide: TrimmedStr = Field(default="", max_length=PARTICIPANT_GUIDE_MAX_LENGTH)
     emergency_contact: TrimmedStr = Field(default="", max_length=EMERGENCY_CONTACT_MAX_LENGTH)
@@ -36,6 +40,19 @@ class WorkshopInput(BaseModel):
             raise ValueError("end_at must be after start_at")
         return self
 
+    @model_validator(mode="after")
+    def free_workshop_is_onsite(self) -> "WorkshopInput":
+        # 無料なら支払いがないので、オンライン決済が指定されていても当日払い(支払いなし)として扱う
+        if self.price == 0:
+            self.payment_method = PaymentMethod.onsite
+        elif self.payment_method == PaymentMethod.online and self.price < ONLINE_PAYMENT_MIN_PRICE:
+            # Stripe が決済を受け付けず、誰も予約できなくなるため
+            raise PydanticCustomError(
+                "online_payment_min_price",
+                f"オンライン決済の参加費は{ONLINE_PAYMENT_MIN_PRICE}円以上にしてください",
+            )
+        return self
+
 
 class WorkshopViewer(BaseModel):
     """閲覧者(リクエストしたユーザー)によって値が変わる項目"""
@@ -44,6 +61,8 @@ class WorkshopViewer(BaseModel):
     is_reserved: bool = False
     # 主催者に参加をキャンセルされた。この場合は同じワークショップを再予約できない
     is_reservation_canceled: bool = False
+    # オンライン決済の途中(支払い待ちで、席を確保している期限内)。予約フォームから支払いを再開できる
+    is_payment_pending: bool = False
 
 
 class ParticipantInfo(BaseModel):
@@ -66,6 +85,7 @@ class WorkshopRead(BaseModel):
     end_at: UTCDateTime
     capacity: int
     price: int
+    payment_method: PaymentMethod
     cancellation_policy: str
     status: WorkshopStatus
     facilitator_id: int

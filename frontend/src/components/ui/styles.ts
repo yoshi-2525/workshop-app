@@ -8,6 +8,10 @@ export const PRIMARY_BUTTON_CLASS =
 export const PAPER_SECONDARY_BUTTON_CLASS =
   'rounded-md bg-surface px-4 py-2 text-sm font-medium text-fg-secondary shadow-sm hover:bg-white disabled:opacity-50 disabled:hover:bg-surface'
 
+// 紙のカードの上に置く小さな補助の操作(問い合わせ・お支払いの再開など)。<Link> にも付けられる
+export const PAPER_SECONDARY_SMALL_BUTTON_CLASS =
+  'inline-flex shrink-0 items-center gap-1 rounded-md bg-surface px-3 py-1.5 text-sm text-fg-secondary shadow-sm hover:bg-white'
+
 // 1行・複数行のテキスト入力欄と選択欄(<input> / <textarea> / <select>)。ラベルの下に置く
 export const INPUT_CLASS =
   'mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none'

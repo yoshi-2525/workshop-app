@@ -1,8 +1,12 @@
 import { useId, useState, type ChangeEvent, type Dispatch, type RefObject, type SetStateAction } from 'react'
+import { Link } from 'react-router-dom'
+import { getPayoutAccount } from '@/api/payouts'
+import { useApiResource } from '@/hooks/useApiResource'
 import { DateTimeField } from '@/components/ui/DateTimeField'
 import { RequiredMark } from '@/components/ui/RequiredMark'
 import { ToggleGroup } from '@/components/ui/ToggleGroup'
-import type { WorkshopInput } from '@/types'
+import type { PaymentMethod, WorkshopInput } from '@/types'
+import { ONLINE_PAYMENT_MIN_PRICE, PAYOUT_SETTINGS_PATH } from '@/utils/payment'
 import { UPLOAD_IMAGE_ACCEPT } from '@/utils/image'
 import { googleMapsSearchUrl } from '@/utils/maps'
 import {
@@ -18,6 +22,7 @@ import {
 } from '@/utils/workshop'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { FILE_INPUT_CLASS } from '@/components/ui/styles'
+import { ErrorMessage } from '@/components/ui/StatusMessage'
 
 const INPUT_CLASS =
   'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-fg-muted'
@@ -33,10 +38,98 @@ interface WorkshopFormFieldsProps {
   removeImage: boolean
   onImageChange: (e: ChangeEvent<HTMLInputElement>) => void
   onRemoveImage: () => void
-  // 公開中のワークショップの編集。参加者が予約したときの条件(参加費・日時・場所)は変更できない
+  // 公開中のワークショップの編集。参加者が予約したときの条件(参加費・支払方法・日時・場所)は変更できない
   lockConditions?: boolean
   // 予約済みのチケット枚数。定員はこれより少なくできない
   reservedCount?: number
+}
+
+// 有料のワークショップの参加費の支払方法。オンライン決済は、主催者の受け取り設定が済んでいるときだけ選べる
+function PaymentMethodField({
+  value,
+  price,
+  onChange,
+  disabled,
+  describedBy,
+}: {
+  value: PaymentMethod
+  price: number
+  onChange: (value: PaymentMethod) => void
+  disabled: boolean
+  describedBy?: string
+}) {
+  const { data: payout, error: payoutError } = useApiResource(
+    'payout-account',
+    getPayoutAccount,
+    '受け取り設定を確認できなかったため、オンライン決済を選べません。時間をおいて開き直してください',
+  )
+  const name = useId()
+  const onlineHelpId = useId()
+  const canChooseOnline = payout?.online_payment_available === true && payout.status === 'enabled'
+  const options: { value: PaymentMethod; label: string; description: string; enabled: boolean }[] = [
+    {
+      value: 'onsite',
+      label: '当日払い',
+      description: '開催当日に会場で、参加者から直接お受け取りください。',
+      enabled: true,
+    },
+    {
+      value: 'online',
+      label: 'オンライン決済(カード)',
+      description:
+        '予約時に参加者がカードで支払い、決済手数料と本サービスの手数料を差し引いてご登録の口座に入金されます。',
+      // 選択済みのもの(受け取り設定の前に下書きで選んだもの)は、選び直せるよう有効のままにする
+      enabled: canChooseOnline || value === 'online',
+    },
+  ]
+
+  return (
+    <fieldset aria-describedby={describedBy}>
+      <legend className={LABEL_CLASS}>参加費の支払方法</legend>
+      <div className="mt-2 space-y-2">
+        {options.map((option) => (
+          <label key={option.value} className="flex items-start gap-2 text-sm text-fg">
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={value === option.value}
+              onChange={() => onChange(option.value)}
+              disabled={disabled || !option.enabled}
+              aria-describedby={option.value === 'online' && payout && !canChooseOnline ? onlineHelpId : undefined}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-accent"
+            />
+            <span>
+              {option.label}
+              <span className="block text-xs text-fg-muted">{option.description}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {payout && !canChooseOnline && (
+        <p id={onlineHelpId} className="mt-2 text-xs text-fg-muted">
+          {payout.online_payment_available ? (
+            <>
+              オンライン決済を選ぶには、
+              <Link to={PAYOUT_SETTINGS_PATH} className="underline">
+                参加費の受け取り設定
+              </Link>
+              を済ませてください。
+            </>
+          ) : (
+            '現在、オンライン決済はご利用いただけません。'
+          )}
+        </p>
+      )}
+      <ErrorMessage message={payoutError} className="mt-2 text-xs" />
+      {/* Stripe は最低決済額より安い支払いを受け付けないので、保存する前に伝える(保存時はバックエンドが 422 で断る) */}
+      {value === 'online' && price < ONLINE_PAYMENT_MIN_PRICE && (
+        <p role="alert" className="mt-2 text-xs text-red-300">
+          オンライン決済の参加費は{ONLINE_PAYMENT_MIN_PRICE}円以上にしてください。
+        </p>
+      )}
+    </fieldset>
+  )
 }
 
 // ワークショップ作成・編集フォームの入力欄一式。一覧・詳細と同じ紙のカードとして表示する
@@ -169,7 +262,7 @@ export function WorkshopFormFields({
 
       {lockConditions && (
         <p id={lockedHelpId} className="rounded-md bg-surface/70 p-3 text-xs text-fg-secondary">
-          公開中のワークショップは開催場所・開催日時・参加費を変更できません。
+          公開中のワークショップは開催場所・開催日時・参加費・支払方法を変更できません。
           開催の条件を変える場合は、中止してから新しく作成してください。
         </p>
       )}
@@ -296,10 +389,12 @@ export function WorkshopFormFields({
             value={form.price}
             onChange={(e) => {
               const price = Number(e.target.value)
+              // 無料にしたら、キャンセルポリシーと支払方法は使わないので戻す
               setForm((prev) => ({
                 ...prev,
                 price,
                 cancellation_policy: price > 0 ? prev.cancellation_policy : '',
+                payment_method: price > 0 ? prev.payment_method : 'onsite',
               }))
             }}
             className={`mt-1 ${INPUT_CLASS}`}
@@ -307,6 +402,16 @@ export function WorkshopFormFields({
           />
         </div>
       </div>
+
+      {form.price > 0 && (
+        <PaymentMethodField
+          value={form.payment_method}
+          price={form.price}
+          onChange={(value) => setField('payment_method', value)}
+          disabled={lockConditions}
+          describedBy={lockConditions ? lockedHelpId : undefined}
+        />
+      )}
 
       {form.price > 0 && (
         <div>

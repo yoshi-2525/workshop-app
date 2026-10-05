@@ -9,18 +9,20 @@ from app.core.deps import get_current_user, get_current_user_optional, require_r
 from app.core.errors import conflict
 from app.core.timeutil import utcnow_naive
 from app.database import get_db
-from app.models.reservation import Reservation
+from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User, UserRole
 from app.models.workshop import Workshop, WorkshopStatus
-from app.schemas.reservation import AttendanceUpdate, ReservationCreate, ReservationRead
+from app.schemas.reservation import AttendanceUpdate, ReservationCreate, ReservationCreateResult, ReservationRead
 from app.schemas.workshop import RelatedWorkshops, WorkshopInput, WorkshopRead, WorkshopSearchQuery
 from app.services.pagination import paginate
+from app.services.payments import start_checkout
 from app.services.related import related_workshops
 from app.services.reservations import (
     RESERVATION_LOAD_OPTIONS,
     cancel_reservation,
     create_reservation,
     get_workshop_reservation,
+    resume_checkout,
     record_attendance,
     to_reservation_read,
     to_reservation_reads,
@@ -83,7 +85,7 @@ def create_workshop(
     db: Session = Depends(get_db),
     current_user: User = Depends(_manager),
 ) -> WorkshopRead:
-    check_workshop_input(db, payload)
+    check_workshop_input(db, payload, current_user)
     workshop = Workshop(**payload.model_dump(), facilitator_id=current_user.id)
     db.add(workshop)
     db.flush()
@@ -105,7 +107,7 @@ def update_workshop(
     # 予約の受付と同時に定員・状態を変えても食い違わないよう、行をロックしてから確かめる
     workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
     ensure_editable(workshop)
-    check_workshop_input(db, payload, workshop)
+    check_workshop_input(db, payload, workshop.facilitator, workshop)
     was_published = workshop.published_at is not None
     for field, value in payload.model_dump().items():
         setattr(workshop, field, value)
@@ -182,21 +184,36 @@ def delete_workshop(
         WORKSHOP_IMAGES.delete(image_url)
 
 
-@router.post("/{workshop_id}/reservations", response_model=ReservationRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{workshop_id}/reservations", response_model=ReservationCreateResult, status_code=status.HTTP_201_CREATED
+)
 def reserve_workshop(
     workshop_id: int,
     payload: ReservationCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> ReservationRead:
-    reservation = create_reservation(db, workshop_id, current_user, payload)
+) -> ReservationCreateResult:
+    """予約する。当日払い・無料ならこの時点で確定する。
+
+    オンライン決済なら席を一定時間確保して checkout_url(Stripe の支払い画面)を返し、支払いが済んだら確定する。
+    支払い待ちのまま同じワークショップをもう一度予約すると、同じ支払いの画面を返す
+    """
+    started = create_reservation(db, workshop_id, current_user, payload)
     try:
         db.commit()
     except IntegrityError as exc:
         db.rollback()
         raise conflict("既に予約済みです") from exc
-    db.refresh(reservation)
-    return to_reservation_read(db, reservation, current_user)
+    # 席の確保を確定してロックを外してから、Stripe の支払い画面を作る(service の中で結果も確定する)
+    checkout_url = None
+    if started.new_payment is not None:
+        checkout_url = start_checkout(db, started.reservation, started.new_payment)
+    elif started.resume_payment is not None:
+        checkout_url = resume_checkout(db, started.reservation, started.resume_payment)
+    db.refresh(started.reservation)
+    return ReservationCreateResult(
+        reservation=to_reservation_read(db, started.reservation, current_user), checkout_url=checkout_url
+    )
 
 
 @router.get("/{workshop_id}/reservations", response_model=list[ReservationRead])
@@ -209,7 +226,8 @@ def list_workshop_reservations(
     reservations = db.scalars(
         select(Reservation)
         .options(*RESERVATION_LOAD_OPTIONS)
-        .where(Reservation.workshop_id == workshop_id)
+        # 支払われずに期限が過ぎた予約は、予約されなかったのと同じなので出さない
+        .where(Reservation.workshop_id == workshop_id, Reservation.status != ReservationStatus.expired)
         .order_by(Reservation.created_at.asc(), Reservation.id.asc())
     ).all()
     return to_reservation_reads(db, reservations, current_user)

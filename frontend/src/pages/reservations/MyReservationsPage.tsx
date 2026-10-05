@@ -5,6 +5,8 @@ import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
 import { useApiResource } from '@/hooks/useApiResource'
 import type { Reservation } from '@/types'
 import { formatDateTime } from '@/utils/format'
+import { refundLabel } from '@/utils/payment'
+import { PAPER_SECONDARY_SMALL_BUTTON_CLASS } from '@/components/ui/styles'
 import { isWorkshopFinished } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { MaterialIcon } from '@/components/ui/MaterialIcon'
@@ -14,16 +16,23 @@ import { useBackState } from '@/hooks/useBackState'
 
 // 予約履歴での状態の表示。ワークショップ自体が中止になったものは、予約の状態より中止を優先して伝える
 function reservationStatusView(reservation: Reservation): { label: string; className: string } {
+  const refund = refundLabel(reservation.payment)
   // 参加者は自分でキャンセルできないので、キャンセル済みは主催者がキャンセルしたもの
-  if (reservation.status === 'canceled') return { label: '主催者によりキャンセル', className: 'text-fg-subtle' }
+  if (reservation.status === 'canceled') {
+    return { label: refund ? `主催者によりキャンセル(${refund})` : '主催者によりキャンセル', className: 'text-fg-subtle' }
+  }
+  if (reservation.status === 'pending_payment') return { label: 'お支払い待ち', className: 'font-medium text-fg' }
   if (reservation.workshop.status === 'canceled') return { label: '主催者により中止', className: 'font-medium text-red-300' }
   if (isWorkshopFinished(reservation.workshop)) return { label: '参加済み', className: 'text-fg-muted' }
   return { label: '予約確定', className: 'text-emerald-300' }
 }
 
-// 予約がキャンセルされておらず、ワークショップも中止になっていない
+// 参加が確定していて(支払い待ちを含む)、キャンセル・中止になっていない
 function isActive(reservation: Reservation): boolean {
-  return reservation.status !== 'canceled' && reservation.workshop.status !== 'canceled'
+  return (
+    (reservation.status === 'confirmed' || reservation.status === 'pending_payment') &&
+    reservation.workshop.status !== 'canceled'
+  )
 }
 
 function startTime(reservation: Reservation): number {
@@ -56,7 +65,7 @@ function filterReservations(reservations: Reservation[], kind: ListKind): Reserv
         .sort((a, b) => startTime(a) - startTime(b))
     case 'attended':
       return reservations
-        .filter((r) => isActive(r) && isWorkshopFinished(r.workshop))
+        .filter((r) => r.status === 'confirmed' && isActive(r) && isWorkshopFinished(r.workshop))
         .sort((a, b) => startTime(b) - startTime(a))
     // 予約履歴はキャンセル・中止も含めたすべての予約を、予約した日時の新しい順に並べる
     case 'reservations':
@@ -102,6 +111,14 @@ function ReservationList({ kind }: { kind: ListKind }) {
               <p className="text-sm text-fg-muted">
                 {`主催者: ${reservation.workshop.facilitator_name} ・ チケット${reservation.ticket_count}枚`}
               </p>
+              {/* 支払い待ちは、確定していないことが分かるよう参加予定にも出す */}
+              {kind === 'upcoming' && reservation.status === 'pending_payment' && (
+                <p className="text-sm font-medium text-fg">
+                  お支払い待ち
+                  {reservation.payment_expires_at &&
+                    `(${formatDateTime(reservation.payment_expires_at)}までにお支払いいただくと予約が確定します)`}
+                </p>
+              )}
               {/* 参加予定・参加履歴は確定している予約だけなので、状態は予約履歴でだけ出す */}
               {kind === 'reservations' && (
                 <p className="text-sm">
@@ -112,14 +129,24 @@ function ReservationList({ kind }: { kind: ListKind }) {
                 </p>
               )}
             </div>
-            {/* 参加予定のワークショップは、当日までに主催者へ聞きたいことが出てきやすいので、ここから問い合わせられるようにする。
+            {/* 支払い待ちの予約は、ここから支払いを再開できる。
                 カード全体に広げたタイトルのリンクより手前に出すため relative z-10 にする */}
-            {kind === 'upcoming' && (
+            {kind === 'upcoming' && reservation.status === 'pending_payment' && (
+              <Link
+                to={`/workshops/${reservation.workshop.id}/reserve`}
+                aria-label={`${reservation.workshop.title}のお支払いを再開する`}
+                className={`relative z-10 ${PAPER_SECONDARY_SMALL_BUTTON_CLASS}`}
+              >
+                お支払いを再開する
+              </Link>
+            )}
+            {/* 参加予定のワークショップは、当日までに主催者へ聞きたいことが出てきやすいので、ここから問い合わせられるようにする */}
+            {kind === 'upcoming' && reservation.status === 'confirmed' && (
               <Link
                 to={`/workshops/${reservation.workshop.id}/inquiry`}
                 state={backState}
                 aria-label={`${reservation.workshop.title}の主催者に問い合わせる`}
-                className="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-md bg-surface px-3 py-1.5 text-sm text-fg-secondary shadow-sm hover:bg-white"
+                className={`relative z-10 ${PAPER_SECONDARY_SMALL_BUTTON_CLASS}`}
               >
                 <MaterialIcon name="chat" className="text-[18px]" />
                 主催者に問い合わせる

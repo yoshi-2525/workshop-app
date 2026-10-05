@@ -38,7 +38,7 @@ describe('getReservationBlocker', () => {
   })
 
   it('予約済み・キャンセルされたは閲覧者の状態で決まる', () => {
-    const viewer = { is_favorited: false, is_reserved: true, is_reservation_canceled: false }
+    const viewer = { is_favorited: false, is_reserved: true, is_reservation_canceled: false, is_payment_pending: false }
     expect(getReservationBlocker(makeWorkshop({ viewer }))).toBe('reserved')
     expect(
       getReservationBlocker(makeWorkshop({ viewer: { ...viewer, is_reserved: false, is_reservation_canceled: true } })),
@@ -47,7 +47,7 @@ describe('getReservationBlocker', () => {
 
   it('複数当てはまるときは、画面に出す優先順で先のものを返す', () => {
     // 予約済みで満員なら「予約済み」、開始済みなら締め切り後でもあるが「開始済み」
-    const viewer = { is_favorited: false, is_reserved: true, is_reservation_canceled: false }
+    const viewer = { is_favorited: false, is_reserved: true, is_reservation_canceled: false, is_payment_pending: false }
     expect(getReservationBlocker(makeWorkshop({ viewer, capacity: 1, reserved_count: 1 }))).toBe('reserved')
     expect(getReservationBlocker(makeWorkshop({ start_at: hoursFromNow(-1), capacity: 1, reserved_count: 1 }))).toBe(
       'started',
@@ -81,5 +81,12 @@ describe('hasFewSeats', () => {
     expect(hasFewSeats(makeWorkshop({ capacity: 10, reserved_count: 9 }))).toBe(true)
     expect(hasFewSeats(makeWorkshop({ capacity: 10, reserved_count: 10 }))).toBe(false)
     expect(hasFewSeats(makeWorkshop({ capacity: 10, reserved_count: 4 }))).toBe(false)
+  })
+})
+
+describe('getReservationBlocker と支払い待ち', () => {
+  it('支払い待ちの人は、満員に見えても支払いを再開できる', () => {
+    const viewer = { is_favorited: false, is_reserved: false, is_reservation_canceled: false, is_payment_pending: true }
+    expect(getReservationBlocker(makeWorkshop({ capacity: 2, reserved_count: 2, viewer }))).toBeNull()
   })
 })

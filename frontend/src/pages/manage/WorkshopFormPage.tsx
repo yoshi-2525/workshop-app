@@ -23,7 +23,7 @@ import { removeWorkshopDraft, useWorkshopDraft, workshopDraftKey } from '@/pages
 import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 // 公開中のワークショップで変更できない項目(参加者が予約したときの条件)。バックエンドの check_workshop_input と揃える
-const LOCKED_WHEN_PUBLISHED = ['price', 'start_at', 'end_at', 'location_type', 'location'] as const
+const LOCKED_WHEN_PUBLISHED = ['price', 'payment_method', 'start_at', 'end_at', 'location_type', 'location'] as const
 
 const emptyForm: WorkshopInput = {
   title: '',
@@ -34,6 +34,7 @@ const emptyForm: WorkshopInput = {
   end_at: '',
   capacity: 10,
   price: 0,
+  payment_method: 'onsite',
   cancellation_policy: '',
   participant_guide: '',
   emergency_contact: '',
@@ -51,6 +52,7 @@ function toWorkshopInput(workshop: Workshop): WorkshopInput {
     end_at: toDateTimeInputValue(new Date(workshop.end_at)),
     capacity: workshop.capacity,
     price: workshop.price,
+    payment_method: workshop.payment_method,
     cancellation_policy: workshop.cancellation_policy,
     participant_guide: workshop.participant_info?.guide ?? '',
     emergency_contact: workshop.participant_info?.emergency_contact ?? '',

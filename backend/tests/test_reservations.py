@@ -28,7 +28,7 @@ class TestReserve:
         participant = make_user()
         res = _reserve(client, workshop.id, participant, ticket_count=2)
         assert res.status_code == 201
-        body = res.json()
+        body = res.json()["reservation"]
         assert body["ticket_count"] == 2
         assert body["workshop"]["reserved_count"] == 2
         assert body["workshop"]["viewer"]["is_reserved"] is True
@@ -95,7 +95,7 @@ class TestCancelReservation:
         owner = make_user(UserRole.facilitator)
         workshop = make_workshop(owner)
         participant = make_user()
-        reservation_id = _reserve(client, workshop.id, participant).json()["id"]
+        reservation_id = _reserve(client, workshop.id, participant).json()["reservation"]["id"]
 
         res = client.post(
             f"/api/workshops/{workshop.id}/reservations/{reservation_id}/cancel", headers=auth_headers(owner)
@@ -114,7 +114,7 @@ class TestCancelReservation:
 
     def test_other_facilitator_cannot_cancel(self, client: TestClient, make_user, make_workshop):
         workshop = make_workshop(make_user(UserRole.facilitator))
-        reservation_id = _reserve(client, workshop.id, make_user()).json()["id"]
+        reservation_id = _reserve(client, workshop.id, make_user()).json()["reservation"]["id"]
         other = make_user(UserRole.facilitator)
         res = client.post(
             f"/api/workshops/{workshop.id}/reservations/{reservation_id}/cancel", headers=auth_headers(other)
@@ -125,7 +125,7 @@ class TestCancelReservation:
         owner = make_user(UserRole.facilitator)
         workshop = make_workshop(owner)
         another = make_workshop(make_user(UserRole.facilitator))
-        reservation_id = _reserve(client, another.id, make_user()).json()["id"]
+        reservation_id = _reserve(client, another.id, make_user()).json()["reservation"]["id"]
         res = client.post(
             f"/api/workshops/{workshop.id}/reservations/{reservation_id}/cancel", headers=auth_headers(owner)
         )
@@ -136,7 +136,7 @@ class TestAttendance:
     def _setup(self, client, db, make_user, make_workshop, start_in: timedelta):
         owner = make_user(UserRole.facilitator)
         workshop = make_workshop(owner)
-        reservation_id = _reserve(client, workshop.id, make_user()).json()["id"]
+        reservation_id = _reserve(client, workshop.id, make_user()).json()["reservation"]["id"]
         # 予約の締め切り後の日時に動かす
         workshop.start_at = utcnow_naive() + start_in
         workshop.end_at = workshop.start_at + timedelta(hours=2)

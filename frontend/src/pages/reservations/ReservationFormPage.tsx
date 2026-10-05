@@ -1,12 +1,13 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { getWorkshop } from '@/api/workshops'
-import { reserveWorkshop } from '@/api/reservations'
+import { abandonPayment, listMyReservations, reserveWorkshop } from '@/api/reservations'
 import { useAuth } from '@/context/AuthContext'
 import { useApiResource } from '@/hooks/useApiResource'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { formatPrice } from '@/utils/format'
+import { isOnlinePayment } from '@/utils/payment'
 import type { Workshop } from '@/types'
 import { parseIdParam } from '@/utils/params'
 import {
@@ -61,6 +62,105 @@ function getUnavailableReason(workshop: Workshop): UnavailableReason | null {
   }
 }
 
+// 予約後の移動先。オンライン決済なら Stripe の支払い画面、それ以外は参加予定の一覧。
+// onRestored はブラウザの「戻る」で Stripe からこの画面がそのまま復元されたときに呼ぶ
+function useAfterReservation(onRestored?: () => void) {
+  const navigate = useNavigate()
+  // Stripe のページが開くまでの間に、もう一度押されないよう、移動を始めたら押せないままにする
+  const [redirecting, setRedirecting] = useState(false)
+  const onRestoredRef = useRef(onRestored)
+  useEffect(() => {
+    onRestoredRef.current = onRestored
+  })
+
+  // 復元されたときは押せる状態に戻し、予約の状態を取り直す。
+  // 取り直さないと、支払い待ちなのに入力フォームが出たままになり、選び直した枚数が使われない
+  useEffect(() => {
+    function handlePageShow(event: PageTransitionEvent) {
+      if (!event.persisted) return
+      setRedirecting(false)
+      onRestoredRef.current?.()
+    }
+    window.addEventListener('pageshow', handlePageShow)
+    return () => window.removeEventListener('pageshow', handlePageShow)
+  }, [])
+
+  function goNext(checkoutUrl: string | null, workshopTitle: string) {
+    if (checkoutUrl) {
+      setRedirecting(true)
+      window.location.assign(checkoutUrl)
+      return
+    }
+    navigate('/reservations', { state: { justReserved: workshopTitle } })
+  }
+
+  return { redirecting, goNext }
+}
+
+// オンライン決済の支払い待ちのまま戻ってきた人に、支払いの再開か取りやめを選んでもらう
+function PendingPaymentPanel({ workshop, onChanged }: { workshop: Workshop; onChanged: (abandoned: boolean) => void }) {
+  const [searchParams] = useSearchParams()
+  const { user } = useAuth()
+  const action = useAsyncAction<'resume' | 'abandon'>()
+  const { redirecting, goNext } = useAfterReservation(() => onChanged(false))
+  // Stripe の支払い画面で「戻る」を押すと、payment=canceled を付けてここへ戻される
+  const returnedFromCheckout = searchParams.get('payment') === 'canceled'
+
+  async function handleResume() {
+    // 支払い待ちのまま予約し直すと、同じ支払いの画面が返る(送った入力内容は使われず、最初の予約のまま)
+    const result = await action.run(
+      () => reserveWorkshop(workshop.id, { contact: user?.email ?? '', ticket_count: 1 }),
+      'お支払いを再開できませんでした',
+      'resume',
+    )
+    if (result.ok) goNext(result.value.checkout_url, workshop.title)
+  }
+
+  async function handleAbandon() {
+    if (!confirm('お支払いをやめて、お取りしていた席をお戻ししますか?')) return
+    const result = await action.run(
+      async () => {
+        const mine = await listMyReservations()
+        const pending = mine.find((r) => r.workshop_id === workshop.id && r.status === 'pending_payment')
+        // 見つからなければ、その間に期限が過ぎたか支払いが済んだ。取り直して今の状態を出す
+        if (!pending) return false
+        await abandonPayment(pending.id)
+        return true
+      },
+      '予約を取りやめられませんでした',
+      'abandon',
+    )
+    if (result.ok) onChanged(result.value)
+  }
+
+  const busy = action.pending || redirecting
+  return (
+    <div className="mx-auto max-w-xl">
+      <h1 className="text-xl font-semibold text-fg">お支払いが完了していません</h1>
+      <PaperCard cornerFold={false} className="mt-4 space-y-4 p-6">
+        <p className="text-sm">
+          {returnedFromCheckout ? 'お支払いの画面から戻りました。' : ''}
+          「{workshop.title}」の席は、しばらくの間お取りしています。お支払いを済ませると予約が確定します。
+        </p>
+        <div className="flex flex-wrap justify-end gap-3">
+          <button
+            type="button"
+            onClick={handleAbandon}
+            disabled={busy}
+            className="rounded-md px-4 py-2 text-sm text-fg-muted hover:bg-surface-muted disabled:opacity-50"
+          >
+            {action.pendingKey === 'abandon' ? '取りやめています...' : '予約をやめる'}
+          </button>
+          <button type="button" onClick={handleResume} disabled={busy} className={PRIMARY_BUTTON_CLASS}>
+            {action.pendingKey === 'resume' || redirecting ? '移動しています...' : 'お支払いを再開する'}
+          </button>
+        </div>
+        <ErrorMessage message={action.error} className="text-sm" />
+      </PaperCard>
+    </div>
+  )
+}
+
 export function ReservationFormPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
@@ -70,6 +170,7 @@ export function ReservationFormPage() {
     data: workshop,
     loading,
     error: loadError,
+    reload,
   } = useApiResource(
     workshopId === null ? null : `workshop:${workshopId}`,
     (signal) => getWorkshop(workshopId!, signal),
@@ -77,6 +178,9 @@ export function ReservationFormPage() {
   )
   // 予約の送信に失敗したときのメッセージ
   const submitAction = useAsyncAction()
+  const { redirecting, goNext } = useAfterReservation(reload)
+  // 支払いをやめたことを、入力フォームに戻ったあとも伝える
+  const [abandoned, setAbandoned] = useState(false)
 
   // ログインが必要なページ(ProtectedRoute の内側)なので、表示時点で user は読み込み済み。
   // 初期値として一度だけ入れ、あとから user が更新されても入力中の内容は上書きしない
@@ -96,7 +200,8 @@ export function ReservationFormPage() {
     navigate(`/workshops/${workshop.id}`)
   }
 
-  if (loading) return <LoadingMessage />
+  // 取り直している間は前の表示を残す(支払いをやめた直後などにページ全体が入れ替わらないように)
+  if (loading && !workshop) return <LoadingMessage />
   if (!workshop)
     return (
       <ErrorMessage message={loadError ?? 'ワークショップが見つかりませんでした'} />
@@ -105,16 +210,45 @@ export function ReservationFormPage() {
   const remaining = workshop.capacity - workshop.reserved_count
   const maxTickets = Math.max(1, Math.min(remaining, MAX_TICKETS_PER_RESERVATION))
   const totalPrice = workshop.price * ticketCount
+  const online = isOnlinePayment(workshop)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (!workshop) return
     const result = await submitAction.run(
       () => reserveWorkshop(workshop.id, { contact, ticket_count: ticketCount }),
-      '予約に失敗しました',
+      online ? '予約またはお支払いの準備ができませんでした' : '予約に失敗しました',
     )
-    if (result.ok) navigate('/reservations', { state: { justReserved: workshop.title } })
+    if (result.ok) {
+      goNext(result.value.checkout_url, workshop.title)
+    } else if (online) {
+      // 席の確保だけ済んで支払い画面に進めなかった場合もあるので、取り直して今の状態を出す
+      reload()
+    }
   }
+
+  // オンライン決済の途中で戻ってきた人には、入力欄の代わりに支払いの再開・取りやめを出す
+  if (workshop.viewer.is_payment_pending && getReservationBlocker(workshop) === null) {
+    return (
+      <PendingPaymentPanel
+        workshop={workshop}
+        onChanged={(didAbandon) => {
+          setAbandoned(didAbandon)
+          reload()
+        }}
+      />
+    )
+  }
+
+  const submitBusy = submitAction.pending || redirecting
+  const submitLabel = online
+    ? submitBusy
+      ? '移動しています...'
+      : 'お支払いへ進む'
+    : submitBusy
+      ? '登録中...'
+      : '予約を確定する'
+
 
   // 予約できない場合は、理由と戻り先のリンクだけを出す
   const unavailable = getUnavailableReason(workshop)
@@ -134,6 +268,11 @@ export function ReservationFormPage() {
   return (
     <div className="mx-auto max-w-xl">
       <h1 className="text-xl font-semibold text-fg">参加者情報の入力</h1>
+      {abandoned && (
+        <p role="status" className="mt-2 text-sm text-fg-secondary">
+          お支払いを取りやめ、お取りしていた席をお戻ししました。
+        </p>
+      )}
       {/* 予約するワークショップと入力欄を、一覧・詳細のカードと同じ紙の面にまとめる。
           右下の角の折れが予約ボタンにかからないよう、下の余白を広めに取る */}
       <PaperCard className="mt-4 p-4 pb-10 sm:p-6 sm:pb-10">
@@ -196,7 +335,11 @@ export function ReservationFormPage() {
 
           <div className="rounded-lg bg-surface/70 p-4 text-sm">
             <div className="flex justify-between">
-              <span className="text-fg-secondary">お支払い金額(当日会場にてお支払いください)</span>
+              <span className="text-fg-secondary">
+                {online
+                  ? 'お支払い金額(次の画面でカードでお支払いいただきます)'
+                  : 'お支払い金額(当日会場にてお支払いください)'}
+              </span>
               <span className="font-semibold text-fg">{formatPrice(totalPrice)}</span>
             </div>
             <CancellationPolicy
@@ -233,12 +376,8 @@ export function ReservationFormPage() {
             >
               キャンセル
             </button>
-            <button
-              type="submit"
-              disabled={submitAction.pending || !confirmed}
-              className={PRIMARY_BUTTON_CLASS}
-            >
-              {submitAction.pending ? '登録中...' : '予約を確定する'}
+            <button type="submit" disabled={submitBusy || !confirmed} className={PRIMARY_BUTTON_CLASS}>
+              {submitLabel}
             </button>
 
           </div>

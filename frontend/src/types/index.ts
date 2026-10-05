@@ -37,12 +37,17 @@ export type WorkshopStatus = 'draft' | 'published' | 'canceled'
 
 export type LocationType = 'online' | 'offline'
 
+// 参加費の支払方法。onsite: 当日会場で主催者へ / online: 予約時に Stripe でカード決済
+export type PaymentMethod = 'onsite' | 'online'
+
 /** 閲覧者(ログインユーザー)によって値が変わる項目 */
 export interface WorkshopViewer {
   is_favorited: boolean
   is_reserved: boolean
   // 主催者に参加をキャンセルされた。この場合は同じワークショップを再予約できない
   is_reservation_canceled: boolean
+  // オンライン決済の途中(支払い待ちで席を確保している期限内)。予約フォームから支払いを再開できる
+  is_payment_pending: boolean
 }
 
 /** 予約した参加者と主催者にだけ返される、参加者向けの案内 */
@@ -66,6 +71,7 @@ export interface Workshop {
   end_at: string
   capacity: number
   price: number
+  payment_method: PaymentMethod
   cancellation_policy: string
   reserved_count: number
   status: WorkshopStatus
@@ -92,6 +98,7 @@ export type WorkshopInput = Pick<
   | 'end_at'
   | 'capacity'
   | 'price'
+  | 'payment_method'
   | 'cancellation_policy'
   | 'status'
 > & {
@@ -99,7 +106,23 @@ export type WorkshopInput = Pick<
   emergency_contact: string
 }
 
-export type ReservationStatus = 'confirmed' | 'canceled'
+// pending_payment: オンライン決済の支払い待ち / expired: 支払われないまま期限が過ぎた(一覧には出ない)
+export type ReservationStatus = 'confirmed' | 'canceled' | 'pending_payment' | 'expired'
+
+// オンライン決済の支払いの状態
+export type PaymentStatus = 'pending' | 'paid' | 'expired' | 'refund_pending' | 'refunded' | 'refund_failed'
+
+// 予約の最新の支払い(オンライン決済のときだけ)
+export interface PaymentSummary {
+  status: PaymentStatus
+  amount: number
+  // 本サービスの手数料。主催者が負担するものなので、主催者・運営にだけ返る(参加者には null)
+  application_fee_amount: number | null
+  // Stripe の決済手数料。支払いが済むまでと、参加者には null
+  stripe_fee_amount: number | null
+  // 返金額。返金が決まるまでは null
+  refund_amount: number | null
+}
 
 // 開催当日に主催者が記録する出欠
 export type AttendanceStatus = 'unconfirmed' | 'present' | 'absent'
@@ -115,7 +138,17 @@ export interface Reservation {
   ticket_count: number
   status: ReservationStatus
   attendance: AttendanceStatus
+  // 支払い待ちの席を確保している期限。支払い待ちでなければ null
+  payment_expires_at: string | null
+  // オンライン決済でなければ null
+  payment: PaymentSummary | null
   created_at: string
+}
+
+export interface ReservationCreateResult {
+  reservation: Reservation
+  // オンライン決済のとき、移動する Stripe の支払い画面の URL。当日払いなら null(この時点で予約が確定)
+  checkout_url: string | null
 }
 
 export interface ReservationCreate {
