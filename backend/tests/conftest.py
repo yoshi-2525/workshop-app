@@ -148,7 +148,6 @@ def workshop_payload(workshop: Workshop, **overrides: Any) -> dict[str, Any]:
         "capacity": workshop.capacity,
         "price": workshop.price,
         "payment_method": workshop.payment_method.value,
-        "cancellation_policy": workshop.cancellation_policy,
         "participant_guide": workshop.participant_guide,
         "emergency_contact": workshop.emergency_contact,
         "status": workshop.status.value,

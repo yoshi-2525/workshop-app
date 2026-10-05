@@ -57,7 +57,6 @@ class Workshop(Base):
         server_default=PaymentMethod.onsite.value,
         nullable=False,
     )
-    cancellation_policy: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # 予約した参加者と主催者にだけ見せる、当日の詳しい案内(集合場所・持ち物・参加 URL など)。
     # 開催前日のリマインダーにも載せる
     participant_guide: Mapped[str] = mapped_column(Text, nullable=False, default="")

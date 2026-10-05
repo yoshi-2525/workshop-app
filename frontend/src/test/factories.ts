@@ -18,7 +18,6 @@ export function makeWorkshop(overrides: Partial<Workshop> = {}): Workshop {
     capacity: 10,
     price: 0,
     payment_method: 'onsite',
-    cancellation_policy: '',
     reserved_count: 0,
     status: 'published',
     viewer: { is_favorited: false, is_reserved: false, is_reservation_canceled: false, is_payment_pending: false },

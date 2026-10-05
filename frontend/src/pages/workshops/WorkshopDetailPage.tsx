@@ -223,12 +223,9 @@ export function WorkshopDetailPage() {
             </dd>
           </div>
         </dl>
-        {/* キャンセルポリシーは日時などの欄のすぐ下に置く。見た目は予約フォームのキャンセルポリシーとそろえる */}
-        <CancellationPolicy
-          price={workshop.price}
-          policy={workshop.cancellation_policy}
-          className="mt-4 rounded-lg bg-surface/70 p-4"
-        />
+        {/* キャンセルについての案内は日時などの欄のすぐ下に置く。見た目は予約フォームの案内とそろえる */}
+        {/* 見出しにすると、続く説明文や予約ボタンまでこの見出しの配下に見えてしまうので p にする */}
+        <CancellationPolicy workshop={workshop} headingAs="p" className="mt-4 rounded-lg bg-surface/70 p-4" />
         <p className="mt-6 whitespace-pre-wrap text-fg-secondary">{workshop.description}</p>
         {workshop.status === 'published' && (
           <>

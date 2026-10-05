@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { isStripeRedirectUrl, paymentNote, paymentStatusLabel, refundAmountFor, refundLabel } from '@/utils/payment'
+import {
+  cancellationSummary,
+  isStripeRedirectUrl,
+  paymentNote,
+  paymentStatusLabel,
+  refundAmountFor,
+  refundLabel,
+} from '@/utils/payment'
 
 describe('isStripeRedirectUrl', () => {
   it.each([
@@ -83,5 +90,16 @@ describe('paymentStatusLabel', () => {
 
   it('返金額が0円なら「返金済み」とは出さない', () => {
     expect(paymentStatusLabel({ status: 'refunded', refund_amount: 0 })).toBe('返金なし(手数料の差し引きにより0円)')
+  })
+})
+
+describe('cancellationSummary', () => {
+  it('無料なら案内しない', () => {
+    expect(cancellationSummary({ price: 0, payment_method: 'onsite' })).toBeNull()
+  })
+
+  it('当日払いはキャンセル料がかからないことを、オンライン決済は返金の扱いを案内する', () => {
+    expect(cancellationSummary({ price: 3000, payment_method: 'onsite' })).toContain('キャンセル料はかかりません')
+    expect(cancellationSummary({ price: 3000, payment_method: 'online' })).toContain('手数料を差し引いた額を返金')
   })
 })

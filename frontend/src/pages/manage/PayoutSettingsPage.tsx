@@ -8,7 +8,7 @@ import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 import { useApiResource } from '@/hooks/useApiResource'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
 import type { PayoutAccountStatus } from '@/types'
-import { PAYOUT_LINK_EXPIRED_PARAM } from '@/utils/payment'
+import { FULL_REFUND_FEE_NOTE, PAYOUT_LINK_EXPIRED_PARAM, PLATFORM_FEE_PERCENT } from '@/utils/payment'
 
 type Action = 'onboarding' | 'dashboard'
 
@@ -124,7 +124,7 @@ export function PayoutSettingsPage() {
                 <ErrorMessage message={action.error} className="mt-2 text-sm" />
               </div>
               <p className="border-t border-border-muted pt-4 text-xs text-fg-muted">
-                オンライン決済では、Stripe の決済手数料と本サービスの手数料を参加費から差し引いて入金します。主催者のご都合で予約を取り消したり、ワークショップを中止したりした場合は、参加者へ全額を返金し、決済手数料は戻りません。
+                オンライン決済では、Stripe の決済手数料と本サービスの手数料(参加費の{PLATFORM_FEE_PERCENT}%)を参加費から差し引いて入金します。主催者の都合で参加をキャンセルしたり、ワークショップを中止したりした場合は、参加者へ全額を返金します。{FULL_REFUND_FEE_NOTE}
               </p>
             </>
           )}

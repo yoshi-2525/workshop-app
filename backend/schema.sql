@@ -1,5 +1,5 @@
 -- Workshop App: MySQL schema
--- Matches app/models/*.py and alembic/versions (up to 0019). Keep in sync if models change.
+-- Matches app/models/*.py and alembic/versions (up to 0020). Keep in sync if models change.
 
 CREATE TABLE users (
 	id INTEGER NOT NULL AUTO_INCREMENT,
@@ -29,7 +29,6 @@ CREATE TABLE workshops (
 	capacity INTEGER NOT NULL DEFAULT 10,
 	price INTEGER NOT NULL DEFAULT 0,
 	payment_method ENUM('onsite','online') NOT NULL DEFAULT 'onsite',
-	cancellation_policy TEXT NOT NULL DEFAULT '',
 	participant_guide TEXT NOT NULL DEFAULT '',
 	emergency_contact VARCHAR(255) NOT NULL DEFAULT '',
 	status ENUM('draft','published','canceled') NOT NULL DEFAULT 'draft',

@@ -11,7 +11,6 @@ import { UPLOAD_IMAGE_ACCEPT } from '@/utils/image'
 import { googleMapsSearchUrl } from '@/utils/maps'
 import {
   LOCATION_TYPE_OPTIONS,
-  WORKSHOP_CANCELLATION_POLICY_MAX_LENGTH,
   WORKSHOP_CAPACITY_MAX,
   WORKSHOP_DESCRIPTION_MAX_LENGTH,
   WORKSHOP_EMERGENCY_CONTACT_MAX_LENGTH,
@@ -158,8 +157,6 @@ export function WorkshopFormFields({
   const locationHelpId = useId()
   const capacityId = useId()
   const priceId = useId()
-  const policyId = useId()
-  const policyHelpId = useId()
   const capacityHelpId = useId()
   const lockedHelpId = useId()
   const guideId = useId()
@@ -389,11 +386,10 @@ export function WorkshopFormFields({
             value={form.price}
             onChange={(e) => {
               const price = Number(e.target.value)
-              // 無料にしたら、キャンセルポリシーと支払方法は使わないので戻す
+              // 無料にしたら、支払方法は使わないので戻す
               setForm((prev) => ({
                 ...prev,
                 price,
-                cancellation_policy: price > 0 ? prev.cancellation_policy : '',
                 payment_method: price > 0 ? prev.payment_method : 'onsite',
               }))
             }}
@@ -411,27 +407,6 @@ export function WorkshopFormFields({
           disabled={lockConditions}
           describedBy={lockConditions ? lockedHelpId : undefined}
         />
-      )}
-
-      {form.price > 0 && (
-        <div>
-          <label htmlFor={policyId} className={LABEL_CLASS}>
-            キャンセルポリシー
-          </label>
-          <textarea
-            id={policyId}
-            rows={3}
-            maxLength={WORKSHOP_CANCELLATION_POLICY_MAX_LENGTH}
-            value={form.cancellation_policy}
-            onChange={(e) => setField('cancellation_policy', e.target.value)}
-            placeholder="例: 開催3日前までは無料キャンセル可能です。それ以降は参加費の50%をキャンセル料として申し受けます。"
-            aria-describedby={policyHelpId}
-            className={`mt-1 ${INPUT_CLASS}`}
-          />
-          <p id={policyHelpId} className="mt-1 text-xs text-fg-muted">
-            有料ワークショップの参加者には、この内容がワークショップ詳細ページに表示されます。
-          </p>
-        </div>
       )}
 
       <fieldset className="space-y-4 border-t border-border-muted pt-4">

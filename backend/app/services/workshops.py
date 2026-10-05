@@ -383,7 +383,6 @@ def to_workshop_reads(
             capacity=w.capacity,
             price=w.price,
             payment_method=w.payment_method,
-            cancellation_policy=w.cancellation_policy,
             status=w.status,
             facilitator_id=w.facilitator_id,
             facilitator_name=w.facilitator.name,

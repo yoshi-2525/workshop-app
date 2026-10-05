@@ -29,7 +29,6 @@ class WorkshopInput(BaseModel):
     capacity: int = Field(ge=1, le=CAPACITY_MAX)
     price: int = Field(ge=0, le=PRICE_MAX, default=0)
     payment_method: PaymentMethod = PaymentMethod.onsite
-    cancellation_policy: TrimmedStr = Field(default="", max_length=2000)
     participant_guide: TrimmedStr = Field(default="", max_length=PARTICIPANT_GUIDE_MAX_LENGTH)
     emergency_contact: TrimmedStr = Field(default="", max_length=EMERGENCY_CONTACT_MAX_LENGTH)
     status: WorkshopStatus = WorkshopStatus.draft
@@ -86,7 +85,6 @@ class WorkshopRead(BaseModel):
     capacity: int
     price: int
     payment_method: PaymentMethod
-    cancellation_policy: str
     status: WorkshopStatus
     facilitator_id: int
     facilitator_name: str

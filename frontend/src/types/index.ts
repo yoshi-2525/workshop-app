@@ -72,7 +72,6 @@ export interface Workshop {
   capacity: number
   price: number
   payment_method: PaymentMethod
-  cancellation_policy: string
   reserved_count: number
   status: WorkshopStatus
   viewer: WorkshopViewer
@@ -99,7 +98,6 @@ export type WorkshopInput = Pick<
   | 'capacity'
   | 'price'
   | 'payment_method'
-  | 'cancellation_policy'
   | 'status'
 > & {
   participant_guide: string

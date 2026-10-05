@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react'
 import { LegalDocument, LegalDocLink } from '@/components/legal/LegalDocument'
+import { ONLINE_REFUND_SUMMARY, PAYMENT_HOLD_MINUTES_APPROX } from '@/utils/payment'
+
+const CHOICE_LIST_CLASS = 'mt-1 list-disc space-y-1 pl-5'
 
 // 【要記入】の項目は、運営者の実際の情報に置き換えてから公開すること
 const ROWS: { label: string; value: ReactNode }[] = [
@@ -37,11 +40,26 @@ const ROWS: { label: string; value: ReactNode }[] = [
   },
   {
     label: '支払方法',
-    value: '開催当日に会場で、主催者へ直接お支払いください(本サービス上での決済はありません)。利用できる支払い方法は主催者が定めます。',
+    value: (
+      <>
+        <p>ワークショップごとに、次のいずれかとなります(各ワークショップ詳細ページに表示しています)。</p>
+        <ul className={CHOICE_LIST_CLASS}>
+          <li>当日払い: 開催当日に会場で、主催者へ直接お支払いください。利用できる支払い方法は主催者が定めます。</li>
+          <li>オンライン決済: 予約の際に、決済サービス Stripe を通じてクレジットカードでお支払いください。</li>
+        </ul>
+      </>
+    ),
   },
   {
     label: '支払時期',
-    value: 'ワークショップの開催当日',
+    value: (
+      <ul className={CHOICE_LIST_CLASS}>
+        <li>当日払い: ワークショップの開催当日</li>
+        <li>
+          オンライン決済: 予約の手続きのとき(手続きから約{PAYMENT_HOLD_MINUTES_APPROX}分以内にお支払いが完了しない場合、予約は成立しません)
+        </li>
+      </ul>
+    ),
   },
   {
     label: '提供時期',
@@ -51,11 +69,12 @@ const ROWS: { label: string; value: ReactNode }[] = [
     label: 'キャンセル・返金について',
     value: (
       <>
-        予約確定後のキャンセルは、各ワークショップ詳細ページに記載の主催者のキャンセルポリシーと、本サービスの
+        予約確定後のキャンセルは、本サービスの
         <LegalDocLink to="/help/cancellation-policy">
           キャンセルポリシー
         </LegalDocLink>
-        に従います。ワークショップの性質上、開催後の返金はできません。
+        に従います。当日払いのワークショップでは、参加者のご都合によるキャンセルに、キャンセル料はかかりません。オンライン決済では、{ONLINE_REFUND_SUMMARY}
+        ワークショップの開始後は、参加者のご都合によるキャンセル・返金はできません。
       </>
     ),
   },
@@ -63,7 +82,7 @@ const ROWS: { label: string; value: ReactNode }[] = [
 
 export function TokushohoPage() {
   return (
-    <LegalDocument title="特定商取引法に基づく表記" updatedAt="2026年10月2日">
+    <LegalDocument title="特定商取引法に基づく表記" updatedAt="2026年10月5日">
       <p>
         本サービスで販売される有料のワークショップについて、特定商取引法に基づき次のとおり表示します。
         無料のワークショップには、参加費の支払いに関する項目は適用されません。

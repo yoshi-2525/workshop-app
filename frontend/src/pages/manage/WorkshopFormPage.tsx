@@ -18,7 +18,7 @@ import { toDateTimeInputValue } from '@/utils/date'
 import { formatDateTime, formatTime } from '@/utils/format'
 import { parseIdParam } from '@/utils/params'
 import { isWorkshopFinished } from '@/utils/workshop'
-import { isOnlinePayment } from '@/utils/payment'
+import { FULL_REFUND_FEE_NOTE, isOnlinePayment } from '@/utils/payment'
 import { WorkshopFormFields } from '@/pages/manage/WorkshopFormFields'
 import { removeWorkshopDraft, useWorkshopDraft, workshopDraftKey } from '@/pages/manage/useWorkshopDraft'
 import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
@@ -36,7 +36,6 @@ const emptyForm: WorkshopInput = {
   capacity: 10,
   price: 0,
   payment_method: 'onsite',
-  cancellation_policy: '',
   participant_guide: '',
   emergency_contact: '',
   status: 'draft',
@@ -54,7 +53,6 @@ function toWorkshopInput(workshop: Workshop): WorkshopInput {
     capacity: workshop.capacity,
     price: workshop.price,
     payment_method: workshop.payment_method,
-    cancellation_policy: workshop.cancellation_policy,
     participant_guide: workshop.participant_info?.guide ?? '',
     emergency_contact: workshop.participant_info?.emergency_contact ?? '',
     status: workshop.status,
@@ -162,7 +160,7 @@ export function WorkshopFormPage() {
     const message =
       'このワークショップを中止にしますか?予約済みの参加者には中止のお知らせが自動で届きます。' +
       (isOnlinePayment(savedWorkshop)
-        ? '\nオンラインで支払われた参加費は全額を返金します(決済手数料は戻らず、主催者の負担になります)。'
+        ? `\nオンラインで支払われた参加費は全額を返金します。${FULL_REFUND_FEE_NOTE}`
         : '') +
       (isDirty ? '\n(編集中の内容は保存されません)' : '')
     if (!confirm(message)) return

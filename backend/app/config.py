@@ -42,8 +42,9 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     # Stripe の画面(Checkout・受け取り設定)から戻ってくる先。末尾の / は付けない
     frontend_base_url: str = "http://localhost:5173"
-    # 運営の手数料(参加費に対する %)。Stripe の決済手数料とは別に主催者が負担する
-    platform_fee_percent: int = 0
+    # 運営の手数料(参加費に対する %)。Stripe の決済手数料とは別に主催者が負担する。
+    # フロントエンドの utils/payment.ts の PLATFORM_FEE_PERCENT(主催者ガイドラインなどの表示)と揃える
+    platform_fee_percent: int = 10
 
     # カレントディレクトリに関係なく backend/.env を読む
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8")

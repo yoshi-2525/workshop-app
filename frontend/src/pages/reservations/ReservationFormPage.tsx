@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useApiResource } from '@/hooks/useApiResource'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { formatPrice } from '@/utils/format'
-import { isOnlinePayment } from '@/utils/payment'
+import { cancellationSummary, isOnlinePayment } from '@/utils/payment'
 import type { Workshop } from '@/types'
 import { parseIdParam } from '@/utils/params'
 import {
@@ -194,6 +194,7 @@ export function ReservationFormPage() {
   const ticketCountId = useId()
   const ticketCountHelpId = useId()
   const confirmedId = useId()
+  const cancellationNoticeId = useId()
 
   function handleCancelClick() {
     if (!workshop) return
@@ -211,6 +212,8 @@ export function ReservationFormPage() {
   const maxTickets = Math.max(1, Math.min(remaining, MAX_TICKETS_PER_RESERVATION))
   const totalPrice = workshop.price * ticketCount
   const online = isOnlinePayment(workshop)
+  // キャンセルについての案内を出すか(確認のチェックの文言もこれに合わせる)
+  const hasCancellationNotice = cancellationSummary(workshop) !== null
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -343,9 +346,10 @@ export function ReservationFormPage() {
               <span className="font-semibold text-fg">{formatPrice(totalPrice)}</span>
             </div>
             <CancellationPolicy
-              price={workshop.price}
-              policy={workshop.cancellation_policy}
+              workshop={workshop}
+              id={cancellationNoticeId}
               headingAs="p"
+              openInNewTab
               className="mt-3 border-t border-border-muted pt-3"
             />
           </div>
@@ -357,11 +361,12 @@ export function ReservationFormPage() {
               required
               checked={confirmed}
               onChange={(e) => setConfirmed(e.target.checked)}
+              aria-describedby={hasCancellationNotice ? cancellationNoticeId : undefined}
               className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-accent focus-ring focus:outline-none"
             />
             <label htmlFor={confirmedId} className="text-sm text-fg">
-              {workshop.price > 0 && workshop.cancellation_policy
-                ? 'ワークショップの内容とキャンセルポリシーを確認しました'
+              {hasCancellationNotice
+                ? 'ワークショップの内容とキャンセルについての案内を確認しました'
                 : 'ワークショップの内容を確認しました'}
             </label>
           </div>

@@ -6,9 +6,22 @@ import { formatYen } from '@/utils/format'
 // 主催者の受け取り設定の画面。Stripe の設定画面から戻ってくる先なので、
 // バックエンドの services/payments.py の PAYOUT_SETTINGS_PATH と揃える
 export const PAYOUT_SETTINGS_PATH = '/manage/payout'
+// 本サービスの手数料率(参加費に対する %、1円未満切り捨て)。主催者ガイドラインなどの表示に使う。
+// バックエンドの settings.platform_fee_percent(.env の PLATFORM_FEE_PERCENT)と揃える
+export const PLATFORM_FEE_PERCENT = 10
+
 // オンライン決済で受け付ける参加費の下限(Stripe の日本円の最低決済額)。
 // バックエンドの schemas/workshop.py の ONLINE_PAYMENT_MIN_PRICE と揃える
 export const ONLINE_PAYMENT_MIN_PRICE = 50
+
+// オンライン決済の支払い待ちで席を確保しておく時間(分)の、文書での目安。
+// バックエンドの services/payments.py の PAYMENT_HOLD(32分。Stripe を呼ぶまでの余裕を含む)と揃える
+export const PAYMENT_HOLD_MINUTES_APPROX = 30
+
+// 主催者都合・中止などで全額を返金するときの、主催者の手数料の負担の説明。
+// バックエンドの services/payments.py の process_refund(全額なら refund_application_fee を付ける)と揃える
+export const FULL_REFUND_FEE_NOTE =
+  '本サービスの手数料は主催者に戻りますが、Stripe の決済手数料は戻らず、主催者の負担になります。'
 
 // Stripe の設定画面の URL の期限が切れたときに付いて戻ってくるクエリ(バックエンドの refresh_url と揃える)
 export const PAYOUT_LINK_EXPIRED_PARAM = 'refresh'
@@ -83,4 +96,19 @@ export function paymentStatusLabel(payment: Pick<PaymentSummary, 'status' | 'ref
     default:
       return null
   }
+}
+
+// 有料のワークショップの、キャンセルと返金についての案内(本サービスのキャンセルポリシーの要約)。無料なら null。
+// 返金の扱いはバックエンドの services/payments.py の refund_amount_for と揃える
+// オンライン決済の返金の扱いの説明。参加者向けの要約と特定商取引法に基づく表記で使う。
+// バックエンドの services/payments.py の refund_amount_for と揃える
+export const ONLINE_REFUND_SUMMARY =
+  '主催者の都合によるキャンセルとワークショップの中止は全額を、参加者のご都合によるキャンセルは決済手数料と本サービスの手数料を差し引いた額を返金します。'
+
+export function cancellationSummary(workshop: Pick<Workshop, 'price' | 'payment_method'>): string | null {
+  if (workshop.price <= 0) return null
+  if (isOnlinePayment(workshop)) {
+    return `${ONLINE_REFUND_SUMMARY}キャンセルをご希望の場合は、主催者にご連絡ください。`
+  }
+  return '参加者のご都合によるキャンセルに、キャンセル料はかかりません。キャンセルをご希望の場合は、主催者にご連絡ください。'
 }

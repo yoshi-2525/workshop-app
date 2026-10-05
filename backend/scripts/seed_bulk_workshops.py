@@ -47,12 +47,6 @@ OFFLINE_VENUES = [
     "神奈川県横浜市中区山下町 横浜みなとスペース",
 ]
 ONLINE_VENUE = "Zoom(お申し込み後にURLをご案内します)"
-CANCELLATION_POLICIES = [
-    "前日18時までのキャンセルは全額返金、当日キャンセルはキャンセル料100%を申し受けます。",
-    "開催3日前までは無料キャンセル可能です。それ以降は参加費の50%をキャンセル料として申し受けます。",
-    "開催24時間前を過ぎてのキャンセル・無断欠席は参加費の返金ができません。",
-]
-
 EXTRA_FACILITATORS = [
     ("takahashi@example.com", "高橋 誠", "高校で倫理を教えています。10代から大人まで一緒に考える場を開いています。"),
     ("nakamura@example.com", "中村 さやか", "読書会と哲学対話を組み合わせた会を月2回主催しています。"),
@@ -174,7 +168,6 @@ def main() -> None:
                 end_at=jst_to_utc(days, hour, duration),
                 capacity=capacity,
                 price=price,
-                cancellation_policy=rng.choice(CANCELLATION_POLICIES) if price > 0 else "",
                 status=status,
                 facilitator_id=rng.choice(facilitators).id,
             )

@@ -19,12 +19,12 @@ export const HELP_DOCUMENTS: HelpDocumentLink[] = [
   {
     to: '/help/cancellation-policy',
     title: 'キャンセルポリシー',
-    description: '参加者の方向けに、予約確定後のキャンセルやワークショップの中止の扱いを説明します。',
+    description: '参加者の方向けに、予約確定後のキャンセルやワークショップの中止の扱い、オンライン決済の返金を説明します。',
   },
   {
     to: '/help/facilitator-guidelines',
     title: '主催者ガイドライン',
-    description: '主催者の方向けに、ワークショップの公開・編集・中止のルールを説明します。',
+    description: '主催者の方向けに、ワークショップの公開・編集・中止のルールと、参加費の受け取りを説明します。',
   },
   {
     to: '/help/tokushoho',

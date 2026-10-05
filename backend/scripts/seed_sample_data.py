@@ -145,7 +145,6 @@ def main() -> None:
             end_at=dt(21, 21),
             capacity=12,
             price=1500,
-            cancellation_policy="前日18時までのキャンセルは全額返金、当日キャンセルはキャンセル料100%を申し受けます。",
             status=WorkshopStatus.published,
             facilitator_id=yamada.id,
         )
@@ -172,7 +171,6 @@ def main() -> None:
             end_at=dt(32, 21, 30),
             capacity=10,
             price=2000,
-            cancellation_policy="開催3日前までは無料キャンセル可能です。それ以降は参加費の50%をキャンセル料として申し受けます。",
             status=WorkshopStatus.published,
             facilitator_id=suzuki.id,
         )
@@ -186,7 +184,6 @@ def main() -> None:
             end_at=dt(15, 22),
             capacity=6,
             price=3000,
-            cancellation_policy="少人数制のため、開催7日前を過ぎてのキャンセルは参加費の100%を申し受けます。",
             status=WorkshopStatus.published,
             facilitator_id=suzuki.id,
         )
@@ -226,7 +223,6 @@ def main() -> None:
             end_at=dt(40, 14),
             capacity=4,
             price=5000,
-            cancellation_policy="個別枠のため、開催24時間前を過ぎてのキャンセル・無断欠席は参加費の返金ができません。",
             status=WorkshopStatus.published,
             facilitator_id=yamada.id,
         )

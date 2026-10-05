@@ -2,14 +2,14 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { ErrorMessage } from '@/components/ui/StatusMessage'
 import type { CancelReason, Reservation } from '@/types'
 import { formatYen } from '@/utils/format'
-import { refundAmountFor } from '@/utils/payment'
+import { FULL_REFUND_FEE_NOTE, refundAmountFor } from '@/utils/payment'
 import { DANGER_SMALL_BUTTON_CLASS } from '@/components/ui/styles'
 
 const REASON_OPTIONS: { value: CancelReason; label: string; description: string }[] = [
   {
     value: 'facilitator',
     label: '主催者の都合',
-    description: '参加者が支払った参加費を全額返金します。決済手数料は戻らず、主催者の負担になります。',
+    description: `参加者が支払った参加費を全額返金します。${FULL_REFUND_FEE_NOTE}`,
   },
   {
     value: 'participant',
