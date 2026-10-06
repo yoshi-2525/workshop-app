@@ -6,9 +6,39 @@
 > 実在するサービスとして運営しているものではありません。利用規約・キャンセルポリシー・特定商取引法に基づく表記・主催者ガイドラインは、
 > アプリの動作に合わせて書いたもので、法的な確認は受けていません。オンライン決済(Stripe)はテスト環境で使う想定です。
 
-- フロントエンド: React + TypeScript + TailwindCSS (Vite)
-- バックエンド: Python (FastAPI)
-- DB: MySQL
+## 使用技術
+
+### フロントエンド
+
+| 分類 | 技術 |
+| --- | --- |
+| 言語 | TypeScript 6 |
+| UI ライブラリ | React 19 |
+| ビルドツール | Vite 8 |
+| スタイリング | Tailwind CSS v4(`@tailwindcss/vite`) |
+| ルーティング | React Router 7 |
+| HTTP クライアント | axios |
+| テスト | Vitest |
+| Lint | oxlint |
+
+### バックエンド
+
+| 分類 | 技術 |
+| --- | --- |
+| 言語 | Python |
+| Web フレームワーク | FastAPI、Uvicorn(ASGI サーバー) |
+| ORM・マイグレーション | SQLAlchemy 2.0、Alembic |
+| DB | MySQL(ドライバーは PyMySQL) |
+| バリデーション・設定 | Pydantic v2、pydantic-settings、python-dotenv |
+| 認証 | JWT(PyJWT)の Bearer トークン、bcrypt(パスワードハッシュ) |
+| 定期実行 | APScheduler(リマインダー通知、返金の再試行など) |
+| 決済 | Stripe(Stripe Checkout、Webhook) |
+| ファイルアップロード | python-multipart |
+| テスト | pytest、httpx、SQLite(インメモリ DB) |
+
+### 開発ツール
+
+- concurrently(リポジトリルートの `npm run dev` でフロントエンドとバックエンドを同時起動)
 
 ## ディレクトリ構成
 
@@ -96,8 +126,6 @@ participant / facilitator は画面から自己登録できます。admin だけ
 ```
 ./venv/Scripts/python scripts/seed_sample_data.py
 ```
-
-パスワードはすべて `password123` です。
 
 #### テスト
 

@@ -40,7 +40,6 @@ CREATE TABLE reservations (
 	id INTEGER NOT NULL AUTO_INCREMENT,
 	workshop_id INTEGER NOT NULL,
 	user_id INTEGER NOT NULL,
-	attendee_name VARCHAR(255) NOT NULL DEFAULT '',
 	contact VARCHAR(255) NOT NULL DEFAULT '',
 	ticket_count INTEGER NOT NULL DEFAULT 1,
 	status ENUM('confirmed','canceled','pending_payment','expired') NOT NULL DEFAULT 'confirmed',

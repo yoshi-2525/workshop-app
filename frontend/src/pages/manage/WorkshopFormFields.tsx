@@ -320,7 +320,7 @@ export function WorkshopFormFields({
             maxLength={WORKSHOP_LOCATION_MAX_LENGTH}
             value={form.location}
             onChange={(e) => setField('location', e.target.value)}
-            placeholder="例: Zoom(お申し込み後にURLをご案内します)"
+            placeholder="例: Zoom"
             disabled={lockConditions}
             aria-describedby={lockConditions ? lockedHelpId : undefined}
             className={`mt-1 ${INPUT_CLASS}`}

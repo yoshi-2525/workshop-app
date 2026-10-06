@@ -205,6 +205,8 @@ def get_or_create_inquiry(db: Session, workshop_id: int, participant_id: int) ->
     inquiry = db.scalar(stmt)
     if inquiry is not None:
         return inquiry
+    # それまでの追加(予約など)の失敗を、やり取りの重複と取り違えないよう、セーブポイントの外で先に反映する
+    db.flush()
     try:
         # 参加者が同時に初めての問い合わせを送って先に作った場合に、それまでの追加を取り消さないよう、
         # セーブポイントの中で作る

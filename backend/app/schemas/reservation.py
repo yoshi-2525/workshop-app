@@ -34,7 +34,6 @@ class ReservationRead(BaseModel):
     workshop: WorkshopRead
     user_id: int
     user_name: str
-    attendee_name: str
     contact: str
     ticket_count: int
     status: ReservationStatus

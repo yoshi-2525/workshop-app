@@ -60,7 +60,6 @@ erDiagram
         int id PK
         int workshop_id FK "workshops.id / UK(workshop_id, user_id)"
         int user_id FK "users.id / UK(workshop_id, user_id)"
-        varchar(255) attendee_name "参加者名"
         varchar(255) contact "連絡先メールアドレス"
         int ticket_count "チケット枚数（CHECK 1〜4）"
         enum status "confirmed / canceled / pending_payment / expired"
@@ -321,7 +320,7 @@ stateDiagram-v2
 | capacity | INTEGER | 不可 | ORM: `10` / DB: `10` | — | 定員（チケット枚数ベース。API: 1〜100） |
 | price | INTEGER | 不可 | ORM: `0` / DB: `0` | — | 参加費（円）。0 は無料（API: 0〜100,000） |
 | payment_method | ENUM('onsite','online') | 不可 | ORM: `onsite` / DB: `'onsite'` | — | 参加費の支払方法。`onsite` = 当日会場で支払い、`online` = 予約時に Stripe でカード決済。無料（`price = 0`）なら API が `onsite` に揃える。`online` の参加費は 50 円以上（`ONLINE_PAYMENT_MIN_PRICE`）（`backend/app/schemas/workshop.py:15-17, 43-54`） |
-| participant_guide | TEXT | 不可 | ORM: `""` / DB: `''` | — | 当日の案内（集合場所・持ち物・参加 URL など）。予約が確定した参加者と主催者・運営にだけ返す。開催前日に主催者からのメッセージとして送る（API: 最大 2000 文字） |
+| participant_guide | TEXT | 不可 | ORM: `""` / DB: `''` | — | 当日の案内（集合場所・持ち物・参加 URL など）。予約が確定した参加者と主催者・運営にだけ返す。予約が確定したときに主催者からのメッセージとして送る（API: 最大 2000 文字） |
 | emergency_contact | VARCHAR(255) | 不可 | ORM: `""` / DB: `''` | — | 当日の緊急連絡先。公開範囲は `participant_guide` と同じ |
 | status | ENUM('draft','published','canceled') | 不可 | ORM: `draft` / DB: `'draft'` | — | 公開状態 |
 | facilitator_id | INTEGER | 不可 | — | FK → users.id | 主催者 |
@@ -341,7 +340,6 @@ stateDiagram-v2
 | id | INTEGER | 不可 | AUTO_INCREMENT | PK | 予約 ID |
 | workshop_id | INTEGER | 不可 | — | FK → workshops.id、UK `uq_reservation_workshop_user`(workshop_id, user_id) | 対象ワークショップ |
 | user_id | INTEGER | 不可 | — | FK → users.id、UK（同上） | 予約したユーザー |
-| attendee_name | VARCHAR(255) | 不可 | ORM: `""` / DB: `''` | — | 参加者名。予約時にアカウント名を入れる（入力欄はない。`backend/app/services/reservations.py:186-187`） |
 | contact | VARCHAR(255) | 不可 | ORM: `""` / DB: `''` | — | 連絡先メールアドレス（API: `EmailAddress`）。オンライン決済では Checkout の `customer_email` にも使う |
 | ticket_count | INTEGER | 不可 | ORM: `1` / DB: `1` | CHECK `ck_reservation_ticket_count`(1〜4) | チケット枚数（API: 1〜4。定数 `MAX_TICKETS_PER_RESERVATION`） |
 | status | ENUM('confirmed','canceled','pending_payment','expired') | 不可 | ORM: `confirmed` / DB: `'confirmed'` | — | 予約状態。`pending_payment` = オンライン決済の支払い待ち（期限まで席を確保）、`expired` = 支払われないまま期限切れ・取りやめ。`canceled` は主催者による取消のみ（参加者は自分で取り消せない） |
@@ -504,7 +502,7 @@ stateDiagram-v2
 | 0002 | `workshops.price` 追加 | `backend/alembic/versions/0002_add_workshop_price.py` |
 | 0003 | `users.bio` 追加、`favorites` 作成 | `backend/alembic/versions/0003_bio_and_favorites.py` |
 | 0004 | `workshops.location_type` 追加 | `backend/alembic/versions/0004_workshop_location_type.py` |
-| 0005 | `reservations.attendee_name` / `contact` / `ticket_count` 追加（既存行はユーザー名・メールで補完） | `backend/alembic/versions/0005_reservation_attendee_fields.py` |
+| 0005 | `reservations.attendee_name`（0022 で削除）/ `contact` / `ticket_count` 追加（既存行はユーザー名・メールで補完） | `backend/alembic/versions/0005_reservation_attendee_fields.py` |
 | 0006 | `workshops.cancellation_policy` 追加（0020 で削除） | `backend/alembic/versions/0006_workshop_cancellation_policy.py` |
 | 0007 | `workshops.image_url` 追加 | `backend/alembic/versions/0007_workshop_image_url.py` |
 | 0008 | `notifications` 作成 | `backend/alembic/versions/0008_notifications.py` |
@@ -521,6 +519,7 @@ stateDiagram-v2
 | 0019 | `payments.stripe_refund_id` 追加、`notifications.type` に `payment_refund_failed` を追加 | `backend/alembic/versions/0019_payment_refund_id.py` |
 | 0020 | `workshops.cancellation_policy` 削除（主催者ごとのキャンセルポリシーを廃止し、本サービス共通のキャンセルポリシーにそろえる）。ダウングレード時は列を空文字の既定値で戻す（文章は戻らない） | `backend/alembic/versions/0020_drop_workshop_cancellation_policy.py` |
 | 0021 | Stripe Connect をやめ、運営の Stripe アカウントでの決済と主催者への振込に変更: `users.stripe_account_id`（UK `uq_users_stripe_account_id`）/ `stripe_charges_enabled` と `payments.stripe_account_id` を削除、`payments.application_fee_amount` を `platform_fee_amount` に名前変更（CHECK も `ck_payments_platform_fee` に付け替え）、`payments.facilitator_amount` を追加（既存行は `amount − platform_fee_amount`。CHECK `ck_payments_facilitator_amount`）、`payout_bank_accounts` / `payout_requests` を作成。ダウングレード時は振込の記録と口座を削除し、連結アカウントの列は空の値で戻す | `backend/alembic/versions/0021_platform_payments_and_payouts.py` |
+| 0022 | `reservations.attendee_name` 削除（予約時のアカウント名を写していただけなので、予約者の `users.name` を参照する）。ダウングレード時は列を戻し、今のアカウント名で埋める | `backend/alembic/versions/0022_drop_reservation_attendee_name.py` |
 
 ## 定義間の整合性
 

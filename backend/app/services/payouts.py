@@ -155,7 +155,10 @@ def earnings_select(user: User) -> Select[tuple[Payment]]:
         .join(Reservation, Payment.reservation_id == Reservation.id)
         .join(Workshop, Reservation.workshop_id == Workshop.id)
         .where(Workshop.facilitator_id == user.id, Payment.paid_at.is_not(None))
-        .options(selectinload(Payment.reservation).selectinload(Reservation.workshop))
+        .options(
+            selectinload(Payment.reservation).selectinload(Reservation.workshop),
+            selectinload(Payment.reservation).selectinload(Reservation.user),
+        )
         .order_by(Workshop.end_at.desc(), Payment.id.desc())
     )
 
@@ -172,7 +175,7 @@ def to_earning_reads(payments: list[Payment]) -> list[EarningRead]:
                 workshop_id=workshop.id,
                 workshop_title=workshop.title,
                 workshop_end_at=workshop.end_at,
-                attendee_name=payment.reservation.attendee_name,
+                user_name=payment.reservation.user.name,
                 status=payment.status,
                 amount=payment.amount,
                 facilitator_amount=payment.facilitator_amount if counted else 0,

@@ -70,7 +70,6 @@ class TestReserve:
             Reservation(
                 workshop_id=workshop.id,
                 user_id=participant.id,
-                attendee_name="x",
                 contact="a@example.com",
                 ticket_count=1,
                 status=ReservationStatus.canceled,

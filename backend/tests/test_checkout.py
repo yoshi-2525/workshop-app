@@ -16,6 +16,7 @@ from app.config import settings
 from app.core import stripe_client
 from app.core.stripe_client import CheckoutSessionState, StripeUnavailable
 from app.core.timeutil import utcnow_naive
+from app.models.inquiry import InquiryMessage
 from app.models.payment import Payment, PaymentStatus
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.stripe_event import StripeEvent
@@ -309,6 +310,27 @@ class TestCheckoutWebhook:
         assert _webhook(client, monkeypatch, event).status_code == 204
         assert _webhook(client, monkeypatch, event).status_code == 204
         assert db.scalar(select(StripeEvent).where(StripeEvent.event_id == "evt_1")) is not None
+
+    def test_participant_guide_is_sent_once_when_paid(
+        self, client: TestClient, db: Session, make_user, online_workshop, fake_stripe, monkeypatch
+    ) -> None:
+        """当日の案内は支払いが済んで予約が確定したときに送る(支払い待ちの間は送らない)"""
+        online_workshop = db.get(Workshop, online_workshop.id)
+        online_workshop.participant_guide = "1階受付へ"
+        db.commit()
+        participant = make_user()
+        reservation_id = _reserve(client, online_workshop.id, participant).json()["reservation"]["id"]
+        assert db.scalars(select(InquiryMessage)).all() == []
+
+        state = fake_stripe.complete("cs_1")
+        # 完了画面からの確認と Webhook が重なっても、二重に送らない
+        client.get(f"/api/reservations/{reservation_id}", headers=auth_headers(participant))
+        _webhook(client, monkeypatch, _checkout_event("evt_1", "completed", state))
+
+        db.expire_all()
+        messages = db.scalars(select(InquiryMessage)).all()
+        assert len(messages) == 1 and "1階受付へ" in messages[0].body
+        assert db.get(Reservation, reservation_id).status == ReservationStatus.confirmed
 
     def test_expired_releases_seat(
         self, client: TestClient, db: Session, make_user, online_workshop, fake_stripe, monkeypatch

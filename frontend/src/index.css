@@ -35,6 +35,32 @@
   /* サービス名(ロゴ)や見出しの游明朝。font-brand で参照する。
      Windows は "Yu Mincho"、Mac は "YuMincho" という名前で入っている。游明朝がない環境(Android など)は明朝体にフォールバック */
   --font-brand: "Yu Mincho", "YuMincho", "游明朝", "Hiragino Mincho ProN", serif;
+
+  /* 予約の完了画面の動き。筆でゆっくり線を引くように描き、文字は静かに浮かび上がらせる。
+     線は pathLength="1" stroke-dasharray="1" の SVG に使う。描き始める前(animation-delay の間)は線を隠しておくため fill-mode は both。
+     motion-reduce:animate-none で止めると、描き終えた状態・表示された状態のまま出る */
+  --animate-draw-stroke: draw-stroke 0.73s cubic-bezier(0.65, 0, 0.35, 1) both;
+  --animate-quiet-fade-in: quiet-fade-in 0.53s ease-out both;
+
+  @keyframes draw-stroke {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes quiet-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }
 
 /* キーボード操作でフォーカスしたときの枠線。focus:outline-none と組み合わせて使う。
@@ -65,13 +91,14 @@
   --color-fg-subtle: #6c7282;
   --color-border: #b7bfcd;
   --color-border-muted: #c2c9d5;
-  /* 差し色は、紙に書いたインクの濃い紺にする。夜の地向けの琥珀色は、青みの紙とほぼ補色で明るさも近く、
-     ボタンの境目がちかちかして見えるため。夜の地の上(ヘッダーなど)のボタンは琥珀色のまま */
-  --color-accent: #1f2a44;
-  --color-accent-hover: #2d3b5e;
-  --color-accent-foreground: #ece7dc;
+  /* 差し色は、夜の地の琥珀色を少し沈めた色にする。夜の地と同じ灯りの色で揃えつつ、
+     青みの紙の上で明るさが近づきすぎないよう暗めにしている。上の文字は夜の地と同じ暗い色
+     (accent-foreground とのコントラスト比 7:1 程度、ホバー時も 5.5:1 程度) */
+  --color-accent: #ca9759;
+  --color-accent-hover: #b78345;
+  --color-accent-foreground: #1a1308;
   /* 琥珀色のままだと紙の上で見えにくいので、フォーカスの枠は濃い琥珀色にする(紙・夜の地のどちらとも 3:1 以上) */
-  --color-ring: #8f5f22;
+  --color-ring: #94632f;
   /* リングのすき間は紙の色にする(夜の色のままだと、明るいボタンのまわりに黒い縁が出る) */
   --color-ring-offset: #d3d8e1;
 

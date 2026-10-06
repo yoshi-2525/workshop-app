@@ -80,7 +80,6 @@ def paid_reservation(db: Session, make_user: Callable[..., User], online_worksho
     reservation = Reservation(
         workshop_id=online_workshop.id,
         user_id=make_user().id,
-        attendee_name="参加者",
         contact="p@example.com",
         ticket_count=1,
         status=ReservationStatus.confirmed,

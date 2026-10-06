@@ -78,7 +78,6 @@ def add_paid(db: Session, make_user: Callable[..., User]) -> Callable[..., Payme
         reservation = Reservation(
             workshop_id=workshop.id,
             user_id=make_user().id,
-            attendee_name="参加者",
             contact="p@example.com",
             ticket_count=tickets,
             status=ReservationStatus.confirmed if status == PaymentStatus.paid else ReservationStatus.canceled,

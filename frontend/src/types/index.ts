@@ -135,7 +135,6 @@ export interface Reservation {
   workshop: Workshop
   user_id: number
   user_name: string
-  attendee_name: string
   contact: string
   ticket_count: number
   status: ReservationStatus
@@ -238,7 +237,7 @@ export interface Earning {
   workshop_id: number
   workshop_title: string
   workshop_end_at: string
-  attendee_name: string
+  user_name: string
   status: PaymentStatus
   amount: number
   // 主催者の受取額。返金になった支払いは 0

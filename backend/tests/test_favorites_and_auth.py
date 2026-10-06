@@ -46,7 +46,7 @@ class TestFavorites:
         reserved = make_user()
         db.add(
             Reservation(
-                workshop_id=workshop.id, user_id=reserved.id, attendee_name="x", contact="a@example.com", ticket_count=1
+                workshop_id=workshop.id, user_id=reserved.id, contact="a@example.com", ticket_count=1
             )
         )
         db.commit()

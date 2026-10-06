@@ -248,7 +248,7 @@ function EarningsList() {
                   {e.workshop_title}
                 </Link>
                 <p className="text-xs text-fg-muted">
-                  {formatDateTime(e.workshop_end_at)} 終了 / {e.attendee_name}さん / 参加費 {formatYen(e.amount)}
+                  {formatDateTime(e.workshop_end_at)} 終了 / {e.user_name}さん / 参加費 {formatYen(e.amount)}
                 </p>
               </div>
               <div className="text-right">

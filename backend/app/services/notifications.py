@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from sqlalchemy import delete, select
@@ -12,6 +13,8 @@ from app.models.workshop import Workshop, WorkshopStatus
 from app.services.inquiries import add_message, get_or_create_inquiry
 from app.services.job_lock import named_lock
 from app.services.participants import confirmed_participant_ids
+
+logger = logging.getLogger(__name__)
 
 # リマインダーは、ワークショップごと・参加者ごとに1回だけ送る。定期実行のたびに
 # REMINDER_LOOKAHEAD 以内に始まる公開中のワークショップをすべて見るので、開始の1日前を切ってから
@@ -155,16 +158,16 @@ def _has_participant_guide(workshop: Workshop) -> bool:
 
 
 def reminder_message(workshop: Workshop) -> str:
-    """開催前日のリマインダー(通知)の本文。当日の案内はメッセージで別に届けるので、ここには載せない"""
+    """開催前日のリマインダー(通知)の本文。当日の案内は予約の確定時にメッセージで届けているので、ここには載せない"""
     message = f"「{workshop.title}」の開催が近づいています。お忘れなくご参加ください。"
     if _has_participant_guide(workshop):
-        message += "当日のご案内を主催者からのメッセージでお送りしましたので、ご確認ください。"
+        message += "当日のご案内は、主催者からのメッセージでお送りしていますので、ご確認ください。"
     return message
 
 
 def participant_guide_message(workshop: Workshop) -> str:
-    """開催前日に、主催者から参加者へのメッセージとして送る当日の案内・緊急連絡先"""
-    parts = [f"「{workshop.title}」へのご参加ありがとうございます。当日のご案内をお送りします。"]
+    """予約が確定したときに、主催者から参加者へのメッセージとして送る当日の案内・緊急連絡先"""
+    parts = [f"「{workshop.title}」へのお申し込みありがとうございます。当日のご案内をお送りします。"]
     if workshop.participant_guide:
         parts.append(f"【当日のご案内】\n{workshop.participant_guide}")
     if workshop.emergency_contact:
@@ -172,17 +175,21 @@ def participant_guide_message(workshop: Workshop) -> str:
     return "\n\n".join(parts)
 
 
-def _send_participant_guide(db: Session, workshop: Workshop, user_ids: list[int]) -> None:
-    """当日の案内を、主催者からの一斉送信のメッセージとして各参加者とのやり取りに追加する(commit は呼び出し側)"""
-    if not user_ids or not _has_participant_guide(workshop):
-        return
-    body = participant_guide_message(workshop)
-    for user_id in user_ids:
-        inquiry = get_or_create_inquiry(db, workshop.id, user_id)
-        if inquiry is None:
-            # やり取りを作れなかった場合。リマインダーごと取り消し、次の実行で改めて送る
-            raise RuntimeError("inquiry could not be created")
-        add_message(db, inquiry, workshop.facilitator, body, is_broadcast=True)
+def send_participant_guide(db: Session, workshop: Workshop, user_id: int) -> bool:
+    """予約が確定した参加者に、当日の案内を主催者からのメッセージとして送る(commit は呼び出し側)。
+
+    予約の確定と同じトランザクションで呼ぶ。案内も緊急連絡先もなければ送らない。
+    やり取りを作れなかった場合は送らずに False を返す(案内のために予約の確定を失敗させない。
+    案内は予約の詳細画面でも見られる)
+    """
+    if not _has_participant_guide(workshop):
+        return False
+    inquiry = get_or_create_inquiry(db, workshop.id, user_id)
+    if inquiry is None:
+        logger.warning("participant guide not sent: workshop_id=%s user_id=%s", workshop.id, user_id)
+        return False
+    add_message(db, inquiry, workshop.facilitator, participant_guide_message(workshop), is_broadcast=True)
+    return True
 
 
 def send_upcoming_reminders(db: Session) -> int:
@@ -205,8 +212,6 @@ def _send_upcoming_reminders(db: Session) -> int:
     ).all()
     sent = 0
     for workshop in workshops:
-        # リマインダーと当日の案内のメッセージは、同じ参加者に同じトランザクションで1回だけ送る
-        # (リマインダーの通知が一意なので、通知を新しく作った相手にだけメッセージも送れば重複しない)
         added = _add_missing(
             db,
             workshop.id,
@@ -215,11 +220,9 @@ def _send_upcoming_reminders(db: Session) -> int:
             reminder_message(workshop),
         )
         try:
-            _send_participant_guide(db, workshop, added)
             db.commit()
-        except (IntegrityError, RuntimeError):
-            # 確認してから追加するまでの間に別の経路で同じ通知が作られた、またはやり取りを作れなかった場合。
-            # 通知もメッセージも取り消し、次の実行で改めて送る
+        except IntegrityError:
+            # 確認してから追加するまでの間に別の経路で同じ通知が作られた場合。取り消し、次の実行で改めて送る
             db.rollback()
             continue
         sent += len(added)

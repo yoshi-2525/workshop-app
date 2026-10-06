@@ -55,7 +55,6 @@ class Reservation(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     workshop_id: Mapped[int] = mapped_column(ForeignKey("workshops.id"), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    attendee_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     contact: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     ticket_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     status: Mapped[ReservationStatus] = mapped_column(

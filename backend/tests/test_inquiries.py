@@ -18,7 +18,6 @@ def _add_reservation(db: Session, workshop, user, status=ReservationStatus.confi
         Reservation(
             workshop_id=workshop.id,
             user_id=user.id,
-            attendee_name="x",
             contact="a@example.com",
             ticket_count=1,
             status=status,

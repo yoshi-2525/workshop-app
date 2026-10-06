@@ -27,8 +27,9 @@ function MenuLinkList({ links }: { links: MenuLink[] }) {
           >
             <div>
               <p className="font-medium text-fg">{link.title}</p>
-              {/* 説明が1行でも2行でもカードの高さがそろうよう、説明は2行分の高さを確保する */}
-              <p className="mt-0.5 min-h-[2lh] text-sm text-fg-muted">{link.description}</p>
+              {/* 説明が1行でも2行でもカードの高さがそろうよう、説明は2行分の高さを確保する。
+                  1行のときは、その2行分の中で上下中央に置く */}
+              <p className="mt-0.5 flex min-h-[2lh] flex-col justify-center text-sm text-fg-muted">{link.description}</p>
             </div>
             <MaterialIcon name="chevron_right" className="shrink-0 text-[24px] text-fg-subtle" />
           </Link>

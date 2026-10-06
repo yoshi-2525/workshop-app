@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { getMyReservation } from '@/api/reservations'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage } from '@/components/ui/StatusMessage'
-import { PAPER_SECONDARY_BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { PAPER_SECONDARY_BUTTON_CLASS } from '@/components/ui/styles'
 import { useApiResource } from '@/hooks/useApiResource'
 import type { Reservation } from '@/types'
 import { refundLabel } from '@/utils/payment'
 import { parseIdParam } from '@/utils/params'
+import { RESERVATION_COMPLETE_PATH } from '@/pages/reservations/ReservationCompletePage'
+import type { ReservationCompleteState } from '@/pages/reservations/ReservationCompletePage'
 
 // 支払いの確定を確かめる回数と間隔。Stripe からの通知(Webhook)は通常数秒で届く
 const MAX_CHECKS = 10
@@ -15,6 +17,7 @@ const CHECK_INTERVAL_MS = 2000
 
 const LINK_CLASS = 'text-sm text-fg-secondary underline hover:text-fg'
 
+// confirmed は表示せず、参加登録の完了画面へ移る
 type View = 'checking' | 'slow' | 'confirmed' | 'canceled_workshop' | 'refunding' | 'expired'
 
 function viewOf(reservation: Reservation | undefined, gaveUp: boolean): View {
@@ -25,14 +28,12 @@ function viewOf(reservation: Reservation | undefined, gaveUp: boolean): View {
   return refundLabel(reservation.payment) !== null ? 'refunding' : 'expired'
 }
 
-function messageOf(view: View, title: string): string {
+function messageOf(view: Exclude<View, 'confirmed'>, title: string): string {
   switch (view) {
     case 'checking':
       return 'お支払いを確認しています。このままお待ちください。'
     case 'slow':
       return 'お支払いの確認に時間がかかっています。確認が済むと、参加予定のワークショップに表示されます。'
-    case 'confirmed':
-      return `お支払いが完了し、「${title}」への参加が確定しました。当日の案内は、参加予定のワークショップから確認できます。`
     case 'canceled_workshop':
       return `お支払いは完了しましたが、「${title}」は中止になりました。お支払いいただいた参加費は全額返金します。`
     case 'refunding':
@@ -77,6 +78,13 @@ export function PaymentCompletePage() {
     reload()
   }
 
+  // 支払いが確定したら、参加登録の完了画面へ(この画面は履歴に残さない)
+  // (confirmed になるのは予約を取得できたときだけなので、reservation は必ずある)
+  if (view === 'confirmed') {
+    const state: ReservationCompleteState = { workshopTitle: reservation?.workshop.title ?? '' }
+    return <Navigate to={RESERVATION_COMPLETE_PATH} replace state={state} />
+  }
+
   if (reservationId === null) {
     return (
       <div className="mx-auto max-w-xl">
@@ -97,13 +105,6 @@ export function PaymentCompletePage() {
         {/* 一度も取得できないまま確認をあきらめたときだけ、通信の失敗を伝える */}
         {gaveUp && !reservation && <ErrorMessage message={error} className="text-sm" />}
 
-        {view === 'confirmed' && (
-          <div className="flex justify-end">
-            <Link to="/reservations" className={PRIMARY_BUTTON_CLASS}>
-              参加予定のワークショップを見る
-            </Link>
-          </div>
-        )}
         {view === 'slow' && (
           <div className="flex flex-wrap items-center justify-end gap-3">
             <Link to="/reservations" className={LINK_CLASS}>

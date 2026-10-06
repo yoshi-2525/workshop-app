@@ -21,6 +21,8 @@ import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { GHOST_BUTTON_CLASS, INPUT_CLASS, LABEL_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 import { CancellationPolicy } from '@/components/workshop/CancellationPolicy'
+import { RESERVATION_COMPLETE_PATH } from '@/pages/reservations/ReservationCompletePage'
+import type { ReservationCompleteState } from '@/pages/reservations/ReservationCompletePage'
 
 interface UnavailableReason {
   message: string
@@ -62,7 +64,7 @@ function getUnavailableReason(workshop: Workshop): UnavailableReason | null {
   }
 }
 
-// 予約後の移動先。オンライン決済なら Stripe の支払い画面、それ以外は参加予定の一覧。
+// 予約後の移動先。オンライン決済なら Stripe の支払い画面、それ以外は参加登録の完了画面。
 // onRestored はブラウザの「戻る」で Stripe からこの画面がそのまま復元されたときに呼ぶ
 function useAfterReservation(onRestored?: () => void) {
   const navigate = useNavigate()
@@ -91,7 +93,8 @@ function useAfterReservation(onRestored?: () => void) {
       window.location.assign(checkoutUrl)
       return
     }
-    navigate('/reservations', { state: { justReserved: workshopTitle } })
+    const state: ReservationCompleteState = { workshopTitle }
+    navigate(RESERVATION_COMPLETE_PATH, { state })
   }
 
   return { redirecting, goNext }

@@ -95,7 +95,7 @@ class EarningRead(BaseModel):
     workshop_id: int
     workshop_title: str
     workshop_end_at: UTCDateTime
-    attendee_name: str
+    user_name: str
     status: PaymentStatus
     amount: int
     # 主催者の受取額。返金になった支払いは 0

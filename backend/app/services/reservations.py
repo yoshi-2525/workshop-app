@@ -15,7 +15,7 @@ from app.models.user import User
 from app.models.workshop import PaymentMethod, Workshop, WorkshopStatus
 from app.schemas.reservation import PaymentSummary, ReservationCreate, ReservationRead
 from app.services.job_lock import named_lock
-from app.services.notifications import add_reservation_canceled_notice
+from app.services.notifications import add_reservation_canceled_notice, send_participant_guide
 from app.services.payments import (
     PAYMENT_HOLD,
     add_payment,
@@ -88,7 +88,6 @@ def to_reservation_reads(
             workshop=workshop_reads[r.workshop_id],
             user_id=r.user_id,
             user_name=r.user.name,
-            attendee_name=r.attendee_name,
             contact=r.contact,
             ticket_count=r.ticket_count,
             status=r.status,
@@ -183,13 +182,12 @@ def create_reservation(db: Session, workshop_id: int, user: User, payload: Reser
         raise conflict("残席がチケット枚数に満たないため予約できません")
 
     reservation = existing or Reservation(workshop_id=workshop_id, user_id=user.id)
-    # 同じアカウントでは同じ名前で参加する想定なので、参加者名はアカウント名を使う
-    reservation.attendee_name = user.name
     reservation.contact = payload.contact
     reservation.ticket_count = payload.ticket_count
     if not online:
         reservation.status = ReservationStatus.confirmed
         db.add(reservation)
+        send_participant_guide(db, workshop, user.id)
         return ReservationStart(reservation=reservation)
 
     reservation.status = ReservationStatus.pending_payment
@@ -234,6 +232,7 @@ def confirm_paid_checkout(
         return
     reservation.status = ReservationStatus.confirmed
     reservation.payment_expires_at = None
+    send_participant_guide(db, workshop, reservation.user_id)
 
 
 def _lock_reservation_and_payment(db: Session, payment: Payment) -> Reservation:

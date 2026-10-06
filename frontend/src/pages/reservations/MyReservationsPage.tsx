@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { listMyReservations } from '@/api/reservations'
 import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
 import { useApiResource } from '@/hooks/useApiResource'
@@ -159,22 +159,14 @@ function ReservationList({ kind }: { kind: ListKind }) {
   )
 }
 
-// 参加予定のワークショップ(/reservations)。予約の完了後もここに移動して、完了メッセージを出す
+// 参加予定のワークショップ(/reservations)
 export function MyReservationsPage() {
-  const location = useLocation()
-  const justReserved = (location.state as { justReserved?: string } | null)?.justReserved
-
   return (
     <div>
       <h1 className="text-xl font-semibold text-fg">参加予定のワークショップ</h1>
       <p className="mt-1 text-sm text-fg-muted">
         キャンセルをご希望の場合は、ワークショップの主催者にご連絡ください。
       </p>
-      {justReserved && (
-        <p role="status" className="mt-4 rounded-md bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300">
-          「{justReserved}」への参加登録が完了しました。
-        </p>
-      )}
       <ReservationList kind="upcoming" />
     </div>
   )

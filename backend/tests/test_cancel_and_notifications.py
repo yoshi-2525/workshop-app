@@ -14,7 +14,7 @@ from tests.conftest import auth_headers, workshop_payload
 
 def _add_reservation(db: Session, workshop, user) -> None:
     db.add(
-        Reservation(workshop_id=workshop.id, user_id=user.id, attendee_name="x", contact="a@example.com", ticket_count=1)
+        Reservation(workshop_id=workshop.id, user_id=user.id, contact="a@example.com", ticket_count=1)
     )
     db.commit()
 
