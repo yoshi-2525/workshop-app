@@ -26,8 +26,7 @@ from tests.conftest import auth_headers
 
 PRICE = 3000
 STRIPE_FEE = 108
-APP_FEE = 300
-ACCOUNT = "acct_facilitator"
+PLATFORM_FEE = 300
 
 
 @pytest.fixture(autouse=True)
@@ -52,7 +51,7 @@ class FakeRefunds:
         self.calls.append(kwargs)
         return f"re_{len(self.calls)}"
 
-    def expire_checkout_session(self, session_id: str, *, account_id: str) -> Any:
+    def expire_checkout_session(self, session_id: str) -> Any:
         self.expired.append(session_id)
 
 
@@ -66,12 +65,8 @@ def fake_refunds(monkeypatch: pytest.MonkeyPatch) -> FakeRefunds:
 
 
 @pytest.fixture
-def facilitator(db: Session, make_user: Callable[..., User]) -> User:
-    user = make_user(UserRole.facilitator)
-    user.stripe_account_id = ACCOUNT
-    user.stripe_charges_enabled = True
-    db.commit()
-    return user
+def facilitator(make_user: Callable[..., User]) -> User:
+    return make_user(UserRole.facilitator)
 
 
 @pytest.fixture
@@ -95,11 +90,11 @@ def paid_reservation(db: Session, make_user: Callable[..., User], online_worksho
     db.add(
         Payment(
             reservation_id=reservation.id,
-            stripe_account_id=ACCOUNT,
             stripe_checkout_session_id=f"cs_{reservation.id}",
             stripe_payment_intent_id=f"pi_{reservation.id}",
             amount=PRICE,
-            application_fee_amount=APP_FEE,
+            platform_fee_amount=PLATFORM_FEE,
+            facilitator_amount=PRICE - PLATFORM_FEE,
             stripe_fee_amount=STRIPE_FEE,
             status=PaymentStatus.paid,
             paid_at=utcnow_naive(),
@@ -137,10 +132,8 @@ class TestCancelReservationRefund:
         assert res.json()["cancel_reason"] == "facilitator"
         assert fake_refunds.calls == [
             {
-                "account_id": ACCOUNT,
                 "payment_intent_id": f"pi_{paid_reservation.id}",
                 "amount": PRICE,
-                "refund_application_fee": True,
                 "idempotency_key": f"refund-payment-{_payment(db, paid_reservation).id}-0",
                 "metadata": {"payment_id": str(_payment(db, paid_reservation).id)},
             }
@@ -158,10 +151,8 @@ class TestCancelReservationRefund:
         res = _cancel(client, online_workshop, paid_reservation, facilitator, "participant")
 
         assert res.status_code == 200
-        expected = PRICE - STRIPE_FEE - APP_FEE
+        expected = PRICE - STRIPE_FEE - PLATFORM_FEE
         assert fake_refunds.calls[0]["amount"] == expected
-        # 差し引いて返すときは運営の手数料を主催者に戻さない(主催者の収支が 0 になる)
-        assert fake_refunds.calls[0]["refund_application_fee"] is False
         assert _payment(db, paid_reservation).refund_amount == expected
         canceled = _notice(db, paid_reservation, NotificationType.reservation_canceled)
         assert "参加者のご都合" in canceled.message and f"{expected:,}円" in canceled.message
@@ -170,7 +161,7 @@ class TestCancelReservationRefund:
         self, client, db, facilitator, online_workshop, paid_reservation, fake_refunds
     ) -> None:
         payment = _payment(db, paid_reservation)
-        payment.stripe_fee_amount = PRICE - APP_FEE
+        payment.stripe_fee_amount = PRICE - PLATFORM_FEE
         db.commit()
 
         _cancel(client, online_workshop, paid_reservation, facilitator, "participant")
@@ -275,10 +266,10 @@ class TestCancelWorkshopRefund:
         db.add(
             Payment(
                 reservation_id=pending.id,
-                stripe_account_id=ACCOUNT,
                 stripe_checkout_session_id="cs_open",
                 amount=PRICE,
-                application_fee_amount=APP_FEE,
+                platform_fee_amount=PLATFORM_FEE,
+            facilitator_amount=PRICE - PLATFORM_FEE,
                 status=PaymentStatus.pending,
             )
         )
@@ -288,7 +279,6 @@ class TestCancelWorkshopRefund:
 
         assert res.status_code == 200
         assert [c["amount"] for c in fake_refunds.calls] == [PRICE]
-        assert fake_refunds.calls[0]["refund_application_fee"] is True
         assert _payment(db, paid_reservation).status == PaymentStatus.refunded
         # 中止は予約の取消ではないので、予約は確定のまま残し取消の理由も入れない
         reservation = db.get(Reservation, paid_reservation.id)
@@ -307,7 +297,6 @@ class TestRefundWebhook:
         event = {
             "id": "evt_refund_failed",
             "type": "charge.refund.updated",
-            "account": ACCOUNT,
             "data": {"object": {"id": "re_1", "status": "failed", "payment_intent": f"pi_{paid_reservation.id}"}},
         }
         monkeypatch.setattr(stripe_client, "construct_event", lambda _payload, _sig: event)
@@ -319,19 +308,20 @@ class TestRefundWebhook:
         # 返金済みと知らせていたので、完了できなかったことも知らせる
         assert _notice(db, paid_reservation, NotificationType.payment_refund_failed) is not None
 
-    def test_failed_refund_from_another_account_is_ignored(
-        self, client, db, facilitator, online_workshop, paid_reservation, fake_refunds, monkeypatch
+
+
+    def test_failed_refund_not_requested_by_app_keeps_payment(
+        self, client, db, paid_reservation, monkeypatch
     ) -> None:
-        _cancel(client, online_workshop, paid_reservation, facilitator, "facilitator")
+        """ダッシュボードからの返金の失敗などで、支払い済みの売上を消さない"""
         event = {
-            "id": "evt_refund_failed_other",
+            "id": "evt_refund_failed_dashboard",
             "type": "charge.refund.updated",
-            "account": "acct_other",
-            "data": {"object": {"id": "re_1", "status": "failed", "payment_intent": f"pi_{paid_reservation.id}"}},
+            "data": {"object": {"id": "re_x", "status": "failed", "payment_intent": f"pi_{paid_reservation.id}"}},
         }
         monkeypatch.setattr(stripe_client, "construct_event", lambda _payload, _sig: event)
         client.post("/api/stripe/webhook", content=b"{}", headers={"stripe-signature": "t=1,v1=x"})
-        assert _payment(db, paid_reservation).status == PaymentStatus.refunded
+        assert _payment(db, paid_reservation).status == PaymentStatus.paid
 
 
 class TestReleaseStaleHolds:

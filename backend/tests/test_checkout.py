@@ -24,7 +24,6 @@ from app.models.workshop import PaymentMethod, Workshop, WorkshopStatus
 from tests.conftest import auth_headers, workshop_payload
 
 PRICE = 3000
-ACCOUNT = "acct_facilitator"
 
 
 @pytest.fixture(autouse=True)
@@ -59,16 +58,16 @@ class FakeStripe:
         self.sessions[session_id] = state
         return state
 
-    def retrieve_checkout_session(self, session_id: str, *, account_id: str) -> CheckoutSessionState:
+    def retrieve_checkout_session(self, session_id: str) -> CheckoutSessionState:
         return self.sessions[session_id]
 
-    def expire_checkout_session(self, session_id: str, *, account_id: str) -> CheckoutSessionState:
+    def expire_checkout_session(self, session_id: str) -> CheckoutSessionState:
         self.expired.append(session_id)
         state = CheckoutSessionState(session_id, "expired", "unpaid", None, None)
         self.sessions[session_id] = state
         return state
 
-    def retrieve_stripe_fee(self, payment_intent_id: str, *, account_id: str) -> int:
+    def retrieve_stripe_fee(self, payment_intent_id: str) -> int:
         return self.stripe_fee
 
     def complete(self, session_id: str) -> CheckoutSessionState:
@@ -92,12 +91,9 @@ def fake_stripe(monkeypatch: pytest.MonkeyPatch) -> FakeStripe:
 
 
 @pytest.fixture
-def facilitator(db: Session, make_user: Callable[..., User]) -> User:
-    user = make_user(UserRole.facilitator)
-    user.stripe_account_id = ACCOUNT
-    user.stripe_charges_enabled = True
-    db.commit()
-    return user
+def facilitator(make_user: Callable[..., User]) -> User:
+    # 主催者に受け取りの設定は要らない(参加費は運営の Stripe アカウントで受け取る)
+    return make_user(UserRole.facilitator)
 
 
 @pytest.fixture
@@ -119,11 +115,10 @@ def _webhook(client: TestClient, monkeypatch: pytest.MonkeyPatch, event: dict[st
     return client.post("/api/stripe/webhook", content=b"{}", headers={"stripe-signature": "t=1,v1=x"})
 
 
-def _checkout_event(event_id: str, kind: str, state: CheckoutSessionState, account: str = ACCOUNT) -> dict[str, Any]:
+def _checkout_event(event_id: str, kind: str, state: CheckoutSessionState) -> dict[str, Any]:
     return {
         "id": event_id,
         "type": f"checkout.session.{kind}",
-        "account": account,
         "data": {
             "object": {
                 "id": state.session_id,
@@ -151,17 +146,19 @@ class TestStartCheckout:
         assert body["checkout_url"] == "https://checkout.stripe.com/c/pay/cs_1"
         assert body["reservation"]["status"] == "pending_payment"
         assert body["reservation"]["payment"]["amount"] == PRICE * 2
-        # 手数料の内訳は主催者が負担するものなので、参加者には返さない
-        assert body["reservation"]["payment"]["application_fee_amount"] is None
-        assert _payments(db, body["reservation"]["id"])[0].application_fee_amount == PRICE * 2 // 10
+        # 手数料の内訳と主催者の受取額は、参加者には返さない
+        assert body["reservation"]["payment"]["platform_fee_amount"] is None
+        assert body["reservation"]["payment"]["facilitator_amount"] is None
+        # 運営の手数料(10%)と主催者の受取額(90%)を予約時に確定して記録する
+        payment = _payments(db, body["reservation"]["id"])[0]
+        assert payment.platform_fee_amount == 600
+        assert payment.facilitator_amount == 5400
         # 支払い待ちの間も席を確保している
         assert body["reservation"]["workshop"]["reserved_count"] == 2
         assert body["reservation"]["workshop"]["viewer"]["is_payment_pending"] is True
 
         created = fake_stripe.created[0]
-        assert created["account_id"] == ACCOUNT
         assert created["item"].unit_amount == PRICE and created["item"].quantity == 2
-        assert created["application_fee_amount"] == 600
         reservation_id = body["reservation"]["id"]
         assert created["success_url"] == f"http://front.example/reservations/{reservation_id}/payment/complete"
         assert created["cancel_url"] == f"http://front.example/workshops/{online_workshop.id}/reserve?payment=canceled"
@@ -271,13 +268,14 @@ class TestStartCheckout:
     ) -> None:
         _reserve(client, online_workshop.id, make_user())
         res = client.get(f"/api/workshops/{online_workshop.id}/reservations", headers=auth_headers(facilitator))
-        assert res.json()[0]["payment"]["application_fee_amount"] == PRICE // 10
+        payment = res.json()[0]["payment"]
+        assert payment["platform_fee_amount"] == PRICE // 10
+        assert payment["facilitator_amount"] == PRICE - PRICE // 10
 
-    def test_facilitator_without_payout_account_is_409(
-        self, client: TestClient, db: Session, make_user, online_workshop: Workshop, facilitator: User, fake_stripe
+    def test_online_payment_disabled_is_409(
+        self, client: TestClient, make_user, online_workshop: Workshop, fake_stripe, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        facilitator.stripe_charges_enabled = False
-        db.commit()
+        monkeypatch.setattr(settings, "stripe_secret_key", "")
         assert _reserve(client, online_workshop.id, make_user()).status_code == 409
         assert fake_stripe.created == []
 
@@ -368,15 +366,6 @@ class TestCheckoutWebhook:
 
         assert _payments(db, reservation_id)[0].status == PaymentStatus.refund_pending
 
-    def test_event_from_another_account_is_ignored(
-        self, client: TestClient, db: Session, make_user, online_workshop, fake_stripe, monkeypatch
-    ) -> None:
-        reservation_id = self._start(client, make_user, online_workshop)
-        event = _checkout_event("evt_1", "completed", fake_stripe.complete("cs_1"), account="acct_other")
-
-        assert _webhook(client, monkeypatch, event).status_code == 204
-        assert _payments(db, reservation_id)[0].status == PaymentStatus.pending
-
     def test_fee_lookup_failure_asks_stripe_to_retry(
         self, client: TestClient, db: Session, make_user, online_workshop, fake_stripe, monkeypatch
     ) -> None:
@@ -401,19 +390,6 @@ class TestCheckoutWebhook:
         monkeypatch.setattr(settings, "stripe_webhook_secret", "whsec_test")
         res = client.post("/api/stripe/webhook", content=b"{}", headers={"stripe-signature": "t=1,v1=bad"})
         assert res.status_code == 400
-
-    def test_account_updated_syncs_facilitator(
-        self, client: TestClient, db: Session, facilitator: User, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        event = {
-            "id": "evt_acct",
-            "type": "account.updated",
-            "account": ACCOUNT,
-            "data": {"object": {"id": ACCOUNT, "charges_enabled": False, "details_submitted": True}},
-        }
-        assert _webhook(client, monkeypatch, event).status_code == 204
-        db.refresh(facilitator)
-        assert facilitator.stripe_charges_enabled is False
 
 
 class TestReservationStatusPage:
@@ -532,16 +508,22 @@ class TestPaymentMethodOfWorkshop:
         payload.update(overrides)
         return client.post("/api/workshops", json=payload, headers=auth_headers(user))
 
-    def test_can_publish_online_with_payout_account(self, client: TestClient, facilitator: User) -> None:
+    def test_can_publish_online(self, client: TestClient, facilitator: User) -> None:
         res = self._create(client, facilitator)
         assert res.status_code == 201
         assert res.json()["payment_method"] == "online"
 
-    def test_cannot_publish_online_without_payout_account(self, client: TestClient, make_user) -> None:
-        assert self._create(client, make_user(UserRole.facilitator)).status_code == 409
+    def test_cannot_publish_online_when_online_payment_disabled(
+        self, client: TestClient, facilitator: User, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "stripe_secret_key", "")
+        assert self._create(client, facilitator).status_code == 409
 
-    def test_draft_can_choose_online_before_payout_setup(self, client: TestClient, make_user) -> None:
-        assert self._create(client, make_user(UserRole.facilitator), status="draft").status_code == 201
+    def test_draft_can_choose_online_when_online_payment_disabled(
+        self, client: TestClient, facilitator: User, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "stripe_secret_key", "")
+        assert self._create(client, facilitator, status="draft").status_code == 201
 
     def test_free_workshop_becomes_onsite(self, client: TestClient, make_user) -> None:
         res = self._create(client, make_user(UserRole.facilitator), price=0)
@@ -552,11 +534,10 @@ class TestPaymentMethodOfWorkshop:
         assert self._create(client, facilitator, price=30).status_code == 422
 
     def test_published_online_workshop_stays_editable_when_stripe_stops(
-        self, client: TestClient, db: Session, facilitator: User, online_workshop: Workshop
+        self, client: TestClient, facilitator: User, online_workshop: Workshop, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """公開後に受け取りが止まっても、説明などの編集はできる(新しく公開するときだけ確かめる)"""
-        facilitator.stripe_charges_enabled = False
-        db.commit()
+        """公開後にオンライン決済が止まっても、説明などの編集はできる(新しく公開するときだけ確かめる)"""
+        monkeypatch.setattr(settings, "stripe_secret_key", "")
         res = client.put(
             f"/api/workshops/{online_workshop.id}",
             json=workshop_payload(online_workshop, description="説明を直しました"),

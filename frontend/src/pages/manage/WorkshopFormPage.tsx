@@ -21,7 +21,7 @@ import { isWorkshopFinished } from '@/utils/workshop'
 import { FULL_REFUND_FEE_NOTE, isOnlinePayment } from '@/utils/payment'
 import { WorkshopFormFields } from '@/pages/manage/WorkshopFormFields'
 import { removeWorkshopDraft, useWorkshopDraft, workshopDraftKey } from '@/pages/manage/useWorkshopDraft'
-import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { GHOST_BUTTON_CLASS, PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 // 公開中のワークショップで変更できない項目(参加者が予約したときの条件)。バックエンドの check_workshop_input と揃える
 const LOCKED_WHEN_PUBLISHED = ['price', 'payment_method', 'start_at', 'end_at', 'location_type', 'location'] as const
@@ -303,6 +303,7 @@ export function WorkshopFormPage() {
           onRemoveImage={image.remove}
           lockConditions={lockConditions}
           reservedCount={reservedCount}
+          isNew={!isEdit}
         />
 
         <ErrorMessage message={error} className="mt-4 text-sm" />
@@ -316,7 +317,7 @@ export function WorkshopFormPage() {
           <button
             type="button"
             onClick={handleCancelClick}
-            className="rounded-md px-4 py-2 text-sm text-fg-muted hover:bg-surface-muted"
+            className={GHOST_BUTTON_CLASS}
           >
             キャンセル
           </button>
@@ -326,7 +327,7 @@ export function WorkshopFormPage() {
               type="button"
               onClick={() => handleSave('draft')}
               disabled={saving}
-              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-fg-secondary hover:bg-surface-muted disabled:opacity-50"
+              className={SECONDARY_BUTTON_CLASS}
             >
               {saving ? '保存中...' : '下書きとして保存'}
             </button>

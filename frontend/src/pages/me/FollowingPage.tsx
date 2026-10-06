@@ -12,6 +12,7 @@ import { WorkshopCard } from '@/components/workshop/WorkshopCard'
 import { WorkshopSortSelect } from '@/components/workshop/WorkshopSortSelect'
 import { useApiResource } from '@/hooks/useApiResource'
 import { useBackState } from '@/hooks/useBackState'
+import { pageCount } from '@/utils/pagination'
 
 const PAGE_TITLE = 'フォロー中の主催者のワークショップ'
 const WORKSHOPS_PER_PAGE = 10
@@ -36,10 +37,6 @@ function parseSegment(value: string | null): Segment {
 
 function parseSort(value: string | null): WorkshopSort {
   return SORTS.find((sort) => sort === value) ?? 'start'
-}
-
-function pageCount(total: number | undefined, perPage: number): number {
-  return Math.max(1, Math.ceil((total ?? 0) / perPage))
 }
 
 export function FollowingPage() {

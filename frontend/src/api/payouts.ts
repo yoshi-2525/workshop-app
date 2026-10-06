@@ -1,30 +1,66 @@
-import { apiClient } from '@/api/client'
-import type { PayoutAccount } from '@/types'
-import { isStripeRedirectUrl } from '@/utils/payment'
+import { apiClient, fetchPage } from '@/api/client'
+import type {
+  AdminPayoutRequest,
+  BankAccount,
+  Earning,
+  Page,
+  PayoutRequest,
+  PayoutRequestStatus,
+  PayoutSummary,
+} from '@/types'
 
-interface RedirectUrl {
-  url: string
-}
+const BASE = '/facilitators/me/payouts'
 
-// 移動先が Stripe のページでなければ、移動せずにエラーとして扱う
-function toStripeRedirectUrl(data: RedirectUrl): string {
-  if (!isStripeRedirectUrl(data.url)) throw new Error('Stripe の画面の URL を受け取れませんでした')
-  return data.url
-}
-
-export async function getPayoutAccount(signal?: AbortSignal): Promise<PayoutAccount> {
-  const { data } = await apiClient.get<PayoutAccount>('/facilitators/me/payout-account', { signal })
+// 振込を申請できる額・開催前の額などの、主催者の売上の状況
+export async function getPayoutSummary(signal?: AbortSignal): Promise<PayoutSummary> {
+  const { data } = await apiClient.get<PayoutSummary>(`${BASE}/summary`, { signal })
   return data
 }
 
-// 受け取り設定(本人確認・口座登録)を行う Stripe の画面の URL。一度しか使えないので、取得したらすぐ移動する
-export async function startPayoutOnboarding(): Promise<string> {
-  const { data } = await apiClient.post<RedirectUrl>('/facilitators/me/payout-account/onboarding')
-  return toStripeRedirectUrl(data)
+// 収入の明細(オンライン決済の支払いごと)
+export function getEarnings(page: number, perPage: number, signal?: AbortSignal): Promise<Page<Earning>> {
+  return fetchPage(`${BASE}/earnings`, {}, page, perPage, signal)
 }
 
-// 売上・入金を確認する Stripe のダッシュボードの URL
-export async function getPayoutDashboardUrl(): Promise<string> {
-  const { data } = await apiClient.post<RedirectUrl>('/facilitators/me/payout-account/dashboard')
-  return toStripeRedirectUrl(data)
+// 登録している振込先口座。未登録なら null
+export async function getBankAccount(signal?: AbortSignal): Promise<BankAccount | null> {
+  const { data } = await apiClient.get<BankAccount | null>(`${BASE}/bank-account`, { signal })
+  return data
+}
+
+export async function saveBankAccount(account: BankAccount): Promise<BankAccount> {
+  const { data } = await apiClient.put<BankAccount>(`${BASE}/bank-account`, account)
+  return data
+}
+
+// 自分の振込の申請の履歴(新しい順)
+export function getPayoutRequests(page: number, perPage: number, signal?: AbortSignal): Promise<Page<PayoutRequest>> {
+  return fetchPage(`${BASE}/requests`, {}, page, perPage, signal)
+}
+
+// 申請できる額の全額で振込を申請する
+export async function requestPayout(): Promise<PayoutRequest> {
+  const { data } = await apiClient.post<PayoutRequest>(`${BASE}/requests`)
+  return data
+}
+
+// ---- 運営(admin)向け ----
+
+export function getAdminPayoutRequests(
+  status: PayoutRequestStatus | null,
+  page: number,
+  perPage: number,
+  signal?: AbortSignal,
+): Promise<Page<AdminPayoutRequest>> {
+  return fetchPage('/admin/payout-requests', status ? { status } : {}, page, perPage, signal)
+}
+
+export async function markPayoutPaid(id: number, note: string): Promise<AdminPayoutRequest> {
+  const { data } = await apiClient.post<AdminPayoutRequest>(`/admin/payout-requests/${id}/paid`, { note })
+  return data
+}
+
+export async function rejectPayout(id: number, note: string): Promise<AdminPayoutRequest> {
+  const { data } = await apiClient.post<AdminPayoutRequest>(`/admin/payout-requests/${id}/reject`, { note })
+  return data
 }

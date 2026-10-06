@@ -92,7 +92,7 @@ def create_workshop(
     db: Session = Depends(get_db),
     current_user: User = Depends(_manager),
 ) -> WorkshopRead:
-    check_workshop_input(db, payload, current_user)
+    check_workshop_input(db, payload)
     workshop = Workshop(**payload.model_dump(), facilitator_id=current_user.id)
     db.add(workshop)
     db.flush()
@@ -114,7 +114,7 @@ def update_workshop(
     # 予約の受付と同時に定員・状態を変えても食い違わないよう、行をロックしてから確かめる
     workshop = get_managed_workshop(db, workshop_id, current_user, for_update=True)
     ensure_editable(workshop)
-    check_workshop_input(db, payload, workshop.facilitator, workshop)
+    check_workshop_input(db, payload, workshop)
     was_published = workshop.published_at is not None
     for field, value in payload.model_dump().items():
         setattr(workshop, field, value)

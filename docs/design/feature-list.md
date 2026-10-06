@@ -1,6 +1,6 @@
 # 機能一覧表
 
-最終更新日: 2026-10-05
+最終更新日: 2026-10-06
 
 TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・画面・API との対応を示す。画面を持たない機能（スケジューラ、Webhook、運用スクリプト等）も含む。別表として API エンドポイントの一覧を置く。
 
@@ -16,7 +16,7 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
   - **システム**: 利用者操作によらず自動実行
   - **Stripe**: Stripe からの Webhook 呼び出し
 - API のパスはすべて `/api` プレフィックス付き。
-- カテゴリ略称: AUTH（認証）/ WS（ワークショップ閲覧）/ RSV（予約）/ PAY（オンライン決済）/ FAV（お気に入り）/ FLW（主催者フォロー）/ NTF（通知）/ PRF（プロフィール）/ MNG（主催者管理）/ SYS（システム）
+- カテゴリ略称: AUTH（認証）/ WS（ワークショップ閲覧）/ RSV（予約）/ PAY（オンライン決済）/ PAYOUT（売上と振込）/ FAV（お気に入り）/ FLW（主催者フォロー）/ NTF（通知）/ PRF（プロフィール）/ MNG（主催者管理）/ SYS（システム）
 
 ## 機能一覧
 
@@ -31,7 +31,7 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 | F-AUTH-05 | 認証 | 主催者登録 | facilitator として登録し、自動ログインして `/manage` へ | 全員 | `/register/facilitator` | `POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me` |
 | F-AUTH-06 | 認証 | ログイン状態の復元 | 起動時に localStorage の JWT でユーザー情報を取得。API が 401 を返したら `AUTH_EXPIRED_EVENT` を発火してログアウトする | ログイン | （全画面共通） | `GET /api/auth/me` |
 | F-AUTH-07 | 認証 | ログアウト | トークンを破棄して `/login` へ遷移（サーバー API 呼び出しなし） | ログイン | `/me` | — |
-| F-AUTH-08 | 認証 | 画面アクセス制御 | 未ログイン時はログイン画面へ（`state.from` に元のパス + クエリ）、主催者画面にロール不足でアクセスすると `/` へリダイレクト | 全員 | ログイン必須画面・`/manage` 配下 | — |
+| F-AUTH-08 | 認証 | 画面アクセス制御 | 未ログイン時はログイン画面へ（`state.from` に元のパス + クエリ）、主催者画面・管理者画面にロール不足でアクセスすると `/` へリダイレクト（`/manage/payout-requests` は admin のみ） | 全員 | ログイン必須画面・`/manage` 配下 | — |
 | F-AUTH-09 | 認証 | ロール変更（管理者付与） | 運用スクリプトで既存ユーザーのロールを変更する。admin は API からは作成できない | 管理者（運用者） | なし（`backend/scripts/set_role.py`） | — |
 
 ### ワークショップ閲覧（WS）
@@ -59,20 +59,36 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 
 | 機能ID | カテゴリ | 機能名 | 概要 | 利用者（権限） | 画面 | API（メソッド + パス） |
 |---|---|---|---|---|---|---|
-| F-PAY-01 | オンライン決済 | 受け取り設定の状態表示 | 主催者の受け取り設定の状態（未設定 / 設定の途中・確認中 / 受け付けできます）と、運営側でオンライン決済が使えるかを表示。設定の途中・審査中なら表示のたびに Stripe から最新の状態を読み直す（Stripe に繋がらなければ保存済みの状態を表示） | 主催者 | `/manage/payout`、`/manage/workshops/new`、`/manage/workshops/:id/edit` | `GET /api/facilitators/me/payout-account` |
-| F-PAY-02 | オンライン決済 | 受け取り設定の開始・継続 | 「受け取り設定を始める / 続ける」で Stripe の受け取り設定画面（本人確認・口座登録）へ移動する。初回は Stripe の連結アカウント（Express、国 JP）を作成し、ID を先に確定する。戻り先は `/manage/payout?returned=1`、URL の期限切れ時は `?refresh=1`（期限切れの案内を表示）。オンライン決済が無効なら 409、Stripe の失敗は 503 | 主催者 | `/manage/payout` | `POST /api/facilitators/me/payout-account/onboarding` |
-| F-PAY-03 | オンライン決済 | 売上・入金の確認 | 受け取り設定が完了している主催者に、Stripe Express ダッシュボードの URL を返して移動する。未完了なら 409 | 主催者 | `/manage/payout` | `POST /api/facilitators/me/payout-account/dashboard` |
-| F-PAY-04 | オンライン決済 | 支払方法の選択 | 有料のワークショップで「当日払い」/「オンライン決済(カード)」を選ぶ。オンライン決済は受け取り設定が完了しているときだけ選べ、参加費は 50 円以上。無料なら当日払いに揃える。オンライン決済で新しく公開するには受け取り設定の完了が必要（下書きは保存可）。公開中は支払方法を変更できない | 主催者 | `/manage/workshops/new`、`/manage/workshops/:id/edit` | `POST /api/workshops`、`PUT /api/workshops/{workshop_id}` |
-| F-PAY-05 | オンライン決済 | オンライン決済での予約（席の仮押さえ） | オンライン決済のワークショップを予約すると、予約を `pending_payment` にして 32 分間（`PAYMENT_HOLD`）席を確保し、支払い（金額 = 参加費 × 枚数、運営の手数料 = 金額 × `PLATFORM_FEE_PERCENT` %）を記録する。席の確保を commit してから主催者の連結アカウント上に Stripe Checkout を作成し、`checkout_url` を返す。Stripe が失敗したら席を手放して 503。作成中に中止・取りやめがあれば Checkout を閉じて 409。主催者の受け取り設定が止まっていれば 409 | ログイン | `/workshops/:id/reserve` → Stripe Checkout | `POST /api/workshops/{workshop_id}/reservations` |
+| F-PAY-01 | オンライン決済 | （廃止）受け取り設定の状態表示 | Stripe Connect の廃止（マイグレーション 0021）に伴い削除。主催者ごとの受け取り設定はなくなり、オンライン決済を選べるかは運営側の設定だけで決まる（F-PAY-04）。売上の確認は F-PAYOUT-01 / 02 | — | — | （廃止）`GET /api/facilitators/me/payout-account` |
+| F-PAY-02 | オンライン決済 | （廃止）受け取り設定の開始・継続 | Stripe Connect の廃止に伴い削除（連結アカウントの作成・Stripe の受け取り設定画面への移動はない）。振込先は F-PAYOUT-03 でアプリに登録する | — | — | （廃止）`POST /api/facilitators/me/payout-account/onboarding` |
+| F-PAY-03 | オンライン決済 | （廃止）売上・入金の確認（Stripe Express ダッシュボード） | Stripe Connect の廃止に伴い削除。売上・振込の確認は F-PAYOUT-01〜05 | — | — | （廃止）`POST /api/facilitators/me/payout-account/dashboard` |
+| F-PAY-04 | オンライン決済 | 支払方法の選択 | 「当日払い」/「オンライン決済(カード)」を選ぶ（無料のときも欄は表示し、選択肢を無効にして案内する）。オンライン決済は運営側でオンライン決済が有効（`online_payment_available`）なときだけ選べ、参加費は 50 円以上。説明文で「参加費の90%が売上になり、開催後に「売上と振込」から振込を申請できます」と案内する。無料なら当日払いに揃える。オンライン決済で新しく公開するときに運営側で無効なら 409「現在、オンライン決済はご利用いただけません」（下書きは保存可）。公開中は支払方法を変更できない | 主催者 | `/manage/workshops/new`、`/manage/workshops/:id/edit` | `GET /api/facilitators/me/payouts/summary`、`POST /api/workshops`、`PUT /api/workshops/{workshop_id}` |
+| F-PAY-05 | オンライン決済 | オンライン決済での予約（席の仮押さえ） | オンライン決済のワークショップを予約すると、予約を `pending_payment` にして 32 分間（`PAYMENT_HOLD`）席を確保し、支払い（金額 = 参加費 × 枚数、運営の手数料 = 金額 × `PLATFORM_FEE_PERCENT` %（既定 10%、1 円未満切り捨て）、主催者の受取額 = 金額 − 運営の手数料）を記録する。席の確保を commit してから運営の Stripe アカウント上に Checkout を作成し、`checkout_url` を返す。Stripe が失敗したら席を手放して 503。作成中に中止・取りやめがあれば Checkout を閉じて 409。運営側でオンライン決済が無効になっていれば 409「このワークショップは現在オンライン決済を受け付けていません。主催者にお問い合わせください」 | ログイン | `/workshops/:id/reserve` → Stripe Checkout | `POST /api/workshops/{workshop_id}/reservations` |
 | F-PAY-06 | オンライン決済 | 支払いの再開 | 支払い待ちのまま戻ってきた参加者に「お支払いが完了していません」を表示し、「お支払いを再開する」で同じ Checkout へ移動する。Checkout がもう開いていなければ状態を反映して 409。詳細画面・参加予定画面にも「お支払いを再開する」を表示 | ログイン | `/workshops/:id/reserve`、`/workshops/:id`、`/reservations` | `POST /api/workshops/{workshop_id}/reservations` |
 | F-PAY-07 | オンライン決済 | 支払いの取りやめ | 「予約をやめる」で Stripe の Checkout を閉じ、予約を `expired` にして席をすぐ手放す。支払い待ちでなければ 409。Checkout を閉じられなかったら Stripe の状態を読み直して反映する | ログイン（予約者本人） | `/workshops/:id/reserve` | `GET /api/reservations/me`、`POST /api/reservations/{reservation_id}/abandon-payment` |
 | F-PAY-08 | オンライン決済 | 決済完了の確認 | Stripe Checkout の `success_url` で戻る画面。予約を 2 秒間隔で最大 10 回取り直し、確定・確認中・中止・返金・期限切れを表示する。バックエンドは支払い待ちなら Stripe から Checkout の状態を読み直して反映してから返す | ログイン（予約者本人） | `/reservations/:id/payment/complete` | `GET /api/reservations/{reservation_id}` |
-| F-PAY-09 | オンライン決済 | Webhook の反映 | Stripe の署名を検証し、`checkout.session.completed`（支払い完了: 決済手数料を取得して予約を確定）、`checkout.session.expired`（席を手放す）、`charge.refund.updated` / `refund.failed`（返金の失敗）、`account.updated`（主催者の `stripe_charges_enabled` を同期）を反映する。処理済みのイベント ID を `stripe_events` に記録して二重に反映しない。反映に失敗したら 5xx（Stripe が再送） | Stripe | なし | `POST /api/stripe/webhook` |
-| F-PAY-10 | オンライン決済 | 取消時の返金 | 主催者が支払い済みの予約を取り消すと、返金額を確定して `refund_pending` にし、commit 後に Stripe へ返金を依頼する。主催者都合は全額（運営の手数料も主催者へ戻す）、参加者都合は Stripe の決済手数料と運営の手数料を差し引いた額（0 円なら Stripe に依頼せず返金済みにする）。取消フォームで返金額の見込みを事前に表示する | 主催者（所有者 / admin） | `/manage/workshops/:id/reservations` | `POST /api/workshops/{workshop_id}/reservations/{reservation_id}/cancel` |
+| F-PAY-09 | オンライン決済 | Webhook の反映 | Stripe の署名を検証し、`checkout.session.completed`（支払い完了: 決済手数料を取得して予約を確定）、`checkout.session.expired`（席を手放す）、`charge.refund.updated` / `refund.failed`（返金の失敗）を反映する（運営のアカウントのイベント。`account.updated` は扱わない。対応する支払いのない Checkout のイベントは無視）。処理済みのイベント ID を `stripe_events` に記録して二重に反映しない。反映に失敗したら 5xx（Stripe が再送） | Stripe | なし | `POST /api/stripe/webhook` |
+| F-PAY-10 | オンライン決済 | 取消時の返金 | 主催者が支払い済みの予約を取り消すと、返金額を確定して `refund_pending` にし、commit 後に Stripe へ返金を依頼する。主催者都合は全額、参加者都合は Stripe の決済手数料と運営の手数料を差し引いた額（0 円なら Stripe に依頼せず返金済みにする）。どちらの場合も、返金の対象になった支払いは主催者の売上に数えない（主催者の手数料の負担もない）。取消フォームで返金額の見込みを事前に表示する | 主催者（所有者 / admin） | `/manage/workshops/:id/reservations` | `POST /api/workshops/{workshop_id}/reservations/{reservation_id}/cancel` |
 | F-PAY-11 | オンライン決済 | 中止時の全額返金 | ワークショップを中止すると、確定済み予約の支払いを全額返金の対象にし、支払い待ちの予約を `expired` にする。commit 後に返金を依頼し、開いている Checkout を閉じる。中止の通知に「オンラインでお支払いいただいた参加費は全額返金します。」を追記 | 主催者（所有者 / admin） | `/manage/workshops/:id/edit` | `POST /api/workshops/{workshop_id}/cancel` |
 | F-PAY-12 | オンライン決済 | 参加を確定できない支払いの全額返金 | 支払いが完了しても、ワークショップが公開中でない・別の支払いで予約し直していた・期限切れ後に席が埋まった場合は、予約を確定せず全額返金の対象にする（Webhook・完了画面の確認の両方で同じ判定。ワークショップ → 予約 → 支払いの順に行ロック） | システム | `/reservations/:id/payment/complete` に結果を表示 | `POST /api/stripe/webhook`、`GET /api/reservations/{reservation_id}` の内部処理 |
 | F-PAY-13 | オンライン決済 | 返金・支払い待ちの定期処理 | 10 分間隔のジョブで、期限を過ぎた支払い待ちの予約を `expired` にし（条件付き UPDATE）、返金待ちの支払いを Stripe で返金する。再試行の前に Stripe 上の既存の返金を確かめて二重返金を防ぎ、5 回失敗したら `refund_failed`（運営が対応）。MySQL の `GET_LOCK` で複数プロセスの同時実行を防ぐ | システム（APScheduler） | なし | — |
 | F-PAY-14 | オンライン決済 | 決済状態の表示 | 主催者向け: 予約ごとに「オンライン決済済み」「返金手続き中(¥n)」「返金済み(¥n)」「返金なし(手数料の差し引きにより0円)」「返金できていません(¥n。運営が対応します)」と取消理由を表示し、お支払い待ちのチケット数を別に添える。手数料の内訳は主催者・運営にだけ返す。参加者向け: 予約履歴に「返金手続き中」「返金済み」を表示 | ログイン / 主催者 | `/manage/workshops/:id/reservations`、`/reservations/history` | `GET /api/workshops/{workshop_id}/reservations`、`GET /api/reservations/me` |
+
+### 売上と振込（PAYOUT）
+
+参加費は運営の Stripe アカウントで受け取り、支払いごとに主催者の受取額（`payments.facilitator_amount`）を記録する。主催者はその合計から振込を申請し、運営が銀行で手動で振り込んで結果を記録する（`backend/app/services/payouts.py:1-6`）。
+
+| 機能ID | カテゴリ | 機能名 | 概要 | 利用者（権限） | 画面 | API（メソッド + パス） |
+|---|---|---|---|---|---|---|
+| F-PAYOUT-01 | 売上と振込 | 売上の状況 | 振込を申請できる額・開催前の額・振込待ちの額・振込済みの額と、最低額・振込手数料・いま申請できるか・運営側でオンライン決済が使えるかを返す。残高は列に持たず、公開中のワークショップで支払い済みのままの支払いの受取額と、振込の申請から毎回計算する。開催を終えた（終了日時を過ぎた）分だけを申請できる額に入れる | 主催者 | `/manage/payout`（作成・編集画面の支払方法の判定にも使う） | `GET /api/facilitators/me/payouts/summary` |
+| F-PAYOUT-02 | 売上と振込 | 売上の明細 | 自分のワークショップで支払われたオンライン決済（返金になったものを含む）を、ワークショップの終了日時の新しい順に 10 件ずつ表示。受取額（返金なら 0）と「確定」/「開催前」/「返金のため受取なし」を表示し、ワークショップ名から予約状況へ移動できる | 主催者 | `/manage/payout` | `GET /api/facilitators/me/payouts/earnings?limit=&offset=` |
+| F-PAYOUT-03 | 売上と振込 | 振込先口座の登録・変更 | 金融機関名・金融機関コード（4 桁）・支店名・支店コード（3 桁）・預金種目（普通 / 当座）・口座番号（7 桁）・口座名義（全角カタカナなど）を登録する。1 人 1 口座で、登録し直すと上書き。申請中の振込は申請時の口座へ振り込む。入力の誤りは送信時に画面でも確かめ、最終的な検証は API（422） | 主催者 | `/manage/payout` | `GET /api/facilitators/me/payouts/bank-account`、`PUT /api/facilitators/me/payouts/bank-account` |
+| F-PAYOUT-04 | 売上と振込 | 振込の申請 | 確認ダイアログの後、申請できる額の全額で振込を申請する（振込額 = 申請額 − 振込手数料）。振込先は申請時の口座を写して残す。口座が未登録・申請中のものがある・申請できる額が最低額未満なら 409（画面ではボタンを無効にして理由を表示）。同時の申請で残高を二重に使わないよう、ユーザーの行をロックしてから計算する | 主催者 | `/manage/payout` | `POST /api/facilitators/me/payouts/requests` |
+| F-PAYOUT-05 | 売上と振込 | 振込の申請の履歴 | 自分の申請を新しい順に 5 件ずつ表示。申請額・振込手数料・振込額・振込先・状態（振込待ち / 振込済み / 取り下げ）・処理日時・運営からのメモを表示 | 主催者 | `/manage/payout` | `GET /api/facilitators/me/payouts/requests?limit=&offset=` |
+| F-PAYOUT-06 | 売上と振込 | 振込の申請の一覧（運営） | 全主催者の申請を、状態（振込待ち / 振込済み / 取り下げ / すべて）で絞り込み、申請の古い順に 20 件ずつ表示。主催者名・メールアドレス・振込額・口座の各項目を表示 | 管理者 | `/manage/payout-requests` | `GET /api/admin/payout-requests?status=&limit=&offset=` |
+| F-PAYOUT-07 | 売上と振込 | 振込済みにする（運営） | 銀行で振り込んだ後に、メモ（任意。最大 1000 文字。主催者にも表示）を付けて申請を振込済みにする。取り消せない。申請中でなければ 409、存在しなければ 404。二重に処理しないよう申請の行をロックする | 管理者 | `/manage/payout-requests` | `POST /api/admin/payout-requests/{request_id}/paid` |
+| F-PAYOUT-08 | 売上と振込 | 申請の取り下げ（運営） | 口座の誤りなどで振り込まない申請を、メモを付けて取り下げる。申請額は主催者の申請できる額に戻る。取り消せない。409 / 404 は F-PAYOUT-07 と同じ | 管理者 | `/manage/payout-requests` | `POST /api/admin/payout-requests/{request_id}/reject` |
+| F-PAYOUT-09 | 売上と振込 | マイページからの導線 | 「主催者メニュー」に「売上と振込」（facilitator / admin）と「振込の申請(運営)」（admin のみ）を表示 | 主催者 / 管理者 | `/me` | — |
 
 ### お気に入り（FAV）
 
@@ -112,7 +128,7 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 
 | 機能ID | カテゴリ | 機能名 | 概要 | 利用者（権限） | 画面 | API（メソッド + パス） |
 |---|---|---|---|---|---|---|
-| F-PRF-01 | プロフィール | マイページ（旧 設定メニュー） | 「予約・お気に入り」（参加予定・予約・参加履歴・お気に入り・フォロー中の主催者のワークショップ）、「主催者メニュー」（主催者のみ。ワークショップの管理・参加費の受け取り設定）、「問い合わせ」、「アカウント」（プロフィール編集）、「ヘルプ・規約」のメニューとログアウトを表示。旧 `/settings` は `/me` へリダイレクト | ログイン | `/me` | — |
+| F-PRF-01 | プロフィール | マイページ（旧 設定メニュー） | 「予約・お気に入り」（参加予定・予約・参加履歴・お気に入り・フォロー中の主催者のワークショップ）、「主催者メニュー」（主催者のみ。ワークショップの管理・売上と振込、admin には振込の申請(運営)も）、「問い合わせ」、「アカウント」（プロフィール編集）、「ヘルプ・規約」のメニューとログアウトを表示。旧 `/settings` は `/me` へリダイレクト | ログイン | `/me` | — |
 | F-PRF-02 | プロフィール | プロフィール編集 | 表示名（必須、最大 255 文字）と自己紹介（最大 2000 文字）を更新 | ログイン | `/me/profile` | `PATCH /api/auth/me`、`GET /api/auth/me` |
 
 ### 主催者管理（MNG）
@@ -137,11 +153,11 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 | F-SYS-02 | システム | アップロード画像の配信 | 保存済みの画像を静的ファイルとして配信（`X-Content-Type-Options: nosniff` 付き） | 全員 | カード・詳細・管理画面の画像表示 | `GET /api/uploads/{path}` |
 | F-SYS-03 | システム | 404 ページ | 未定義パスを `/404` にリダイレクトして表示 | 全員 | `/404` | — |
 | F-SYS-04 | システム | サンプルデータ投入 | 動作確認用のユーザー・ワークショップ・予約を投入する運用スクリプト（内容は未確認） | 運用者 | なし（`backend/scripts/seed_sample_data.py`） | — |
-| F-SYS-05 | システム | 起動時の設定確認 | JWT 秘密鍵の強さ（`check_jwt_secret()`）と Stripe の設定（`check_stripe_settings()`）を確かめ、本番で危険な設定なら起動を止める・警告する | システム | なし | — |
+| F-SYS-05 | システム | 起動時の設定確認 | JWT 秘密鍵の強さ（`check_jwt_secret()`）と Stripe・手数料・振込の設定（`check_stripe_settings()`。`PLATFORM_FEE_PERCENT` の範囲、`PAYOUT_TRANSFER_FEE` < `PAYOUT_MIN_AMOUNT` など）を確かめ、危険な設定なら起動を止める・警告する | システム | なし | — |
 
 ## API 一覧
 
-認証要否: 「不要」= トークンなしで可、「任意」= トークンがあれば閲覧者情報を反映、「必須」= ログイン必須、「主催者」= facilitator / admin 必須（`require_roles`）、「署名」= Stripe の Webhook 署名で検証。
+認証要否: 「不要」= トークンなしで可、「任意」= トークンがあれば閲覧者情報を反映、「必須」= ログイン必須、「主催者」= facilitator / admin 必須（`require_roles`）、「管理者」= admin 必須（`require_roles(UserRole.admin)`）、「署名」= Stripe の Webhook 署名で検証。
 
 | No | メソッド | パス | 認証要否 | 概要 | ルーターファイル |
 |---|---|---|---|---|---|
@@ -153,7 +169,7 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 | 5-2 | GET | `/api/manage/workshops` | 主催者 | 管理用のワークショップ一覧。下書き・中止を含む自分のワークショップ（admin は全員分） | `backend/app/routers/manage.py` |
 | 6 | GET | `/api/workshops/{workshop_id}` | 任意 | ワークショップ詳細。非公開は所有者 / admin 以外 404。ただし中止済みは、そのワークショップを予約したことのあるユーザーも閲覧可。`payment_method`、`viewer`（`is_payment_pending` を含む）、`participant_info`（予約者・主催者のみ）を返す | `backend/app/routers/workshops.py` |
 | 6-2 | GET | `/api/workshops/{workshop_id}/related` | 任意 | 関連するワークショップ（同じ主催者 / 類似 / 近く） | `backend/app/routers/workshops.py` |
-| 7 | POST | `/api/workshops` | 主催者 | ワークショップ作成。`payment_method = online` で公開するには受け取り設定の完了が必要（409） | `backend/app/routers/workshops.py` |
+| 7 | POST | `/api/workshops` | 主催者 | ワークショップ作成。`payment_method = online` で公開するときに運営側でオンライン決済が無効なら 409 | `backend/app/routers/workshops.py` |
 | 8 | PUT | `/api/workshops/{workshop_id}` | 主催者（所有者 / admin） | ワークショップ更新。`canceled` への変更、公開中の条件（参加費・支払方法・日時・開催形式・場所）の変更、公開済みから下書きへの変更は 409 | `backend/app/routers/workshops.py` |
 | 8-2 | POST | `/api/workshops/{workshop_id}/cancel` | 主催者（所有者 / admin） | 公開中のワークショップを中止にし、予約確定済みの参加者へ中止通知を作成。オンライン決済の支払いは全額返金し、開いている Checkout を閉じる。下書き・中止済み・開催済みは 409 | `backend/app/routers/workshops.py` |
 | 9 | DELETE | `/api/workshops/{workshop_id}` | 主催者（所有者 / admin） | ワークショップ削除（204）。下書きのみ。公開中・中止は 409 | `backend/app/routers/workshops.py` |
@@ -181,10 +197,19 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 | 29 | GET | `/api/follows/workshops` | 必須 | フォロー中の主催者の開催予定ワークショップ（公開一覧と同じ条件: 公開中・開始前） | `backend/app/routers/follows.py` |
 | 30 | GET | `/api/reservations/{reservation_id}` | 必須（予約者本人） | 自分の予約 1 件。支払い待ちなら Stripe から Checkout の状態を読み直して反映してから返す（決済完了画面の確認用）。他人の予約は 404 | `backend/app/routers/reservations.py` |
 | 31 | POST | `/api/reservations/{reservation_id}/abandon-payment` | 必須（予約者本人） | オンライン決済の支払いの取りやめ。Checkout を閉じて予約を `expired` にする。支払い待ちでない・支払い画面の準備中・閉じられずまだ支払い待ちは 409 | `backend/app/routers/reservations.py` |
-| 32 | GET | `/api/facilitators/me/payout-account` | 主催者 | 受け取り設定の状態 `{ status: not_registered / pending / enabled, online_payment_available }`。設定の途中なら Stripe から読み直す | `backend/app/routers/payouts.py` |
-| 33 | POST | `/api/facilitators/me/payout-account/onboarding` | 主催者 | 受け取り設定の Stripe 画面の URL `{ url }`。初回は連結アカウントを作成。オンライン決済が無効なら 409、Stripe の失敗は 503 | `backend/app/routers/payouts.py` |
-| 34 | POST | `/api/facilitators/me/payout-account/dashboard` | 主催者 | Stripe Express ダッシュボードの URL `{ url }`。受け取り設定が未完了なら 409 | `backend/app/routers/payouts.py` |
-| 35 | POST | `/api/stripe/webhook` | 署名 | Stripe の Webhook（Connect 用）。署名を確かめられなければ 400、反映に Stripe の呼び出しが必要で失敗したら 503（Stripe が再送）。成功は 204 | `backend/app/routers/stripe_webhook.py` |
+| 32 | — | （廃止）`GET /api/facilitators/me/payout-account` | — | 受け取り設定の状態。Stripe Connect の廃止に伴い削除。代わりは No.36 | — |
+| 33 | — | （廃止）`POST /api/facilitators/me/payout-account/onboarding` | — | 受け取り設定の Stripe 画面の URL。Stripe Connect の廃止に伴い削除 | — |
+| 34 | — | （廃止）`POST /api/facilitators/me/payout-account/dashboard` | — | Stripe Express ダッシュボードの URL。Stripe Connect の廃止に伴い削除 | — |
+| 35 | POST | `/api/stripe/webhook` | 署名 | Stripe の Webhook（運営のアカウントのイベント）。署名を確かめられなければ 400、反映に Stripe の呼び出しが必要で失敗したら 503（Stripe が再送）。成功は 204 | `backend/app/routers/stripe_webhook.py` |
+| 36 | GET | `/api/facilitators/me/payouts/summary` | 主催者 | 売上の状況 `{ available_amount, upcoming_amount, requested_amount, paid_amount, min_amount, transfer_fee, can_request, online_payment_available }` | `backend/app/routers/payouts.py` |
+| 37 | GET | `/api/facilitators/me/payouts/earnings` | 主催者 | 売上の明細（支払い済みになったことのあるオンライン決済。終了日時の新しい順）。`limit` / `offset`（`limit` 指定時は `X-Total-Count`） | `backend/app/routers/payouts.py` |
+| 38 | GET | `/api/facilitators/me/payouts/bank-account` | 主催者 | 登録している振込先口座。未登録なら `null` | `backend/app/routers/payouts.py` |
+| 39 | PUT | `/api/facilitators/me/payouts/bank-account` | 主催者 | 振込先口座の登録・変更。本文: `bank_name`, `bank_code`, `branch_name`, `branch_code`, `account_type`, `account_number`, `account_holder`。形式の誤りは 422 | `backend/app/routers/payouts.py` |
+| 40 | GET | `/api/facilitators/me/payouts/requests` | 主催者 | 自分の振込の申請の履歴（新しい順）。`limit` / `offset` | `backend/app/routers/payouts.py` |
+| 41 | POST | `/api/facilitators/me/payouts/requests` | 主催者 | 申請できる額の全額で振込を申請（201、本文なし）。口座が未登録・申請中あり・最低額未満は 409 | `backend/app/routers/payouts.py` |
+| 42 | GET | `/api/admin/payout-requests` | 管理者 | 振込の申請の一覧（申請の古い順。主催者の名前・メールを含む）。クエリ: `status`（`requested` / `paid` / `rejected`、省略で全件）, `limit`, `offset` | `backend/app/routers/admin_payouts.py` |
+| 43 | POST | `/api/admin/payout-requests/{request_id}/paid` | 管理者 | 申請を振込済みにする。本文: `note`（任意、最大 1000 文字）。申請中でなければ 409、存在しなければ 404 | `backend/app/routers/admin_payouts.py` |
+| 44 | POST | `/api/admin/payout-requests/{request_id}/reject` | 管理者 | 申請を取り下げる（申請額は申請できる額に戻る）。本文・エラーは No.43 と同じ | `backend/app/routers/admin_payouts.py` |
 
 - 問い合わせ（`/api/inquiries`、`/api/inquiries/unread-count`、`/api/inquiries/{id}`、`/api/inquiries/{id}/read`、`/api/inquiries/{id}/messages`、`/api/workshops/{id}/inquiry`、`/api/workshops/{id}/inquiry/messages`、`/api/workshops/{id}/inquiry/broadcast`。`backend/app/routers/inquiries.py`）とアイコン（`POST` / `DELETE /api/auth/me/avatar`。`backend/app/routers/auth.py`）は本表では詳細を記載していない。
 
@@ -199,11 +224,13 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 | `uploadWorkshopImage` / `deleteWorkshopImage` | No.10 / 11 | `frontend/src/api/workshops.ts` |
 | `listMyFavorites` / `addFavorite` / `removeFavorite` | No.18 / 14 / 15 | `frontend/src/api/favorites.ts` |
 | `listMyReservations` / `listWorkshopReservations` / `reserveWorkshop` / `getMyReservation` / `abandonPayment` / `cancelWorkshopReservation` / `updateReservationAttendance` | No.16 / 13 / 12 / 30 / 31 / 13-2 / 13-3 | `frontend/src/api/reservations.ts` |
-| `getPayoutAccount` / `startPayoutOnboarding` / `getPayoutDashboardUrl` | No.32 / 33 / 34 | `frontend/src/api/payouts.ts` |
+| `getPayoutSummary` / `getEarnings` / `getBankAccount` / `saveBankAccount` / `getPayoutRequests` / `requestPayout` | No.36 / 37 / 38 / 39 / 40 / 41 | `frontend/src/api/payouts.ts` |
+| `getAdminPayoutRequests` / `markPayoutPaid` / `rejectPayout` | No.42 / 43 / 44 | `frontend/src/api/payouts.ts` |
 | `listNotifications` / `getUnreadNotificationCount` / `markNotificationRead` / `markAllNotificationsRead` | No.20 / 21 / 22 / 23 | `frontend/src/api/notifications.ts` |
 | `followFacilitator` / `unfollowFacilitator` / `listFollowedFacilitators` / `listFollowedWorkshops` | No.26 / 27 / 28 / 29 | `frontend/src/api/follows.ts` |
 
-- `reserveWorkshop` / `startPayoutOnboarding` / `getPayoutDashboardUrl` は、受け取った URL が Stripe のページ（`https` かつ `checkout.stripe.com` / `connect.stripe.com`）でなければエラーにする（`frontend/src/utils/payment.ts:25-39`）。
+- `reserveWorkshop` は、受け取った `checkout_url` が Stripe のページ（`https` かつ `checkout.stripe.com`）でなければエラーにする（`frontend/src/api/reservations.ts:23`、`frontend/src/utils/payment.ts:32-45`）。
+- 一覧系（No.37 / 40 / 42）は `fetchPage()` で `limit` / `offset` を付けて呼び、総件数を `X-Total-Count` から読む（`frontend/src/api/client.ts:67-79`）。
 - No.24（health）と No.35（Stripe Webhook）はフロントエンドから呼ばれていない。
 
 ---
@@ -221,10 +248,12 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 - `backend/app/routers/manage.py`
 - `backend/app/routers/inquiries.py`
 - `backend/app/routers/payouts.py`
+- `backend/app/routers/admin_payouts.py`
 - `backend/app/routers/stripe_webhook.py`
 - `backend/app/services/workshops.py`
 - `backend/app/services/reservations.py`
 - `backend/app/services/payments.py`
+- `backend/app/services/payouts.py`
 - `backend/app/services/stripe_webhooks.py`
 - `backend/app/services/notifications.py`
 - `backend/app/services/job_lock.py`
@@ -232,6 +261,8 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 - `backend/app/schemas/workshop.py`
 - `backend/app/schemas/reservation.py`
 - `backend/app/schemas/payment.py`
+- `backend/app/schemas/pagination.py`
+- `backend/app/core/errors.py`
 - `backend/app/models/*.py`
 - `frontend/src/App.tsx`
 - `frontend/src/api/reservations.ts`
@@ -249,6 +280,9 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 - `frontend/src/pages/manage/WorkshopReservationsPage.tsx`
 - `frontend/src/pages/manage/CancelReservationForm.tsx`
 - `frontend/src/pages/manage/PayoutSettingsPage.tsx`
+- `frontend/src/pages/manage/BankAccountForm.tsx`
+- `frontend/src/pages/manage/AdminPayoutRequestsPage.tsx`
+- `frontend/src/utils/payout.ts`
 - `frontend/src/pages/me/MyPage.tsx`
 - `frontend/src/pages/me/NotificationsPage.tsx`
 - `frontend/src/components/layout/ProtectedRoute.tsx`

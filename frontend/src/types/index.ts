@@ -114,9 +114,10 @@ export type PaymentStatus = 'pending' | 'paid' | 'expired' | 'refund_pending' | 
 export interface PaymentSummary {
   status: PaymentStatus
   amount: number
-  // 本サービスの手数料。主催者が負担するものなので、主催者・運営にだけ返る(参加者には null)
-  application_fee_amount: number | null
-  // Stripe の決済手数料。支払いが済むまでと、参加者には null
+  // 本サービスの手数料と主催者の受取額(参加費の90%)。主催者・運営にだけ返る(参加者には null)
+  platform_fee_amount: number | null
+  facilitator_amount: number | null
+  // Stripe の決済手数料(本サービスが負担する)。支払いが済むまでと、参加者には null
   stripe_fee_amount: number | null
   // 返金額。返金が決まるまでは null
   refund_amount: number | null
@@ -202,12 +203,69 @@ export interface InquiryDetail extends InquirySummary {
   messages: InquiryMessage[]
 }
 
-// 主催者の参加費の受け取り設定(Stripe の連結アカウント)の状態
-// not_registered: 未設定 / pending: 設定の途中・Stripe の審査中 / enabled: オンライン決済を受け付けられる
-export type PayoutAccountStatus = 'not_registered' | 'pending' | 'enabled'
+// 主催者の振込先口座。ordinary: 普通預金 / checking: 当座預金
+export type BankAccountType = 'ordinary' | 'checking'
 
-export interface PayoutAccount {
-  status: PayoutAccountStatus
+export interface BankAccount {
+  bank_name: string
+  bank_code: string
+  branch_name: string
+  branch_code: string
+  account_type: BankAccountType
+  account_number: string
+  // 口座名義(カナ)
+  account_holder: string
+}
+
+// 主催者の売上と振込の状況(円)
+export interface PayoutSummary {
+  // 振込を申請できる額(開催を終えた分の受取額 − 申請中・振込済みの額)
+  available_amount: number
+  // 開催前で、まだ申請できない受取額
+  upcoming_amount: number
+  requested_amount: number
+  paid_amount: number
+  min_amount: number
+  transfer_fee: number
+  can_request: boolean
   // 運営側でオンライン決済を使える設定になっているか
   online_payment_available: boolean
+}
+
+// 収入の明細(オンライン決済の支払い1件)
+export interface Earning {
+  payment_id: number
+  workshop_id: number
+  workshop_title: string
+  workshop_end_at: string
+  attendee_name: string
+  status: PaymentStatus
+  amount: number
+  // 主催者の受取額。返金になった支払いは 0
+  facilitator_amount: number
+  // 開催を終えて、振込を申請できる額に入っているか
+  settled: boolean
+  paid_at: string | null
+}
+
+export type PayoutRequestStatus = 'requested' | 'paid' | 'rejected'
+
+export interface PayoutRequest {
+  id: number
+  amount: number
+  transfer_fee: number
+  transfer_amount: number
+  status: PayoutRequestStatus
+  // 運営のメモ(振込日・却下の理由など)
+  note: string
+  requested_at: string
+  processed_at: string | null
+  // 申請時の振込先
+  bank_account: BankAccount
+}
+
+export interface AdminPayoutRequest extends PayoutRequest {
+  facilitator_id: number
+  facilitator_name: string
+  facilitator_email: string
 }

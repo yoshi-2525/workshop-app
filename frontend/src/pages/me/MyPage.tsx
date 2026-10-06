@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { HELP_DOCUMENTS } from '@/pages/help/helpDocuments'
 import { canManageWorkshops } from '@/utils/user'
-import { PAYOUT_SETTINGS_PATH } from '@/utils/payment'
+import { ADMIN_PAYOUT_REQUESTS_PATH, PAYOUT_SETTINGS_PATH } from '@/utils/payment'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { MaterialIcon } from '@/components/ui/MaterialIcon'
 import { useBackState } from '@/hooks/useBackState'
 
 interface MenuLink {
@@ -26,11 +27,10 @@ function MenuLinkList({ links }: { links: MenuLink[] }) {
           >
             <div>
               <p className="font-medium text-fg">{link.title}</p>
-              <p className="mt-0.5 text-sm text-fg-muted">{link.description}</p>
+              {/* 説明が1行でも2行でもカードの高さがそろうよう、説明は2行分の高さを確保する */}
+              <p className="mt-0.5 min-h-[2lh] text-sm text-fg-muted">{link.description}</p>
             </div>
-            <span aria-hidden="true" className="text-fg-subtle">
-              ›
-            </span>
+            <MaterialIcon name="chevron_right" className="shrink-0 text-[24px] text-fg-subtle" />
           </Link>
         </PaperCard>
       ))}
@@ -95,9 +95,19 @@ export function MyPage() {
     },
     {
       to: PAYOUT_SETTINGS_PATH,
-      title: '参加費の受け取り設定',
-      description: 'オンライン決済で参加費を受け取るための設定と、売上・入金の確認を行います。',
+      title: '売上と振込',
+      description: 'オンライン決済の売上の確認、振込先の口座の登録、振込の申請を行います。',
     },
+    // 振込の処理は運営だけが行う
+    ...(user.role === 'admin'
+      ? [
+          {
+            to: ADMIN_PAYOUT_REQUESTS_PATH,
+            title: '振込の申請(運営)',
+            description: '主催者からの振込の申請を確認し、振り込んだ結果を記録します。',
+          },
+        ]
+      : []),
   ]
 
   const inquiryLinks: MenuLink[] = [

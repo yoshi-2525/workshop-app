@@ -24,8 +24,9 @@ import { ManageWorkshopsPage } from '@/pages/manage/ManageWorkshopsPage'
 import { WorkshopFormPage } from '@/pages/manage/WorkshopFormPage'
 import { WorkshopReservationsPage } from '@/pages/manage/WorkshopReservationsPage'
 import { ProfileEditPage } from '@/pages/manage/ProfileEditPage'
+import { AdminPayoutRequestsPage } from '@/pages/manage/AdminPayoutRequestsPage'
 import { PayoutSettingsPage } from '@/pages/manage/PayoutSettingsPage'
-import { PAYOUT_SETTINGS_PATH } from '@/utils/payment'
+import { ADMIN_PAYOUT_REQUESTS_PATH, PAYOUT_SETTINGS_PATH } from '@/utils/payment'
 import { HelpPage } from '@/pages/help/HelpPage'
 import { AboutPage } from '@/pages/guide/AboutPage'
 import { DialogueRulesPage } from '@/pages/guide/DialogueRulesPage'
@@ -84,6 +85,10 @@ export default function App() {
           <Route path="manage/workshops/:id/edit" element={<WorkshopFormPage />} />
           <Route path="manage/workshops/:id/reservations" element={<WorkshopReservationsPage />} />
           <Route path={PAYOUT_SETTINGS_PATH.slice(1)} element={<PayoutSettingsPage />} />
+        </Route>
+
+        <Route element={<ProtectedRoute roles={['admin']} loginPath="/login/facilitator" />}>
+          <Route path={ADMIN_PAYOUT_REQUESTS_PATH.slice(1)} element={<AdminPayoutRequestsPage />} />
         </Route>
 
         <Route path="404" element={<NotFoundPage />} />

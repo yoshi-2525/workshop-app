@@ -76,6 +76,7 @@ TAIWA の見た目と言葉づかいの方針、それを実装するための�
 - 色を使う：残席僅か（amber）、満員・エラー（red）、予約済み（indigo）、確定・完了（emerald）
 - 色を使わない：無料の価格、土日祝の曜日、開催形式（オンライン／会場）のバッジ。どれも文字だけで区別する
 - 状態の色は夜の地向けの淡い色（`text-red-300`、`text-amber-200` など）で書く。紙の中では `theme-paper` が濃い色に置き換える。新しい状態の色を紙の中で使うときは、`theme-paper` に置き換えを足す
+- 例外：予約した参加者への「参加者へのご案内」は sky（`border-sky-400/30 bg-sky-400/10 text-sky-200`）で、夜の地にだけ置く。ヘッダーの未読数のバッジは `bg-red-500 text-white`
 
 ## 4. 面：夜の地と紙のカード
 
@@ -97,7 +98,8 @@ TAIWA の見た目と言葉づかいの方針、それを実装するための�
 - **`interactive`**：カード全体がリンクのとき。ホバーで少し持ち上がり、中のリンクにフォーカスすると枠が出る。リンクはタイトルに付け、`after:absolute after:inset-0` で当たり判定をカード全体に広げる。カードの中の別のボタンは `relative z-10` で手前に出す。
 - **紙の上のボタン**：
   - 主な操作は `PRIMARY_BUTTON_CLASS`。紙の中では自動でインクの紺になる。
-  - 補助の操作（共有・お気に入り・問い合わせ・管理画面の各ボタン）は `bg-surface shadow-sm hover:bg-white` の白いボタンにする。紙の上では枠線だけのボタンは輪郭が見えにくい。
+  - 補助の操作（共有・お気に入り・問い合わせ・管理画面の各ボタン）は `PAPER_SECONDARY_BUTTON_CLASS`（小さいものは `PAPER_SECONDARY_SMALL_BUTTON_CLASS`）の白いボタンにする。紙の上では枠線だけのボタンは輪郭が見えにくい。
+  - 「キャンセル」「予約をやめる」など主な操作の横の控えめなボタンは `GHOST_BUTTON_CLASS`。
 - **紙の上の情報欄**：日時・料金・キャンセルについての案内など、まとまった情報は `rounded-lg bg-surface/70 p-4` の明るい面に載せる。紙より暗い面（`surface-muted`）に注記の文字を置くと、コントラストが基準を下回る。
 
 ## 5. 文字
@@ -130,14 +132,19 @@ TAIWA の見た目と言葉づかいの方針、それを実装するための�
 | 部品・定数 | 場所 | 使う所 |
 |---|---|---|
 | `PaperCard` | `components/ui/PaperCard.tsx` | 紙の面すべて（4 章） |
-| `PRIMARY_BUTTON_CLASS` | `components/ui/styles.ts` | 保存・送信など主な操作のボタン |
+| `PRIMARY_BUTTON_CLASS` | `components/ui/styles.ts` | 保存・送信など主な操作のボタン。`<button>` にも `<Link>` にも付けられる |
+| `GHOST_BUTTON_CLASS` | 同上 | キャンセル・取りやめなど、主な操作の横に置く控えめなボタン |
+| `SECONDARY_BUTTON_CLASS` | 同上 | 夜の地の上の、枠線付きの補助ボタン(下書き保存など) |
+| `PAPER_SECONDARY_BUTTON_CLASS` / `PAPER_SECONDARY_SMALL_BUTTON_CLASS` | 同上 | 紙の上の補助の操作(白いボタン) |
+| `DANGER_SMALL_BUTTON_CLASS` | 同上 | 参加の取り消しなど、元に戻せない操作の小さなボタン |
+| `LABEL_CLASS` | 同上 | 入力欄の上のラベル |
 | `INPUT_CLASS` | 同上 | `<input>` / `<textarea>` / `<select>`。面で塗るので夜の地でも紙の上でも境目が見える |
 | `FILE_INPUT_CLASS` | 同上 | 画像の選択 |
 | `LoadingMessage` / `ErrorMessage` | `components/ui/StatusMessage.tsx` | 読み込み中・失敗の表示 |
 | `BackLink` + `useBackState` | `components/ui/BackLink.tsx`、`hooks/useBackState.ts` | 「← ○○に戻る」。リンク元が `state={useBackState('ページ名')}` を渡すと、そのページへ戻る。渡されなければ既定の戻り先 |
 | `MaterialIcon` | `components/ui/MaterialIcon.tsx` | アイコン。使えるのは `index.html` の `icon_names` にあるものだけ（アルファベット順に追加する） |
 | `ToggleGroup` | `components/ui/ToggleGroup.tsx` | 2〜5 個の選択肢の切り替え（タブ・絞り込み） |
-| `focus-ring` | `index.css` のユーティリティ | キーボードフォーカスの枠。`focus:outline-none` と組み合わせる |
+| `focus-ring` | `index.css` のユーティリティ | キーボードフォーカスの枠。`focus:outline-hidden` と組み合わせる(`outline-none` だと強制カラーモードで枠が消える)。リングのすき間は `ring-offset` トークンで、紙の中では紙の色になる |
 
 **`MaterialIcon` の注意**：自前で表示形式を指定しているため、画面幅で隠すときは外側の `<span className="flex sm:hidden">` などで隠す。
 

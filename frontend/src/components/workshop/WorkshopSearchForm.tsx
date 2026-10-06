@@ -11,6 +11,7 @@ import {
 } from '@/utils/workshopListState'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
+import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 // 検索ボタンで確定する条件(参加可能・並び替え・ページは一覧の側で扱う)
 export type WorkshopSearchConditions = Pick<
@@ -137,7 +138,7 @@ export function WorkshopSearchForm({ listState, disabled = false, onSearch }: Wo
       className="mt-4 space-y-4 rounded-lg border border-border-muted bg-surface p-4"
     >
       <div>
-        <label htmlFor={keywordId} className="block text-sm font-medium text-fg-secondary">
+        <label htmlFor={keywordId} className={LABEL_CLASS}>
           キーワードで検索
         </label>
         <input
@@ -147,7 +148,7 @@ export function WorkshopSearchForm({ listState, disabled = false, onSearch }: Wo
           value={keywordQuery}
           onChange={(e) => setKeywordQuery(e.target.value)}
           placeholder="例: 哲学、対話 など(タイトル・詳細から検索)"
-          className="mt-1 w-full max-w-sm rounded-md border border-border px-3 py-2 text-sm focus-ring focus:border-ring focus:outline-none"
+          className={`${INPUT_CLASS} max-w-sm focus-ring`}
         />
       </div>
 
@@ -238,7 +239,7 @@ export function WorkshopSearchForm({ listState, disabled = false, onSearch }: Wo
         <button
           type="submit"
           disabled={disabled}
-          className="ml-auto rounded-md bg-accent px-5 py-2 text-sm font-medium text-accent-foreground transition hover:bg-accent-hover focus-ring focus:outline-none disabled:opacity-50"
+          className={`ml-auto ${PRIMARY_BUTTON_CLASS}`}
         >
           検索
         </button>

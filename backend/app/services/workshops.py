@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.core.errors import ONLINE_PAYMENT_DISABLED, WORKSHOP_NOT_FOUND, conflict, forbidden, not_found
 from app.core.timeutil import utcnow_naive
 from app.models.favorite import Favorite
@@ -75,11 +74,11 @@ def ensure_editable(workshop: Workshop) -> None:
         raise conflict("開催済みのワークショップは編集できません")
 
 
-def _check_payment_method(payload: WorkshopInput, facilitator: User, workshop: Workshop | None) -> None:
+def _check_payment_method(payload: WorkshopInput, workshop: Workshop | None) -> None:
     """オンライン決済のワークショップを公開できるかを確かめる。
 
-    下書きのうちは受け取り設定の前でも保存できるようにし、新しく公開するとき(参加者が予約できるようになるとき)に
-    確かめる。公開中のものは確かめない(公開後に Stripe 側が止まっても、説明や定員の編集・中止はできるように。
+    下書きはいつでも保存できるようにし、新しく公開するとき(参加者が予約できるようになるとき)に確かめる。
+    公開中のものは確かめない(公開後に運営側の設定が外れても、説明や定員の編集・中止はできるように。
     予約の受付は ensure_can_accept_online_payment で断る)
     """
     is_publishing = payload.status == WorkshopStatus.published and (
@@ -87,22 +86,19 @@ def _check_payment_method(payload: WorkshopInput, facilitator: User, workshop: W
     )
     if payload.payment_method != PaymentMethod.online or not is_publishing:
         return
-    if not settings.online_payment_enabled:
+    if not can_accept_online_payment():
         raise conflict(ONLINE_PAYMENT_DISABLED)
-    if not can_accept_online_payment(facilitator):
-        raise conflict("オンライン決済のワークショップを公開するには、先に参加費の受け取り設定を済ませてください")
 
 
 def check_workshop_input(
-    db: Session, payload: WorkshopInput, facilitator: User, workshop: Workshop | None = None
+    db: Session, payload: WorkshopInput, workshop: Workshop | None = None
 ) -> None:
     """作成(workshop=None)・更新の内容が、ワークショップの状態と予約に照らして許されるかを確かめる。
 
-    facilitator はワークショップの主催者(運営が他人のワークショップを編集するときも主催者本人)を渡す。
     更新時は ensure_editable を通した、lock_workshop で取得したワークショップを渡すこと(予約数を数えるため)。
     """
     now = utcnow_naive()
-    _check_payment_method(payload, facilitator, workshop)
+    _check_payment_method(payload, workshop)
 
     # 中止は、参加者への通知を伴う別の操作(cancel_workshop)で行う
     if payload.status == WorkshopStatus.canceled:

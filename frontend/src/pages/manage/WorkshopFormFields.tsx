@@ -1,12 +1,11 @@
 import { useId, useState, type ChangeEvent, type Dispatch, type RefObject, type SetStateAction } from 'react'
-import { Link } from 'react-router-dom'
-import { getPayoutAccount } from '@/api/payouts'
+import { getPayoutSummary } from '@/api/payouts'
 import { useApiResource } from '@/hooks/useApiResource'
 import { DateTimeField } from '@/components/ui/DateTimeField'
 import { RequiredMark } from '@/components/ui/RequiredMark'
 import { ToggleGroup } from '@/components/ui/ToggleGroup'
 import type { PaymentMethod, WorkshopInput } from '@/types'
-import { ONLINE_PAYMENT_MIN_PRICE, PAYOUT_SETTINGS_PATH } from '@/utils/payment'
+import { FACILITATOR_SHARE_PERCENT, ONLINE_PAYMENT_MIN_PRICE } from '@/utils/payment'
 import { UPLOAD_IMAGE_ACCEPT } from '@/utils/image'
 import { googleMapsSearchUrl } from '@/utils/maps'
 import {
@@ -22,6 +21,7 @@ import {
 import { PaperCard } from '@/components/ui/PaperCard'
 import { FILE_INPUT_CLASS } from '@/components/ui/styles'
 import { ErrorMessage } from '@/components/ui/StatusMessage'
+import { NumberInput } from '@/components/ui/NumberInput'
 
 const INPUT_CLASS =
   'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-ring focus:outline-none disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-fg-muted'
@@ -41,9 +41,12 @@ interface WorkshopFormFieldsProps {
   lockConditions?: boolean
   // 予約済みのチケット枚数。定員はこれより少なくできない
   reservedCount?: number
+  // 新規作成のとき。参加費の初期値の 0 を、入力済みに見せないよう空欄で表示する
+  isNew?: boolean
 }
 
-// 有料のワークショップの参加費の支払方法。オンライン決済は、主催者の受け取り設定が済んでいるときだけ選べる
+// 参加費の支払方法。オンライン決済は、運営側でオンライン決済を使える設定になっているときだけ選べる。
+// オンライン決済があることに気づけるよう無料のときも表示し、選択肢は無効にして案内する
 function PaymentMethodField({
   value,
   price,
@@ -58,13 +61,17 @@ function PaymentMethodField({
   describedBy?: string
 }) {
   const { data: payout, error: payoutError } = useApiResource(
-    'payout-account',
-    getPayoutAccount,
-    '受け取り設定を確認できなかったため、オンライン決済を選べません。時間をおいて開き直してください',
+    'payout-summary',
+    getPayoutSummary,
+    'オンライン決済を使えるか確認できなかったため、オンライン決済を選べません。時間をおいて開き直してください',
   )
   const name = useId()
   const onlineHelpId = useId()
-  const canChooseOnline = payout?.online_payment_available === true && payout.status === 'enabled'
+  const freeHelpId = useId()
+  // 無料なら支払いがないので選べない(保存時もバックエンドが当日払い扱いにする)
+  const free = price <= 0
+  const canChooseOnline = payout?.online_payment_available === true
+  const showOnlineHelp = !free && payout !== undefined && !canChooseOnline
   const options: { value: PaymentMethod; label: string; description: string; enabled: boolean }[] = [
     {
       value: 'onsite',
@@ -75,16 +82,20 @@ function PaymentMethodField({
     {
       value: 'online',
       label: 'オンライン決済(カード)',
-      description:
-        '予約時に参加者がカードで支払い、決済手数料と本サービスの手数料を差し引いてご登録の口座に入金されます。',
-      // 選択済みのもの(受け取り設定の前に下書きで選んだもの)は、選び直せるよう有効のままにする
+      description: `予約時に参加者がカードで支払います。参加費の${FACILITATOR_SHARE_PERCENT}%が売上になり、開催後に「売上と振込」から振込を申請できます。`,
+      // 選択済みのもの(オンライン決済を止める前に選んだもの)は、選び直せるよう有効のままにする
       enabled: canChooseOnline || value === 'online',
     },
   ]
 
   return (
-    <fieldset aria-describedby={describedBy}>
+    <fieldset aria-describedby={[describedBy, free ? freeHelpId : undefined].filter(Boolean).join(' ') || undefined}>
       <legend className={LABEL_CLASS}>参加費の支払方法</legend>
+      {free && (
+        <p id={freeHelpId} className="mt-1 text-xs text-fg-muted">
+          無料のワークショップは支払いがないため、選べません。参加費を入力すると、当日払いかオンライン決済かを選べます。
+        </p>
+      )}
       <div className="mt-2 space-y-2">
         {options.map((option) => (
           <label key={option.value} className="flex items-start gap-2 text-sm text-fg">
@@ -94,8 +105,8 @@ function PaymentMethodField({
               value={option.value}
               checked={value === option.value}
               onChange={() => onChange(option.value)}
-              disabled={disabled || !option.enabled}
-              aria-describedby={option.value === 'online' && payout && !canChooseOnline ? onlineHelpId : undefined}
+              disabled={disabled || free || !option.enabled}
+              aria-describedby={option.value === 'online' && showOnlineHelp ? onlineHelpId : undefined}
               className="mt-0.5 h-4 w-4 shrink-0 accent-accent"
             />
             <span>
@@ -105,24 +116,14 @@ function PaymentMethodField({
           </label>
         ))}
       </div>
-      {payout && !canChooseOnline && (
+      {showOnlineHelp && (
         <p id={onlineHelpId} className="mt-2 text-xs text-fg-muted">
-          {payout.online_payment_available ? (
-            <>
-              オンライン決済を選ぶには、
-              <Link to={PAYOUT_SETTINGS_PATH} className="underline">
-                参加費の受け取り設定
-              </Link>
-              を済ませてください。
-            </>
-          ) : (
-            '現在、オンライン決済はご利用いただけません。'
-          )}
+          現在、オンライン決済はご利用いただけません。
         </p>
       )}
-      <ErrorMessage message={payoutError} className="mt-2 text-xs" />
+      {!free && <ErrorMessage message={payoutError} className="mt-2 text-xs" />}
       {/* Stripe は最低決済額より安い支払いを受け付けないので、保存する前に伝える(保存時はバックエンドが 422 で断る) */}
-      {value === 'online' && price < ONLINE_PAYMENT_MIN_PRICE && (
+      {!free && value === 'online' && price < ONLINE_PAYMENT_MIN_PRICE && (
         <p role="alert" className="mt-2 text-xs text-red-300">
           オンライン決済の参加費は{ONLINE_PAYMENT_MIN_PRICE}円以上にしてください。
         </p>
@@ -144,6 +145,7 @@ export function WorkshopFormFields({
   onRemoveImage,
   lockConditions = false,
   reservedCount = 0,
+  isNew = false,
 }: WorkshopFormFieldsProps) {
   // 開始日時は時刻まで入力しないと form.start_at に入らないので、選んだ開始日だけを別に持っておく
   const [pickedStartDate, setPickedStartDate] = useState('')
@@ -352,17 +354,20 @@ export function WorkshopFormFields({
             定員(最大{WORKSHOP_CAPACITY_MAX}名)
             <RequiredMark />
           </label>
-          <input
-            id={capacityId}
-            type="number"
-            min={minCapacity}
-            max={WORKSHOP_CAPACITY_MAX}
-            required
-            value={form.capacity}
-            onChange={(e) => setField('capacity', Number(e.target.value))}
-            aria-describedby={reservedCount > 0 ? capacityHelpId : undefined}
-            className={`mt-1 ${INPUT_CLASS}`}
-          />
+          {/* 単位は入力欄の右に文字で添える */}
+          <div className="mt-1 flex items-center gap-2">
+            <NumberInput
+              id={capacityId}
+              min={minCapacity}
+              max={WORKSHOP_CAPACITY_MAX}
+              required
+              value={form.capacity}
+              onValueChange={(capacity) => setField('capacity', capacity)}
+              aria-describedby={reservedCount > 0 ? capacityHelpId : undefined}
+              className={INPUT_CLASS}
+            />
+            <span className="shrink-0 text-sm text-fg-secondary">名</span>
+          </div>
           {reservedCount > 0 && (
             <p id={capacityHelpId} className="mt-1 text-xs text-fg-muted">
               現在の参加人数は{reservedCount}名です。定員は{minCapacity}名以上にしてください。
@@ -371,43 +376,42 @@ export function WorkshopFormFields({
         </div>
         <div>
           <label htmlFor={priceId} className={LABEL_CLASS}>
-            参加費(円、最大{WORKSHOP_PRICE_MAX.toLocaleString()}円)
+            参加費(最大{WORKSHOP_PRICE_MAX.toLocaleString()}円)
             <RequiredMark />
           </label>
-          <input
-            id={priceId}
-            type="number"
-            min={0}
-            max={WORKSHOP_PRICE_MAX}
-            step={100}
-            required
-            disabled={lockConditions}
-            aria-describedby={lockConditions ? lockedHelpId : undefined}
-            value={form.price}
-            onChange={(e) => {
-              const price = Number(e.target.value)
-              // 無料にしたら、支払方法は使わないので戻す
-              setForm((prev) => ({
-                ...prev,
-                price,
-                payment_method: price > 0 ? prev.payment_method : 'onsite',
-              }))
-            }}
-            className={`mt-1 ${INPUT_CLASS}`}
-            placeholder="0円の場合は無料として表示されます"
-          />
+          <div className="mt-1 flex items-center gap-2">
+            <NumberInput
+              id={priceId}
+              emptyInitially={isNew}
+              min={0}
+              max={WORKSHOP_PRICE_MAX}
+              step={100}
+              required
+              disabled={lockConditions}
+              aria-describedby={lockConditions ? lockedHelpId : undefined}
+              value={form.price}
+              onValueChange={(price) => {
+                // 無料にしたら、支払方法は使わないので戻す
+                setForm((prev) => ({
+                  ...prev,
+                  price,
+                  payment_method: price > 0 ? prev.payment_method : 'onsite',
+                }))
+              }}
+              className={INPUT_CLASS}
+            />
+            <span className="shrink-0 text-sm text-fg-secondary">円</span>
+          </div>
         </div>
       </div>
 
-      {form.price > 0 && (
-        <PaymentMethodField
-          value={form.payment_method}
-          price={form.price}
-          onChange={(value) => setField('payment_method', value)}
-          disabled={lockConditions}
-          describedBy={lockConditions ? lockedHelpId : undefined}
-        />
-      )}
+      <PaymentMethodField
+        value={form.payment_method}
+        price={form.price}
+        onChange={(value) => setField('payment_method', value)}
+        disabled={lockConditions}
+        describedBy={lockConditions ? lockedHelpId : undefined}
+      />
 
       <fieldset className="space-y-4 border-t border-border-muted pt-4">
         <legend className="sr-only">参加者への案内</legend>

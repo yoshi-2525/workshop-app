@@ -4,6 +4,7 @@ import { listWorkshopsPage } from '@/api/workshops'
 import { extractErrorMessage } from '@/api/client'
 import type { Workshop } from '@/types'
 import { toApiParams, type WorkshopListState } from '@/utils/workshopListState'
+import { pageCount } from '@/utils/pagination'
 
 interface UseWorkshopListPageOptions {
   perPage: number
@@ -32,7 +33,7 @@ export function useWorkshopListPage(listState: WorkshopListState, { perPage, onP
     setError(null)
     listWorkshopsPage({ ...toApiParams(listState), page, perPage }, controller.signal)
       .then(({ items, total }) => {
-        const lastPage = Math.max(1, Math.ceil(total / perPage))
+        const lastPage = pageCount(total, perPage)
         if (page > lastPage) {
           // 読み込み中のまま、呼び出し側がページを移すのを待つ(移した先でもう一度取得する)
           onPageOutOfRangeRef.current(lastPage)

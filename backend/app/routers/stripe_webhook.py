@@ -31,7 +31,7 @@ def _process(db: Session, event: dict) -> None:
 
 @router.post("/webhook", status_code=status.HTTP_204_NO_CONTENT)
 async def receive_stripe_webhook(request: Request, db: Session = Depends(get_db)) -> None:
-    """Stripe からの通知(Webhook)。決済の完了・期限切れと、主催者の連結アカウントの状態の変化を反映する。
+    """Stripe からの通知(Webhook)。決済の完了・期限切れと、返金の失敗を反映する。
 
     認証の代わりに Stripe の署名を確かめる。署名は受け取ったままの本文で計算されるので、
     本文を読むために例外として async にし、DB の処理はスレッドプールで行う。

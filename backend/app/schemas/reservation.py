@@ -17,8 +17,9 @@ class PaymentSummary(BaseModel):
 
     status: PaymentStatus
     amount: int
-    # 手数料の内訳(主催者が負担する)。主催者・運営にだけ返し、参加者には null
-    application_fee_amount: int | None
+    # 運営の手数料と主催者の受取額。主催者・運営にだけ返し、参加者には null
+    platform_fee_amount: int | None
+    facilitator_amount: int | None
     # 支払いが済むまでと、参加者には null
     stripe_fee_amount: int | None
     # 返金が決まるまでは null

@@ -38,7 +38,7 @@ npx vitest run src/utils/workshop.test.ts   # 1 ファイル
 - 認証は JWT の Bearer トークン（Cookie は使わない）。フロントは `localStorage` にトークンを保存し、`frontend/src/api/client.ts` の axios インターセプターで付与する。401 を受けると `AUTH_EXPIRED_EVENT` を発火して `AuthContext` がログアウトさせる。
 - ロールは participant / facilitator / admin。ログイン画面はロール別（`/login/participant`, `/login/facilitator`）で、participant 画面は participant 以外を、facilitator 画面は facilitator/admin 以外を拒否する。
 - リマインダー通知は `main.py` の lifespan で起動する APScheduler（30 分間隔）が送る。同じスケジューラーで、オンライン決済の返金の再試行と期限切れの支払い待ちの片付け（10 分間隔）も行う。複数プロセスでの二重実行は MySQL の `GET_LOCK` で防いでいる。
-- 参加費のオンライン決済は Stripe Connect（direct charge）と Stripe Checkout。Stripe の呼び出しは `backend/app/core/stripe_client.py` に集め、決済の完了などは Webhook（`/api/stripe/webhook`、Connect 用）で受け取る。
+- 参加費のオンライン決済は運営の Stripe アカウントでの Stripe Checkout（Connect は使わない）。支払いごとに主催者の受取額（参加費の 90%）を記録し、主催者の申請を受けて運営が手作業で振り込む（`services/payouts.py`）。Stripe の呼び出しは `backend/app/core/stripe_client.py` に集め、決済の完了などは Webhook（`/api/stripe/webhook`、運営のアカウントのイベント）で受け取る。
 - アップロード画像は `UPLOAD_DIR`（既定 `backend/uploads/`）に保存し、`/api/uploads` で配信。
 - 起動時に `JWT_SECRET_KEY` が弱いと `settings.check_jwt_secret()` が警告/失敗する。設定は `backend/.env`（`.env.example` 参照）。
 

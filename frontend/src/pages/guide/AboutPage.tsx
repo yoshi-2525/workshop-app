@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 const VALUES = [
   {
@@ -72,13 +73,13 @@ export function AboutPage() {
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             to="/"
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+            className={PRIMARY_BUTTON_CLASS}
           >
             場をさがす
           </Link>
           <Link
             to="/rules"
-            className="rounded-md border border-border px-4 py-2 text-sm text-fg-secondary hover:bg-surface-muted"
+            className={SECONDARY_BUTTON_CLASS}
           >
             対話のルールを読む
           </Link>

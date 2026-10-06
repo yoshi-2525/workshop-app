@@ -3,12 +3,19 @@ import { formatYen } from '@/utils/format'
 
 // オンライン決済(Stripe)まわりの値と判定
 
-// 主催者の受け取り設定の画面。Stripe の設定画面から戻ってくる先なので、
-// バックエンドの services/payments.py の PAYOUT_SETTINGS_PATH と揃える
+// 主催者の売上・振込の画面と、運営が振込の申請を処理する画面
 export const PAYOUT_SETTINGS_PATH = '/manage/payout'
-// 本サービスの手数料率(参加費に対する %、1円未満切り捨て)。主催者ガイドラインなどの表示に使う。
-// バックエンドの settings.platform_fee_percent(.env の PLATFORM_FEE_PERCENT)と揃える
+export const ADMIN_PAYOUT_REQUESTS_PATH = '/manage/payout-requests'
+// 本サービスの手数料率(参加費に対する %、1円未満切り捨て)。残りが主催者の受取額になる。
+// 主催者ガイドラインなどの表示に使う。バックエンドの settings.platform_fee_percent(.env の PLATFORM_FEE_PERCENT)と揃える
 export const PLATFORM_FEE_PERCENT = 10
+// 主催者の受取額の割合(%)
+export const FACILITATOR_SHARE_PERCENT = 100 - PLATFORM_FEE_PERCENT
+
+// 振込を申請できる最低額と、振込1回ごとの振込手数料(主催者の負担)。規約・ガイドラインの表示に使う。
+// 実際の額は API(売上の状況)が返す。バックエンドの settings.payout_min_amount・payout_transfer_fee と揃える
+export const PAYOUT_MIN_AMOUNT = 1000
+export const PAYOUT_TRANSFER_FEE = 250
 
 // オンライン決済で受け付ける参加費の下限(Stripe の日本円の最低決済額)。
 // バックエンドの schemas/workshop.py の ONLINE_PAYMENT_MIN_PRICE と揃える
@@ -18,17 +25,12 @@ export const ONLINE_PAYMENT_MIN_PRICE = 50
 // バックエンドの services/payments.py の PAYMENT_HOLD(32分。Stripe を呼ぶまでの余裕を含む)と揃える
 export const PAYMENT_HOLD_MINUTES_APPROX = 30
 
-// 主催者都合・中止などで全額を返金するときの、主催者の手数料の負担の説明。
-// バックエンドの services/payments.py の process_refund(全額なら refund_application_fee を付ける)と揃える
-export const FULL_REFUND_FEE_NOTE =
-  '本サービスの手数料は主催者に戻りますが、Stripe の決済手数料は戻らず、主催者の負担になります。'
+// 主催者都合・中止などで全額を返金するときの、主催者の売上の扱いの説明。
+// 返金になった支払いは主催者の売上に数えない(バックエンドの services/payouts.py の _earning_criteria)
+export const FULL_REFUND_FEE_NOTE = 'その参加費は主催者の売上になりませんが、手数料の負担もありません。'
 
-// Stripe の設定画面の URL の期限が切れたときに付いて戻ってくるクエリ(バックエンドの refresh_url と揃える)
-export const PAYOUT_LINK_EXPIRED_PARAM = 'refresh'
-
-// 移動してよい Stripe の画面のホスト。バックエンドが返す URL のホストだけに絞る
-// (Checkout は checkout.stripe.com、受け取り設定と Express ダッシュボードは connect.stripe.com)
-const STRIPE_REDIRECT_HOSTS = new Set(['checkout.stripe.com', 'connect.stripe.com'])
+// 移動してよい Stripe の画面のホスト。バックエンドが返す URL(Checkout の支払い画面)のホストだけに絞る
+const STRIPE_REDIRECT_HOSTS = new Set(['checkout.stripe.com'])
 
 // API から受け取った Stripe の画面の URL が、https の Stripe のページか確かめる。
 // 外部へ移動する前の確認として、不具合などで別のサイトや javascript: の URL が来ても開かないようにする
@@ -70,12 +72,12 @@ export function refundLabel(payment: Pick<PaymentSummary, 'status'> | null): str
 // 取消の理由ごとの返金額と、差し引く手数料。主催者都合は全額、参加者都合は決済手数料と本サービスの手数料を差し引く。
 // 画面で事前に見せるための計算で、実際の額はバックエンドの services/payments.py の refund_amount_for が決める
 export function refundAmountFor(
-  payment: Pick<PaymentSummary, 'amount' | 'stripe_fee_amount' | 'application_fee_amount'>,
+  payment: Pick<PaymentSummary, 'amount' | 'stripe_fee_amount' | 'platform_fee_amount'>,
   reason: CancelReason,
 ): { refund: number; stripeFee: number; serviceFee: number } {
   if (reason === 'facilitator') return { refund: payment.amount, stripeFee: 0, serviceFee: 0 }
   const stripeFee = payment.stripe_fee_amount ?? 0
-  const serviceFee = payment.application_fee_amount ?? 0
+  const serviceFee = payment.platform_fee_amount ?? 0
   return { refund: Math.max(0, payment.amount - stripeFee - serviceFee), stripeFee, serviceFee }
 }
 
@@ -98,13 +100,13 @@ export function paymentStatusLabel(payment: Pick<PaymentSummary, 'status' | 'ref
   }
 }
 
-// 有料のワークショップの、キャンセルと返金についての案内(本サービスのキャンセルポリシーの要約)。無料なら null。
-// 返金の扱いはバックエンドの services/payments.py の refund_amount_for と揃える
 // オンライン決済の返金の扱いの説明。参加者向けの要約と特定商取引法に基づく表記で使う。
 // バックエンドの services/payments.py の refund_amount_for と揃える
 export const ONLINE_REFUND_SUMMARY =
   '主催者の都合によるキャンセルとワークショップの中止は全額を、参加者のご都合によるキャンセルは決済手数料と本サービスの手数料を差し引いた額を返金します。'
 
+// 有料のワークショップの、キャンセルと返金についての案内(本サービスのキャンセルポリシーの要約)。無料なら null。
+// 返金の扱いはバックエンドの services/payments.py の refund_amount_for と揃える
 export function cancellationSummary(workshop: Pick<Workshop, 'price' | 'payment_method'>): string | null {
   if (workshop.price <= 0) return null
   if (isOnlinePayment(workshop)) {

@@ -9,16 +9,15 @@ import {
 } from '@/utils/payment'
 
 describe('isStripeRedirectUrl', () => {
-  it.each([
-    'https://connect.stripe.com/setup/e/acct_123/abc',
-    'https://connect.stripe.com/express/acct_123/xyz',
-    'https://checkout.stripe.com/c/pay/cs_test_123',
-  ])('Stripe の https の URL は通す: %s', (url) => {
+  it.each(['https://checkout.stripe.com/c/pay/cs_test_123'])('Stripe の支払い画面の https の URL は通す: %s', (url) => {
     expect(isStripeRedirectUrl(url)).toBe(true)
   })
 
   it.each([
-    'http://connect.stripe.com/setup',
+    'http://checkout.stripe.com/c/pay/cs_test_123',
+    // 受け取り設定をやめたので、Connect やダッシュボードへは移動しない
+    'https://connect.stripe.com/setup/e/acct_123/abc',
+    'https://dashboard.stripe.com/',
     'https://evil.example.com/stripe.com',
     'https://stripe.com.evil.example/',
     'https://evilstripe.com/',
@@ -61,7 +60,7 @@ describe('refundLabel', () => {
 })
 
 describe('refundAmountFor', () => {
-  const payment = { amount: 3000, stripe_fee_amount: 108, application_fee_amount: 300 }
+  const payment = { amount: 3000, stripe_fee_amount: 108, platform_fee_amount: 300 }
 
   it('主催者都合は全額を返金する', () => {
     expect(refundAmountFor(payment, 'facilitator')).toEqual({ refund: 3000, stripeFee: 0, serviceFee: 0 })

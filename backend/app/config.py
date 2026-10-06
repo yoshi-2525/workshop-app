@@ -38,13 +38,17 @@ class Settings(BaseSettings):
     login_failure_window_seconds: int = 15 * 60
     # Stripe(参加費のオンライン決済)。秘密鍵が空ならオンライン決済は使えない(当日払いだけになる)
     stripe_secret_key: str = ""
-    # Connect 用の Webhook エンドポイントの署名シークレット(whsec_...)
+    # Webhook エンドポイント(運営のアカウントのイベント)の署名シークレット(whsec_...)
     stripe_webhook_secret: str = ""
-    # Stripe の画面(Checkout・受け取り設定)から戻ってくる先。末尾の / は付けない
+    # Stripe の支払い画面(Checkout)から戻ってくる先。末尾の / は付けない
     frontend_base_url: str = "http://localhost:5173"
-    # 運営の手数料(参加費に対する %)。Stripe の決済手数料とは別に主催者が負担する。
+    # 運営の手数料(参加費に対する %)。残りが主催者の受取額になる。Stripe の決済手数料は運営がここから払う。
     # フロントエンドの utils/payment.ts の PLATFORM_FEE_PERCENT(主催者ガイドラインなどの表示)と揃える
     platform_fee_percent: int = 10
+    # 主催者が振込を申請できる最低額と、振込1回ごとに申請額から差し引く振込手数料(主催者の負担)。
+    # フロントエンドの utils/payment.ts の PAYOUT_MIN_AMOUNT・PAYOUT_TRANSFER_FEE と揃える
+    payout_min_amount: int = 1000
+    payout_transfer_fee: int = 250
 
     # カレントディレクトリに関係なく backend/.env を読む
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8")
@@ -70,6 +74,14 @@ class Settings(BaseSettings):
         # 後ろにパスをつなげて戻り先の URL を作るので、末尾の / は取り除く
         return value.rstrip("/")
 
+    def check_payout_settings(self) -> None:
+        """手数料と振込の設定を確かめる。オンライン決済を止めていても過去の売上の振込は申請できるので、鍵の有無に関係なく確かめる"""
+        if not 0 <= self.platform_fee_percent < 100:
+            raise RuntimeError("PLATFORM_FEE_PERCENT は 0 以上 100 未満で設定してください")
+        if not 0 <= self.payout_transfer_fee < self.payout_min_amount:
+            # 振込額(申請額 − 振込手数料)が 0 円以下にならないようにする
+            raise RuntimeError("PAYOUT_TRANSFER_FEE は 0 以上、PAYOUT_MIN_AMOUNT 未満で設定してください")
+
     def check_stripe_settings(self) -> None:
         """オンライン決済の設定を確かめる。鍵がなくても起動は止めず、オンライン決済を使えないだけにする"""
         if not self.stripe_secret_key:
@@ -80,10 +92,8 @@ class Settings(BaseSettings):
         if self.app_env == "production" and self.stripe_secret_key.startswith(STRIPE_TEST_KEY_PREFIX):
             logger.warning("本番環境で Stripe のテスト用の秘密鍵を使っています")
         if self.app_env == "production" and not self.frontend_base_url.startswith("https://"):
-            # 本番の Stripe は https 以外の戻り先を受け付けないので、受け取り設定や決済がすべて失敗する
+            # 本番の Stripe は https 以外の戻り先を受け付けないので、決済がすべて失敗する
             raise RuntimeError("本番では FRONTEND_BASE_URL を https:// で始まる URL にしてください")
-        if not 0 <= self.platform_fee_percent < 100:
-            raise RuntimeError("PLATFORM_FEE_PERCENT は 0 以上 100 未満で設定してください")
 
     @property
     def online_payment_enabled(self) -> bool:

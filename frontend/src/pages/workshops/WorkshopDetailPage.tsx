@@ -26,7 +26,7 @@ import { getLastListUrl } from '@/utils/workshopListState'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
-import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { PAPER_SECONDARY_SMALL_BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 import { BackLink } from '@/components/ui/BackLink'
 import { CancellationPolicy } from '@/components/workshop/CancellationPolicy'
 import { paymentNote } from '@/utils/payment'
@@ -156,7 +156,7 @@ export function WorkshopDetailPage() {
           {isOwnWorkshop ? (
             <Link
               to={`/inquiries?workshop_id=${workshop.id}`}
-              className="ml-auto inline-flex items-center gap-1 rounded-md bg-surface px-3 py-1.5 text-fg-secondary shadow-sm hover:bg-white"
+              className={`ml-auto ${PAPER_SECONDARY_SMALL_BUTTON_CLASS}`}
             >
               <MaterialIcon name="chat" className="text-[18px]" />
               届いた問い合わせ
@@ -166,7 +166,7 @@ export function WorkshopDetailPage() {
               <button
                 type="button"
                 onClick={() => navigateWithLogin(`/workshops/${workshop.id}/inquiry`)}
-                className="ml-auto inline-flex items-center gap-1 rounded-md bg-surface px-3 py-1.5 text-fg-secondary shadow-sm hover:bg-white"
+                className={`ml-auto ${PAPER_SECONDARY_SMALL_BUTTON_CLASS}`}
               >
                 <MaterialIcon name="chat" className="text-[18px]" />
                 主催者に問い合わせる
@@ -174,7 +174,7 @@ export function WorkshopDetailPage() {
             )
           )}
         </div>
-        <dl className="mt-6 space-y-2 rounded-md bg-surface/70 p-4 text-sm">
+        <dl className="mt-6 space-y-2 rounded-lg bg-surface/70 p-4 text-sm">
           <div className="flex gap-2">
             <dt className="w-20 font-medium text-fg-muted">日時</dt>
             <dd className="text-fg"><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} /></dd>
@@ -249,13 +249,10 @@ export function WorkshopDetailPage() {
               </div>
             )}
             {workshop.viewer.is_reserved && (
-              <p className="mt-6 text-right text-sm text-fg-muted">
-                このワークショップは予約済みです。内容は{' '}
-                <Link to="/reservations" className="underline">
-                  参加予定のワークショップ
-                </Link>{' '}
-                から確認できます。キャンセルをご希望の場合は主催者にご連絡ください。
-              </p>
+              // 枠は文章の長さに合わせ、予約ボタンと同じく右に寄せる
+              <div className="mt-4 ml-auto w-fit rounded-lg bg-surface/70 px-4 py-3">
+                <p className="text-sm text-fg-muted">このワークショップは予約済みです。</p>
+              </div>
             )}
             {workshop.viewer.is_reservation_canceled && (
               <p className="mt-6 text-right text-sm text-fg-muted">

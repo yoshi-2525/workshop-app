@@ -1,7 +1,6 @@
 """Stripe の Webhook イベントの反映。
 
-決済は主催者の連結アカウント上で行うので、Checkout のイベントは Connect 用のエンドポイントに届き、
-event["account"] に主催者の連結アカウントが入る。
+決済は運営の Stripe アカウントで行うので、運営のアカウントのイベント用のエンドポイントで受け取る。
 """
 
 import logging
@@ -11,23 +10,22 @@ from sqlalchemy.orm import Session
 
 from app.core import stripe_client
 from app.models.stripe_event import StripeEvent
-from app.services.payments import apply_account_state, find_payment_by_session, mark_refund_failed
+from app.services.payments import find_payment_by_session, mark_refund_failed
 from app.services.reservations import apply_checkout_state
 
 logger = logging.getLogger(__name__)
 
 _CHECKOUT_EVENTS = ("checkout.session.completed", "checkout.session.expired")
+# アプリの操作によらない、参加費の払い戻しにつながるイベント
+_UNTRACKED_MONEY_EVENTS = ("charge.refunded", "charge.dispute.created")
 
 
 def _apply_checkout_event(db: Session, event: dict[str, Any]) -> None:
     session = event["data"]["object"]
     payment = find_payment_by_session(db, session["id"])
     if payment is None:
-        # このアプリ以外で作られた Checkout(同じ連結アカウントを別の用途に使った場合など)
+        # このアプリ以外で作られた Checkout(同じ Stripe アカウントを別の用途に使った場合など)
         logger.info("対応する支払いのない Checkout のイベントを無視しました (%s)", session["id"])
-        return
-    if event.get("account") != payment.stripe_account_id:
-        logger.warning("連結アカウントが一致しない Checkout のイベントを無視しました (%s)", event["id"])
         return
     state = stripe_client.CheckoutSessionState(
         session_id=session["id"],
@@ -56,14 +54,13 @@ def handle_stripe_event(db: Session, event: dict[str, Any]) -> None:
         refund = event["data"]["object"]
         # 依頼した返金が、後から Stripe 側で失敗した(カードが使えなくなったなど)
         if refund.get("status") == "failed" and refund.get("payment_intent"):
-            mark_refund_failed(db, refund["payment_intent"], event.get("account"))
-    elif event["type"] == "account.updated":
-        account = event["data"]["object"]
-        apply_account_state(
-            db,
-            stripe_client.AccountState(
-                account_id=account["id"],
-                charges_enabled=bool(account.get("charges_enabled")),
-                details_submitted=bool(account.get("details_submitted")),
-            ),
+            mark_refund_failed(db, refund["payment_intent"])
+    elif event["type"] in _UNTRACKED_MONEY_EVENTS:
+        # 参加費は運営のアカウントに集まるので、ダッシュボードからの返金やチャージバックは運営の資金を減らす。
+        # アプリの支払いの状態(主催者の売上)には自動で反映しないので、運営が確かめて対応する
+        obj = event["data"]["object"]
+        logger.error(
+            "Stripe で返金・支払いの異議がありました。主催者の売上と振込を確認してください (%s, payment_intent=%s)",
+            event["type"],
+            obj.get("payment_intent"),
         )

@@ -14,21 +14,9 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# 連結アカウント(主催者)の国。日本の主催者だけを対象にする
-CONNECT_ACCOUNT_COUNTRY = "JP"
-
 
 class StripeUnavailable(Exception):
     """Stripe の呼び出しに失敗した(未設定・通信エラー・Stripe が拒否した)"""
-
-
-@dataclass(frozen=True)
-class AccountState:
-    """連結アカウントの状態のうち、アプリが使うもの"""
-
-    account_id: str
-    charges_enabled: bool
-    details_submitted: bool
 
 
 def _client() -> stripe.StripeClient:
@@ -37,74 +25,8 @@ def _client() -> stripe.StripeClient:
     return stripe.StripeClient(settings.stripe_secret_key)
 
 
-def _account_state(account: stripe.Account) -> AccountState:
-    return AccountState(
-        account_id=account.id,
-        charges_enabled=bool(account.charges_enabled),
-        details_submitted=bool(account.details_submitted),
-    )
-
-
-def create_express_account(*, user_id: int, email: str) -> AccountState:
-    """主催者の Express アカウントを作る。
-
-    ボタンの二度押しなどで同じ主催者に2つ作らないよう、冪等キーをユーザーごとに固定する
-    """
-    try:
-        account = _client().v1.accounts.create(
-            {
-                "type": "express",
-                "country": CONNECT_ACCOUNT_COUNTRY,
-                "email": email,
-                "capabilities": {"card_payments": {"requested": True}, "transfers": {"requested": True}},
-                "metadata": {"user_id": str(user_id)},
-            },
-            {"idempotency_key": f"express-account-user-{user_id}"},
-        )
-    except stripe.StripeError as exc:
-        logger.exception("Stripe の連結アカウントを作成できませんでした (user_id=%s)", user_id)
-        raise StripeUnavailable(str(exc)) from exc
-    return _account_state(account)
-
-
-def retrieve_account(account_id: str) -> AccountState:
-    try:
-        account = _client().v1.accounts.retrieve(account_id)
-    except stripe.StripeError as exc:
-        logger.exception("Stripe の連結アカウントを取得できませんでした (%s)", account_id)
-        raise StripeUnavailable(str(exc)) from exc
-    return _account_state(account)
-
-
-def create_account_link(account_id: str, *, refresh_url: str, return_url: str) -> str:
-    """受け取り設定(本人確認・口座登録)の画面の URL を返す。URL は一度しか使えず、短時間で切れる"""
-    try:
-        link = _client().v1.account_links.create(
-            {
-                "account": account_id,
-                "refresh_url": refresh_url,
-                "return_url": return_url,
-                "type": "account_onboarding",
-            }
-        )
-    except stripe.StripeError as exc:
-        logger.exception("Stripe の受け取り設定の URL を作成できませんでした (%s)", account_id)
-        raise StripeUnavailable(str(exc)) from exc
-    return link.url
-
-
-def create_login_link(account_id: str) -> str:
-    """Express ダッシュボード(売上・入金の確認)にログインする URL を返す"""
-    try:
-        link = _client().v1.accounts.login_links.create(account_id)
-    except stripe.StripeError as exc:
-        logger.exception("Stripe のダッシュボードの URL を作成できませんでした (%s)", account_id)
-        raise StripeUnavailable(str(exc)) from exc
-    return link.url
-
-
 # ---- Checkout(参加者の支払い) ----
-# 主催者の連結アカウント上で作る(direct charge)。どの呼び出しにも stripe_account を付ける
+# 参加費は運営の Stripe アカウントで受け取る。主催者の受取分は運営がアプリの記録をもとに振り込む
 
 
 @dataclass(frozen=True)
@@ -141,25 +63,19 @@ def _session_state(session: stripe.checkout.Session) -> CheckoutSessionState:
 
 def create_checkout_session(
     *,
-    account_id: str,
     idempotency_key: str,
     item: CheckoutLineItem,
     currency: str,
-    application_fee_amount: int,
     customer_email: str,
     expires_at: int,
     success_url: str,
     cancel_url: str,
     metadata: dict[str, str],
 ) -> CheckoutSessionState:
-    """参加費の支払い画面(Checkout Session)を主催者の連結アカウント上に作る。
+    """参加費の支払い画面(Checkout Session)を作る。
 
     expires_at は UNIX 時刻(秒)。Stripe は作成から 30 分以上先しか受け付けない
     """
-    payment_intent_data: dict = {"metadata": metadata}
-    # 運営の手数料が 0 円なら application fee を付けない(Stripe は 0 を受け付けないことがあるため)
-    if application_fee_amount > 0:
-        payment_intent_data["application_fee_amount"] = application_fee_amount
     try:
         session = _client().v1.checkout.sessions.create(
             {
@@ -175,7 +91,7 @@ def create_checkout_session(
                         },
                     }
                 ],
-                "payment_intent_data": payment_intent_data,
+                "payment_intent_data": {"metadata": metadata},
                 "customer_email": customer_email,
                 "expires_at": expires_at,
                 "success_url": success_url,
@@ -183,7 +99,7 @@ def create_checkout_session(
                 "metadata": metadata,
                 "locale": "ja",
             },
-            {"stripe_account": account_id, "idempotency_key": idempotency_key},
+            {"idempotency_key": idempotency_key},
         )
     except stripe.StripeError as exc:
         logger.exception("Stripe の支払い画面を作成できませんでした (%s)", idempotency_key)
@@ -191,27 +107,27 @@ def create_checkout_session(
     return _session_state(session)
 
 
-def retrieve_checkout_session(session_id: str, *, account_id: str) -> CheckoutSessionState:
+def retrieve_checkout_session(session_id: str) -> CheckoutSessionState:
     try:
-        session = _client().v1.checkout.sessions.retrieve(session_id, options={"stripe_account": account_id})
+        session = _client().v1.checkout.sessions.retrieve(session_id)
     except stripe.StripeError as exc:
         logger.exception("Stripe の支払い画面を取得できませんでした (%s)", session_id)
         raise StripeUnavailable(str(exc)) from exc
     return _session_state(session)
 
 
-def expire_checkout_session(session_id: str, *, account_id: str) -> CheckoutSessionState:
+def expire_checkout_session(session_id: str) -> CheckoutSessionState:
     """支払い画面を閉じて、それ以上支払えないようにする。支払い済み・期限切れのものは Stripe がエラーを返す"""
     try:
-        session = _client().v1.checkout.sessions.expire(session_id, options={"stripe_account": account_id})
+        session = _client().v1.checkout.sessions.expire(session_id)
     except stripe.StripeError as exc:
         logger.warning("Stripe の支払い画面を閉じられませんでした (%s): %s", session_id, exc)
         raise StripeUnavailable(str(exc)) from exc
     return _session_state(session)
 
 
-def retrieve_stripe_fee(payment_intent_id: str, *, account_id: str) -> int:
-    """支払いにかかった Stripe の決済手数料(円)。運営の手数料(application fee)は含めない。
+def retrieve_stripe_fee(payment_intent_id: str) -> int:
+    """支払いにかかった Stripe の決済手数料(円)。
 
     参加者都合の取消で返金額から差し引くため、計算ではなく Stripe が実際に引いた額を使う
     """
@@ -219,7 +135,6 @@ def retrieve_stripe_fee(payment_intent_id: str, *, account_id: str) -> int:
         intent = _client().v1.payment_intents.retrieve(
             payment_intent_id,
             {"expand": ["latest_charge.balance_transaction"]},
-            {"stripe_account": account_id},
         )
     except stripe.StripeError as exc:
         logger.exception("Stripe の決済手数料を取得できませんでした (%s)", payment_intent_id)
@@ -252,27 +167,20 @@ def construct_event(payload: bytes, signature: str | None) -> dict:
 
 def create_refund(
     *,
-    account_id: str,
     payment_intent_id: str,
     amount: int,
-    refund_application_fee: bool,
     idempotency_key: str,
     metadata: dict[str, str],
 ) -> str:
-    """支払いを返金し、返金の ID を返す。
-
-    direct charge なので主催者の連結アカウント上で返金する。refund_application_fee を付けると、
-    運営の手数料も主催者へ戻す(全額返金のとき)。Stripe の決済手数料は戻らない
-    """
+    """支払いを返金し、返金の ID を返す。Stripe の決済手数料は戻らない(運営の負担になる)"""
     try:
         refund = _client().v1.refunds.create(
             {
                 "payment_intent": payment_intent_id,
                 "amount": amount,
-                "refund_application_fee": refund_application_fee,
                 "metadata": metadata,
             },
-            {"stripe_account": account_id, "idempotency_key": idempotency_key},
+            {"idempotency_key": idempotency_key},
         )
     except stripe.StripeError as exc:
         logger.exception("Stripe で返金できませんでした (%s)", idempotency_key)
@@ -280,15 +188,13 @@ def create_refund(
     return refund.id
 
 
-def find_active_refund(*, account_id: str, payment_intent_id: str, payment_id: int) -> str | None:
+def find_active_refund(*, payment_intent_id: str, payment_id: int) -> str | None:
     """この支払いのために作った返金のうち、失敗・取り消しになっていないものの ID。なければ None。
 
     返金の依頼の応答を受け取れなかった場合に、二重に返金しないよう再試行の前に確かめる
     """
     try:
-        refunds = _client().v1.refunds.list(
-            {"payment_intent": payment_intent_id, "limit": 100}, {"stripe_account": account_id}
-        )
+        refunds = _client().v1.refunds.list({"payment_intent": payment_intent_id, "limit": 100})
     except stripe.StripeError as exc:
         logger.exception("Stripe の返金を確認できませんでした (%s)", payment_intent_id)
         raise StripeUnavailable(str(exc)) from exc

@@ -1,10 +1,10 @@
 # 画面遷移図
 
-最終更新日: 2026-10-05
+最終更新日: 2026-10-06
 
 > 注記（2026-10-05）: 問い合わせ（`/inquiries`、`/inquiries/:id`、`/workshops/:id/inquiry`）・ヘルプ・ガイド（`/help` 配下、`/rules`、`/about`）の画面の中での遷移は本書ではまだ詳しく描いていない（画面への入口のみ記載）。
 
-各画面間の遷移を、きっかけ（リンク・ボタン・処理結果）とともに示す。画面数が多いため「共通ナビゲーション」「認証」「利用者向け」「オンライン決済（参加者）」「主催者向け」「参加費の受け取り設定（主催者）」の 6 つの図に分けている。遷移は `Link` / `navigate()` / `<Navigate>` / `window.location.assign()` のコードから読み取った。
+各画面間の遷移を、きっかけ（リンク・ボタン・処理結果）とともに示す。画面数が多いため「共通ナビゲーション」「認証」「利用者向け」「オンライン決済（参加者）」「主催者向け」「売上と振込（主催者・運営）」の 6 つの図に分けている。遷移は `Link` / `navigate()` / `<Navigate>` / `window.location.assign()` のコードから読み取った。
 
 ## 1. 共通ナビゲーション（Navbar・フッター）とガード
 
@@ -26,6 +26,7 @@ flowchart LR
     NF["ページが見つかりません<br/>/404"]
     AUTHED(["ログイン必須の画面<br/>/workshops/:id/reserve, /reservations 配下,<br/>/favorites, /following, /notifications,<br/>/inquiries 配下, /workshops/:id/inquiry, /me 配下"])
     MNG(["主催者・管理者の画面<br/>/manage 配下（/manage/payout を含む）"])
+    ADM(["管理者のみの画面<br/>/manage/payout-requests"])
 
     ANY -->|"ロゴ「TAIWA」/ さがす"| LIST
     ANY -->|"対話のルール"| RULES
@@ -43,16 +44,18 @@ flowchart LR
     AUTHED -->|"未ログイン: リダイレクト<br/>state.from = 元のパス + クエリ"| LOGIN_P
     MNG -->|"未ログイン: リダイレクト<br/>state.from = 元のパス + クエリ"| LOGIN_F
     MNG -->|"participant でアクセス: リダイレクト"| LIST
+    ADM -->|"未ログイン: リダイレクト<br/>state.from = 元のパス + クエリ"| LOGIN_F
+    ADM -->|"participant / facilitator でアクセス: リダイレクト"| LIST
 ```
 
 根拠:
 
 - Navbar のリンク: `frontend/src/components/layout/Navbar.tsx:56-115`
 - フッターのリンク: `frontend/src/components/layout/Layout.tsx:13-28`
-- 旧 URL `/settings`・`/settings/profile` は `/me`・`/me/profile` へ `<Navigate replace>`（`frontend/src/App.tsx:76-78`）
+- 旧 URL `/settings`・`/settings/profile` は `/me`・`/me/profile` へ `<Navigate replace>`（`frontend/src/App.tsx:77-79`）
 - 未ログイン時のリダイレクト（`state: { from: location.pathname + location.search }`）とロール不足時の `/` へのリダイレクト: `frontend/src/components/layout/ProtectedRoute.tsx:19-26`
-- ログイン先の出し分け（`loginPath`）: `frontend/src/App.tsx:62, 81`
-- 未定義パス → `/404`: `frontend/src/App.tsx:89-90`
+- ログイン先の出し分け（`loginPath`）: `frontend/src/App.tsx:63, 82, 90`
+- 未定義パス → `/404`: `frontend/src/App.tsx:94-95`
 
 ## 2. 認証（ログイン・新規登録）
 
@@ -121,7 +124,8 @@ flowchart LR
     SET["マイページ<br/>/me"]
     PROF["プロフィール編集<br/>/me/profile"]
     MANAGE["ワークショップ管理<br/>/manage"]
-    PAYOUT["参加費の受け取り設定<br/>/manage/payout"]
+    PAYOUT["売上と振込<br/>/manage/payout"]
+    PAYREQ["振込の申請（運営）<br/>/manage/payout-requests"]
     DOCS["ヘルプ・規約の各文書<br/>/rules, /help/*"]
     LOGIN_P["参加者ログイン<br/>/login/participant"]
     GMAP(["Google マップ<br/>（外部・新しいタブ）"])
@@ -169,7 +173,8 @@ flowchart LR
     SET -->|"お気に入り"| FAV
     SET -->|"フォロー中の主催者のワークショップ"| FOLLOWING
     SET -->|"ワークショップの管理<br/>（facilitator / admin のみ表示）"| MANAGE
-    SET -->|"参加費の受け取り設定<br/>（facilitator / admin のみ表示）"| PAYOUT
+    SET -->|"売上と振込<br/>（facilitator / admin のみ表示）"| PAYOUT
+    SET -->|"振込の申請(運営)<br/>（admin のみ表示）"| PAYREQ
     SET -->|"問い合わせ"| INQ
     SET -->|"プロフィール編集"| PROF
     SET -->|"ヘルプ・規約の各カード"| DOCS
@@ -186,7 +191,7 @@ flowchart LR
 - 予約できるかの判定は `getReservationBlocker()`（判定の順: 非公開 → 予約済み → 主催者による取消 → 開始済み → 締切後 → 満員。支払い待ちの本人は満員でも予約可能扱い）を詳細と予約フォームで共通に使う（`frontend/src/utils/workshop.ts:67-88`）。
 - 予約確定後（当日払い・無料）、参加予定画面の上部に「「{タイトル}」への参加登録が完了しました。」を表示する（`frontend/src/pages/reservations/ReservationFormPage.tsx:88-95`、`frontend/src/pages/reservations/MyReservationsPage.tsx:163-177`）。
 - 詳細画面・予約画面・主催者プロフィール画面・決済完了画面は、URL の `:id` が正の整数でない場合、API を呼ばずにエラーメッセージを表示する（`parseIdParam`。`frontend/src/utils/params.ts`）。`/404` へは遷移しない。
-- 中止されたワークショップの詳細は、そのワークショップを予約したことのあるユーザーも閲覧できる（`backend/app/services/workshops.py:419-433`）。
+- 中止されたワークショップの詳細は、そのワークショップを予約したことのあるユーザーも閲覧できる（`backend/app/services/workshops.py:414-428`）。
 - 主催者プロフィールのフォローボタン（`FollowButton`）は、表示中の主催者の role が `facilitator` のときだけ表示する。admin（運営）のページと自分自身のページでは表示しない（`frontend/src/components/facilitator/FollowButton.tsx`、`frontend/src/utils/user.ts`）。
 - フォロー中の主催者画面でフォローを解除すると、ワークショップ・主催者の両一覧を再取得する（`frontend/src/pages/me/FollowingPage.tsx`）。
 - マイページのメニューのリンクには `useBackState('マイページ')` の state を付ける（`frontend/src/pages/me/MyPage.tsx:16-25`）。
@@ -222,10 +227,10 @@ flowchart LR
 
 補足:
 
-- 予約の送信（`POST /api/workshops/{id}/reservations`）の応答に `checkout_url` があれば、Stripe のページ（`https` かつ `checkout.stripe.com` / `connect.stripe.com`）であることを確かめてから `window.location.assign()` で移動する。なければ（当日払い・無料）`/reservations` へ遷移する（`frontend/src/api/reservations.ts:17-27`、`frontend/src/utils/payment.ts:25-39`、`frontend/src/pages/reservations/ReservationFormPage.tsx:65-98`）。
-- Checkout の戻り先はバックエンドが決める: `success_url = {FRONTEND_BASE_URL}/reservations/{予約ID}/payment/complete`、`cancel_url = {FRONTEND_BASE_URL}/workshops/{ワークショップID}/reserve?payment=canceled`（`backend/app/services/payments.py:192-193`）。
+- 予約の送信（`POST /api/workshops/{id}/reservations`）の応答に `checkout_url` があれば、Stripe のページ（`https` かつホストが `checkout.stripe.com`）であることを確かめてから `window.location.assign()` で移動する。なければ（当日払い・無料）`/reservations` へ遷移する（`frontend/src/api/reservations.ts:17-27`、`frontend/src/utils/payment.ts:32-45`、`frontend/src/pages/reservations/ReservationFormPage.tsx:65-98`）。
+- Checkout の戻り先はバックエンドが決める: `success_url = {FRONTEND_BASE_URL}/reservations/{予約ID}/payment/complete`、`cancel_url = {FRONTEND_BASE_URL}/workshops/{ワークショップID}/reserve?payment=canceled`（`backend/app/services/payments.py:98-99`）。Checkout は運営の Stripe アカウント上に作成する（主催者ごとの連結アカウントは使わない）。
 - 予約フォームは、閲覧者が支払い待ち（`viewer.is_payment_pending`）で他に予約を妨げる理由がなければ、入力欄の代わりに「お支払いが完了していません」のパネル（`PendingPaymentPanel`）を表示する。`?payment=canceled` のときは「お支払いの画面から戻りました。」を添える（`frontend/src/pages/reservations/ReservationFormPage.tsx:100-162, 230-241`）。
-- 「お支払いを再開する」は予約 API をもう一度呼ぶ。支払い待ちのまま呼ぶと、バックエンドは同じ支払いの Checkout URL を返す。Checkout がもう開いていない（支払い済み・期限切れ）ときは状態を反映したうえで 409「お支払いの状態が変わりました。参加予定のワークショップでご確認ください」を返す（`backend/app/services/reservations.py:167-174, 326-342`）。
+- 「お支払いを再開する」は予約 API をもう一度呼ぶ。支払い待ちのまま呼ぶと、バックエンドは同じ支払いの Checkout URL を返す。Checkout がもう開いていない（支払い済み・期限切れ）ときは状態を反映したうえで 409「お支払いの状態が変わりました。参加予定のワークショップでご確認ください」を返す（`backend/app/services/reservations.py:168-175, 323-337`）。
 - 「予約をやめる」は自分の予約一覧から支払い待ちの予約を探して `POST /api/reservations/{id}/abandon-payment` を呼ぶ。見つからなければ（期限切れ・支払い済み）何もせずに画面を取り直す（`frontend/src/pages/reservations/ReservationFormPage.tsx:119-134`）。
 - ブラウザの「戻る」で Stripe から予約フォームがそのまま復元された（`pageshow` の `persisted`）ときは、ボタンを押せる状態に戻して予約状態を取り直す（`frontend/src/pages/reservations/ReservationFormPage.tsx:76-86`）。
 - 決済完了画面は `GET /api/reservations/{id}` を最大 10 回、2 秒間隔で取り直して予約の確定を待つ（バックエンドは支払い待ちなら Stripe から状態を読み直してから返す）。表示は次の 6 種類（`frontend/src/pages/reservations/PaymentCompletePage.tsx:12-43`、`backend/app/routers/reservations.py:40-51`）。
@@ -250,7 +255,6 @@ flowchart LR
     EDIT["ワークショップ編集<br/>/manage/workshops/:id/edit"]
     RSV["予約状況（予約・出欠）<br/>/manage/workshops/:id/reservations"]
     INQ["問い合わせ一覧（絞り込み）<br/>/inquiries?workshop_id=:id"]
-    PAYOUT["参加費の受け取り設定<br/>/manage/payout"]
     LOGIN_F["主催者ログイン<br/>/login/facilitator"]
     REG_F["主催者登録<br/>/register/facilitator"]
     GMAP(["Google マップ<br/>（外部・新しいタブ）"])
@@ -271,14 +275,12 @@ flowchart LR
     NEW -->|"保存: 入力エラー・API 失敗（エラー表示）"| NEW
     NEW -->|"キャンセル（入力変更時は確認ダイアログ）"| MANAGE
     NEW -->|"地図で確認（オフライン開催時）"| GMAP
-    NEW -->|"参加費の受け取り設定（オンライン決済を選べないとき）"| PAYOUT
 
     EDIT -->|"下書きとして保存 / 公開する: 成功"| MANAGE
     EDIT -->|"保存: 入力エラー・API 失敗（エラー表示）"| EDIT
     EDIT -->|"キャンセル（入力変更時は確認ダイアログ）"| MANAGE
     EDIT -->|"中止する（公開中のみ表示<br/>確認ダイアログ→成功）"| MANAGE
     EDIT -->|"地図で確認（オフライン開催時）"| GMAP
-    EDIT -->|"参加費の受け取り設定（オンライン決済を選べないとき）"| PAYOUT
 
     RSV -->|"参加をキャンセル（取消フォームを開く）<br/>→ 理由を選びキャンセルを確定する<br/>（同一画面で行を更新）"| RSV
     RSV -->|"出欠（未確認 / 出席 / 欠席）を切替"| RSV
@@ -286,37 +288,46 @@ flowchart LR
 
 補足:
 
-- 「中止する」は編集画面の下部に表示される。実体は `POST /api/workshops/{id}/cancel`。確認文言は「このワークショップを中止にしますか?予約済みの参加者には中止のお知らせが自動で届きます。」で、オンライン決済のワークショップでは「オンラインで支払われた参加費は全額を返金します(決済手数料は戻らず、主催者の負担になります)。」を追記する。フォームで編集中の内容は保存しない（`frontend/src/pages/manage/WorkshopFormPage.tsx:159-180`）。
+- 「中止する」は編集画面の下部に表示される。実体は `POST /api/workshops/{id}/cancel`。確認文言は「このワークショップを中止にしますか?予約済みの参加者には中止のお知らせが自動で届きます。」で、オンライン決済のワークショップでは「オンラインで支払われた参加費は全額を返金します。その参加費は主催者の売上になりませんが、手数料の負担もありません。」（`FULL_REFUND_FEE_NOTE`）を追記する。フォームで編集中の内容は保存しない（`frontend/src/pages/manage/WorkshopFormPage.tsx:158-178`、`frontend/src/utils/payment.ts:30`）。
 - 「削除」は下書きの行にのみ表示する。一度公開したもの（公開中・中止）は記録として残すため削除できない（`frontend/src/pages/manage/ManageWorkshopsPage.tsx:172-183`、`backend/app/routers/workshops.py:175-197`）。
-- 支払方法の「オンライン決済(カード)」は、受け取り設定が `enabled` でオンライン決済が運営側で有効なときだけ選べる。選べないときは「オンライン決済を選ぶには、参加費の受け取り設定を済ませてください。」と受け取り設定画面へのリンクを表示する（`frontend/src/pages/manage/WorkshopFormFields.tsx:47-133`）。
+- 支払方法の「オンライン決済(カード)」は、運営側でオンライン決済が有効（`GET /api/facilitators/me/payouts/summary` の `online_payment_available = true`）なときだけ選べる。主催者ごとの受け取り設定はなく、作成・編集画面から売上と振込の画面へのリンクもない。選べないときは「現在、オンライン決済はご利用いただけません。」を表示する（`frontend/src/pages/manage/WorkshopFormFields.tsx:48-133`）。
 - 予約状況画面の取消フォーム（`CancelReservationForm`）は、理由（主催者の都合 / 参加者からの申し出）を選ぶとオンライン決済の返金額を事前に表示し、「キャンセルを確定する」で `POST /api/workshops/{id}/reservations/{rid}/cancel` を送る。成功すると行を差し替えて「{名前}さんの参加をキャンセルしました。」を表示する（`frontend/src/pages/manage/WorkshopReservationsPage.tsx:93-117`、`frontend/src/pages/manage/CancelReservationForm.tsx`）。
 - 予約状況画面にはページ間を移動するリンクはなく、戻る導線は Navbar またはブラウザバックのみ。
 
-## 6. 参加費の受け取り設定（主催者）
+## 6. 売上と振込（主催者・運営）
+
+主催者が売上を確かめて振込を申請し、運営（admin）が銀行で振り込んだ結果を記録する流れ。アプリ外への移動はない（振込は運営が銀行で手動で行う）。
 
 ```mermaid
 flowchart LR
     SET["マイページ<br/>/me"]
-    FORM["ワークショップ作成・編集<br/>/manage/workshops/..."]
-    PAYOUT["参加費の受け取り設定<br/>/manage/payout"]
-    ONB(["Stripe の受け取り設定画面<br/>（connect.stripe.com）"])
-    DASH(["Stripe Express ダッシュボード<br/>（connect.stripe.com）"])
+    PAYOUT["売上と振込<br/>/manage/payout"]
+    FGL["主催者ガイドライン<br/>/help/facilitator-guidelines"]
+    RSV["予約状況（予約・出欠）<br/>/manage/workshops/:id/reservations"]
+    PAYREQ["振込の申請（運営）<br/>/manage/payout-requests"]
+    MANAGE["ワークショップ管理<br/>/manage"]
 
-    SET -->|"参加費の受け取り設定"| PAYOUT
-    FORM -->|"参加費の受け取り設定（リンク）"| PAYOUT
+    SET -->|"売上と振込<br/>（facilitator / admin）"| PAYOUT
     PAYOUT -->|"マイページに戻る"| SET
-    PAYOUT -->|"受け取り設定を始める / 続ける<br/>（未設定・設定の途中）"| ONB
-    PAYOUT -->|"Stripe で売上・入金を確認する<br/>（受け付けできます）"| DASH
-    PAYOUT -->|"URL の取得に失敗（エラー表示）"| PAYOUT
-    ONB -->|"設定を抜けた（return_url）<br/>?returned=1"| PAYOUT
-    ONB -->|"URL の期限切れ（refresh_url）<br/>?refresh=1 → 期限切れの案内を表示"| PAYOUT
+    PAYOUT -->|"主催者ガイドライン（説明文のリンク）"| FGL
+    PAYOUT -->|"売上の明細: ワークショップ名"| RSV
+    PAYOUT -->|"口座を登録する / 変更する<br/>（同一画面で「保存しました」）"| PAYOUT
+    PAYOUT -->|"振込を申請する（確認ダイアログ→成功）<br/>同一画面で状況・履歴を取り直す"| PAYOUT
+    PAYOUT -->|"振込の申請の履歴 / 売上の明細のページ送り"| PAYOUT
+
+    SET -->|"振込の申請(運営)<br/>（admin のみ）"| PAYREQ
+    PAYREQ -->|"ワークショップの管理に戻る"| MANAGE
+    PAYREQ -->|"振込待ち / 振込済み / 取り下げ / すべて<br/>（絞り込みの切替）"| PAYREQ
+    PAYREQ -->|"振込済みにする / 取り下げる<br/>（確認ダイアログ→成功で一覧を取り直す）"| PAYREQ
 ```
 
 補足:
 
-- ボタンを押してから `POST /api/facilitators/me/payout-account/onboarding`（または `/dashboard`）で URL を取得し、Stripe のページであることを確かめてから `window.location.assign()` で移動する。URL は一度しか使えないため、押されてから取得する（`frontend/src/pages/manage/PayoutSettingsPage.tsx:68-78`、`frontend/src/api/payouts.ts`）。
-- 戻り先 URL はバックエンドが `{FRONTEND_BASE_URL}/manage/payout?refresh=1`（`refresh_url`）と `?returned=1`（`return_url`）で作る（`backend/app/services/payments.py:108-113`）。戻った後の状態は画面が `GET /api/facilitators/me/payout-account` で読み直す（設定の途中なら Stripe から最新の状態を取得する）。
-- 運営側でオンライン決済が無効（`online_payment_available = false`）なら、ボタンを出さず「現在、オンライン決済はご利用いただけません。…」を表示する（`frontend/src/pages/manage/PayoutSettingsPage.tsx:98-101`）。
+- 売上と振込の画面は、表示時に `GET /api/facilitators/me/payouts/summary`（売上の状況）、`/bank-account`（振込先口座）、`/requests`（申請の履歴。5 件ずつ）、`/earnings`（売上の明細。10 件ずつ）を取得する（`frontend/src/pages/manage/PayoutSettingsPage.tsx:32-87, 170-261`、`frontend/src/api/payouts.ts`）。
+- 口座を保存すると、口座の表示を差し替えて売上の状況を取り直す（申請できるかが変わるため）。振込を申請すると、売上の状況と申請の履歴（1 ページ目）を取り直す（`frontend/src/pages/manage/PayoutSettingsPage.tsx:38-46`）。
+- 「振込を申請する」は、口座が未登録・申請中のものがある・申請できる額が最低額未満のときは無効で、その理由をボタンの下に表示する（最終的な判定はバックエンドの 409）（`frontend/src/pages/manage/PayoutSettingsPage.tsx:24-30`、`backend/app/services/payouts.py:105-113`）。
+- 振込の申請の画面（運営）は admin だけが開ける（`ProtectedRoute roles={['admin']}`。`frontend/src/App.tsx:90-92`）。facilitator が URL を直接開くと `/` へ、未ログインなら `/login/facilitator` へリダイレクトする。初期表示は「振込待ち」（`status=requested`）で、申請の古い順に 20 件ずつ表示する（`frontend/src/pages/manage/AdminPayoutRequestsPage.tsx:15-45`、`backend/app/services/payouts.py:245-250`）。
+- 「振込済みにする」「取り下げる」は確認ダイアログの後に `POST /api/admin/payout-requests/{id}/paid`（または `/reject`）をメモとともに送る。処理して件数が減り今のページがなくなったら最後のページへ移る（`frontend/src/pages/manage/AdminPayoutRequestsPage.tsx:44-69`）。
 
 ---
 
@@ -343,6 +354,8 @@ flowchart LR
 - `frontend/src/pages/manage/WorkshopReservationsPage.tsx`
 - `frontend/src/pages/manage/CancelReservationForm.tsx`
 - `frontend/src/pages/manage/PayoutSettingsPage.tsx`
+- `frontend/src/pages/manage/BankAccountForm.tsx`
+- `frontend/src/pages/manage/AdminPayoutRequestsPage.tsx`
 - `frontend/src/api/reservations.ts`
 - `frontend/src/api/payouts.ts`
 - `frontend/src/utils/payment.ts`
@@ -353,5 +366,6 @@ flowchart LR
 - `backend/app/services/payments.py`
 - `backend/app/services/reservations.py`
 - `backend/app/services/workshops.py`
+- `backend/app/services/payouts.py`
 - `backend/app/routers/reservations.py`
 - `backend/app/routers/workshops.py`

@@ -25,6 +25,7 @@
   --color-border: #313d58; /* 入力欄・ボタンの枠線 */
   --color-border-muted: #212a40; /* カード・区切り線 */
   --color-ring: #e3b071; /* フォーカスリング・フォーカス時の枠線 */
+  --color-ring-offset: #0b1120; /* フォーカスリングと部品の間のすき間。置かれた面の色にする */
 
   /* 紙のカードの影。枠線の代わりに、机に置いた紙のような柔らかい影で地から浮かせる。
      上辺のごく細い明るい線は、紙の厚みが光を受けている感じを出す */
@@ -39,7 +40,7 @@
 /* キーボード操作でフォーカスしたときの枠線。focus:outline-none と組み合わせて使う。
    リングの外側の隙間は夜色の地に合わせる */
 @utility focus-ring {
-  @apply focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background;
+  @apply focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-ring-offset;
 }
 
 /* ページの地。上の方にだけ、遠くの灯りのようなごく淡い光をにじませる */
@@ -71,6 +72,8 @@
   --color-accent-foreground: #ece7dc;
   /* 琥珀色のままだと紙の上で見えにくいので、フォーカスの枠は濃い琥珀色にする(紙・夜の地のどちらとも 3:1 以上) */
   --color-ring: #8f5f22;
+  /* リングのすき間は紙の色にする(夜の色のままだと、明るいボタンのまわりに黒い縁が出る) */
+  --color-ring-offset: #d3d8e1;
 
   /* バッジや曜日などの状態の色は、夜の地向けの淡い色を、紙の上で読める濃い色に置き換える */
   --color-amber-200: #92400e;

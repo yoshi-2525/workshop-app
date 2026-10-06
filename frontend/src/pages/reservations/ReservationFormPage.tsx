@@ -19,7 +19,7 @@ import {
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
-import { INPUT_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { GHOST_BUTTON_CLASS, INPUT_CLASS, LABEL_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 import { CancellationPolicy } from '@/components/workshop/CancellationPolicy'
 
 interface UnavailableReason {
@@ -147,7 +147,7 @@ function PendingPaymentPanel({ workshop, onChanged }: { workshop: Workshop; onCh
             type="button"
             onClick={handleAbandon}
             disabled={busy}
-            className="rounded-md px-4 py-2 text-sm text-fg-muted hover:bg-surface-muted disabled:opacity-50"
+            className={GHOST_BUTTON_CLASS}
           >
             {action.pendingKey === 'abandon' ? '取りやめています...' : '予約をやめる'}
           </button>
@@ -295,7 +295,7 @@ export function ReservationFormPage() {
             <dd className="mt-1 text-sm text-fg">{user?.name}</dd>
           </dl>
           <div>
-            <label htmlFor={contactId} className="block text-sm font-medium text-fg-secondary">
+            <label htmlFor={contactId} className={LABEL_CLASS}>
               メールアドレス
             </label>
             <input
@@ -315,7 +315,7 @@ export function ReservationFormPage() {
             </p>
           </div>
           <div>
-            <label htmlFor={ticketCountId} className="block text-sm font-medium text-fg-secondary">
+            <label htmlFor={ticketCountId} className={LABEL_CLASS}>
               チケット枚数
             </label>
             <select
@@ -343,7 +343,7 @@ export function ReservationFormPage() {
                   ? 'お支払い金額(次の画面でカードでお支払いいただきます)'
                   : 'お支払い金額(当日会場にてお支払いください)'}
               </span>
-              <span className="font-semibold text-fg">{formatPrice(totalPrice)}</span>
+              <span className="text-fg">{formatPrice(totalPrice)}</span>
             </div>
             <CancellationPolicy
               workshop={workshop}
@@ -377,7 +377,7 @@ export function ReservationFormPage() {
             <button
               type="button"
               onClick={handleCancelClick}
-              className="rounded-md px-4 py-2 text-sm text-fg-muted hover:bg-surface-muted"
+              className={GHOST_BUTTON_CLASS}
             >
               キャンセル
             </button>

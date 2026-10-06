@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 # 参加費の通貨。日本円は最小単位が 1 円なので、金額はそのまま整数で扱う
 PAYMENT_CURRENCY = "jpy"
-# Stripe のオブジェクト ID(acct_... / cs_... / pi_... / evt_...)を保存する列の長さ
+# Stripe のオブジェクト ID(cs_... / pi_... / re_... / evt_...)を保存する列の長さ
 STRIPE_ID_MAX_LENGTH = 255
 
 
@@ -42,7 +42,11 @@ class Payment(Base):
         UniqueConstraint("stripe_payment_intent_id", name="uq_payments_stripe_payment_intent_id"),
         CheckConstraint("amount > 0", name="ck_payments_amount"),
         CheckConstraint(
-            "application_fee_amount >= 0 AND application_fee_amount <= amount", name="ck_payments_application_fee"
+            "platform_fee_amount >= 0 AND platform_fee_amount <= amount", name="ck_payments_platform_fee"
+        ),
+        CheckConstraint(
+            "facilitator_amount >= 0 AND facilitator_amount + platform_fee_amount = amount",
+            name="ck_payments_facilitator_amount",
         ),
         CheckConstraint(
             "refund_amount IS NULL OR (refund_amount >= 0 AND refund_amount <= amount)", name="ck_payments_refund"
@@ -52,17 +56,17 @@ class Payment(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     reservation_id: Mapped[int] = mapped_column(ForeignKey("reservations.id"), nullable=False, index=True)
-    # 決済した主催者の連結アカウント。主催者のアカウントが後で変わっても、この支払いの取得・返金はここで行う
-    stripe_account_id: Mapped[str] = mapped_column(String(STRIPE_ID_MAX_LENGTH), nullable=False)
     stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(STRIPE_ID_MAX_LENGTH), nullable=True)
     stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(STRIPE_ID_MAX_LENGTH), nullable=True)
     # 返金の ID(re_...)。運営の手動対応や、Stripe 側の返金との照合に使う
     stripe_refund_id: Mapped[str | None] = mapped_column(String(STRIPE_ID_MAX_LENGTH), nullable=True)
     # 参加者が支払う金額(参加費 × 枚数)。予約時の値を残す
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
-    # 運営の手数料
-    application_fee_amount: Mapped[int] = mapped_column(Integer, nullable=False)
-    # Stripe の決済手数料。支払い完了時に Stripe から実際の額を取得する
+    # 運営の手数料。Stripe の決済手数料は運営がここから払う
+    platform_fee_amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    # 主催者の受取額(参加費 − 運営の手数料)。予約時に確定し、支払い済みのまま開催を終えたら主催者の残高になる
+    facilitator_amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Stripe の決済手数料(運営が負担する)。支払い完了時に Stripe から実際の額を取得する
     stripe_fee_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # 返金が決まったときに確定する返金額
     refund_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)

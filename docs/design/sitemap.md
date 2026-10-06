@@ -1,6 +1,6 @@
 # サイトマップ
 
-最終更新日: 2026-10-05
+最終更新日: 2026-10-06
 
 TAIWA（React SPA）の全画面と URL パス、アクセス権限を階層で示す。ルート定義は `frontend/src/App.tsx` のもの。すべての画面は共通レイアウト `Layout`（`Navbar` + メイン領域。`frontend/src/components/layout/Layout.tsx`）の中に表示される。
 
@@ -49,10 +49,14 @@ flowchart TD
         WS_NEW["ワークショップ新規作成<br/>/manage/workshops/new"]
         WS_EDIT["ワークショップ編集<br/>/manage/workshops/:id/edit"]
         WS_RSV["予約状況（予約・出欠）<br/>/manage/workshops/:id/reservations"]
-        PAYOUT["参加費の受け取り設定<br/>/manage/payout"]
+        PAYOUT["売上と振込<br/>/manage/payout"]
     end
 
-    STRIPE(["Stripe（外部）<br/>Checkout / Connect"])
+    subgraph ADMIN["管理者のみ（admin）"]
+        PAYREQ["振込の申請（運営）<br/>/manage/payout-requests"]
+    end
+
+    STRIPE(["Stripe Checkout（外部）<br/>checkout.stripe.com"])
 
     TOP --> DETAIL
     DETAIL --> RESERVE
@@ -78,6 +82,7 @@ flowchart TD
     FOLLOWING --> FACI
     MYPAGE --> MANAGE
     MYPAGE --> PAYOUT
+    MYPAGE -->|"admin のみ表示"| PAYREQ
     MYPAGE --> INQ
     MYPAGE --> PROFILE
     MYPAGE -->|"ヘルプ・規約の各文書"| TERMS
@@ -92,16 +97,16 @@ flowchart TD
     MANAGE --> WS_NEW
     MANAGE --> WS_EDIT
     MANAGE --> WS_RSV
-    WS_EDIT --> PAYOUT
-    PAYOUT -.->|"受け取り設定・売上の確認"| STRIPE
+    PAYOUT -->|"売上の明細のワークショップ名"| WS_RSV
+    PAYOUT -->|"主催者ガイドライン"| FGL
     TOP -.-> NOTFOUND
 ```
 
 凡例:
 
 - 実線: 画面の階層（親画面から辿れる子画面）
-- 点線（`STRIPE`）: アプリ外の Stripe の画面への移動と、そこからの戻り
-- 点線（`/404`）: 未定義パス（`*`）は `/404` へリダイレクト（`frontend/src/App.tsx:89-90`）
+- 点線（`STRIPE`）: アプリ外の Stripe Checkout（参加者の支払い画面）への移動と、そこからの戻り。主催者向けの Stripe の画面（受け取り設定・ダッシュボード）はない
+- 点線（`/404`）: 未定義パス（`*`）は `/404` へリダイレクト（`frontend/src/App.tsx:94-95`）
 - subgraph: アクセス権限の区分（下表参照）
 - 「フッター」: 共通レイアウトのフッターに「TAIWA について」（`/about`）「対話のルール」（`/rules`）「ヘルプ・規約」（`/help`）のリンクがある（`frontend/src/components/layout/Layout.tsx:13-28`）。マイページからはヘルプ・規約の各文書（`/rules`、`/help/*`）へ直接リンクする（図では代表して利用規約への矢印のみ描く）
 - 「キャンセルについて」: 有料のワークショップの詳細と予約フォームには、本サービス共通のキャンセルポリシーの要約と `/help/cancellation-policy` へのリンクがある（ワークショップごとのキャンセルポリシーはない。`frontend/src/components/workshop/CancellationPolicy.tsx`）。図では代表して詳細からの矢印のみ描く
@@ -113,13 +118,14 @@ flowchart TD
 | 未ログイン可 | ガードなし | そのまま表示 | — |
 | ログイン必須 | `<ProtectedRoute loginPath="/login/participant" />`（ロール指定なし） | `/login/participant` へリダイレクト（`state.from` に元のパス + クエリ） | — |
 | 主催者・管理者のみ | `<ProtectedRoute roles={['admin','facilitator']} loginPath="/login/facilitator" />` | `/login/facilitator` へリダイレクト（`state.from` に元のパス + クエリ） | `/` へリダイレクト |
+| 管理者のみ | `<ProtectedRoute roles={['admin']} loginPath="/login/facilitator" />` | `/login/facilitator` へリダイレクト（`state.from` に元のパス + クエリ） | `/` へリダイレクト（facilitator も対象外） |
 
-根拠: `frontend/src/App.tsx:62-87`、`frontend/src/components/layout/ProtectedRoute.tsx:11-28`
+根拠: `frontend/src/App.tsx:63-92`、`frontend/src/components/layout/ProtectedRoute.tsx:11-28`
 
 - 認証状態の確認中（`loading`）は読み込み中の表示（`LoadingMessage`）を出す（`frontend/src/components/layout/ProtectedRoute.tsx:15-17`）。
-- `state.from` は `location.pathname + location.search`。Stripe から `?payment=canceled` や `?returned=1` 付きで戻ったときにログインが切れていても、ログイン後に同じ URL へ戻る（`frontend/src/components/layout/ProtectedRoute.tsx:19-22`）。
+- `state.from` は `location.pathname + location.search`。Stripe Checkout から `?payment=canceled` 付きで戻ったときにログインが切れていても、ログイン後に同じ URL へ戻る（`frontend/src/components/layout/ProtectedRoute.tsx:19-22`）。
 - 「ログイン必須」区分はロールを問わないため、参加者だけでなく主催者・管理者も利用できる。
-- ヘルプ・規約・対話のルールは、登録前にも読めるよう未ログインで表示する（`frontend/src/App.tsx:53-60`）。
+- ヘルプ・規約・対話のルールは、登録前にも読めるよう未ログインで表示する（`frontend/src/App.tsx:54-61`）。
 
 ## 画面一覧表
 
@@ -151,7 +157,7 @@ flowchart TD
 | 24 | 主催者への問い合わせ | `/workshops/:id/inquiry` | ログイン必須 | `frontend/src/pages/inquiries/WorkshopInquiryPage.tsx` |
 | 25 | 問い合わせ一覧 | `/inquiries` | ログイン必須 | `frontend/src/pages/inquiries/InquiriesPage.tsx` |
 | 26 | 問い合わせのやり取り | `/inquiries/:id` | ログイン必須 | `frontend/src/pages/inquiries/InquiryThreadPage.tsx` |
-| 27 | 参加費の受け取り設定 | `/manage/payout` | 主催者・管理者 | `frontend/src/pages/manage/PayoutSettingsPage.tsx` |
+| 27 | 売上と振込 | `/manage/payout` | 主催者・管理者 | `frontend/src/pages/manage/PayoutSettingsPage.tsx`（口座のフォームは `BankAccountForm.tsx`） |
 | 28 | TAIWA について | `/about` | 未ログイン可 | `frontend/src/pages/guide/AboutPage.tsx` |
 | 29 | 対話のルール | `/rules` | 未ログイン可 | `frontend/src/pages/guide/DialogueRulesPage.tsx` |
 | 30 | ヘルプ・規約 | `/help` | 未ログイン可 | `frontend/src/pages/help/HelpPage.tsx` |
@@ -159,12 +165,14 @@ flowchart TD
 | 32 | キャンセルポリシー | `/help/cancellation-policy` | 未ログイン可 | `frontend/src/pages/help/CancellationPolicyPage.tsx` |
 | 33 | 主催者ガイドライン | `/help/facilitator-guidelines` | 未ログイン可 | `frontend/src/pages/help/FacilitatorGuidelinesPage.tsx` |
 | 34 | 特定商取引法に基づく表記 | `/help/tokushoho` | 未ログイン可 | `frontend/src/pages/help/TokushohoPage.tsx` |
+| 35 | 振込の申請（運営） | `/manage/payout-requests` | 管理者のみ | `frontend/src/pages/manage/AdminPayoutRequestsPage.tsx` |
 
 補足:
 
-- 画面 23（決済完了）は、Stripe の支払い画面で支払いを終えたあとに戻ってくる先。バックエンドの `start_checkout()` が Checkout の `success_url` にこのパスを指定している（`frontend/src/App.tsx:66-67`、`backend/app/services/payments.py:192`）。
-- 画面 27（受け取り設定）のパスは定数 `PAYOUT_SETTINGS_PATH`（`frontend/src/utils/payment.ts:8`）で、バックエンドの同名定数（Stripe の受け取り設定画面の戻り先。`backend/app/services/payments.py:32`）と揃えている。
-- プロフィール編集画面のコンポーネントは `pages/manage/` 配下にあるが、ルートは「ログイン必須」区分に属し参加者も利用できる（`frontend/src/App.tsx:75`）。
+- 画面 23（決済完了）は、Stripe の支払い画面で支払いを終えたあとに戻ってくる先。バックエンドの `start_checkout()` が Checkout の `success_url` にこのパスを指定している（`frontend/src/App.tsx:67-68`、`backend/app/services/payments.py:98`）。
+- 画面 27（売上と振込）と画面 35（振込の申請）のパスは定数 `PAYOUT_SETTINGS_PATH` / `ADMIN_PAYOUT_REQUESTS_PATH`（`frontend/src/utils/payment.ts:6-8`）で、ルート定義とマイページのメニューの両方で使う（`frontend/src/App.tsx:87, 91`、`frontend/src/pages/me/MyPage.tsx:96-110`）。Stripe から戻ってくる先ではなくなったため、バックエンドに対応する定数はない。
+- 画面 27 は以前「参加費の受け取り設定」（Stripe Connect の受け取り設定）だったが、Stripe Connect の廃止に伴い「売上と振込」（売上の確認・振込先口座の登録・振込の申請）に置き換わった。
+- プロフィール編集画面のコンポーネントは `pages/manage/` 配下にあるが、ルートは「ログイン必須」区分に属し参加者も利用できる（`frontend/src/App.tsx:76`）。
 - 画面 17・18 は同一コンポーネントで、URL の `:id` 有無で新規作成 / 編集を切り替える。
 - 画面 11・22 は同じファイルの別コンポーネント（`MyReservationsPage` / `ReservationHistoryPage`）。
 
@@ -184,7 +192,7 @@ flowchart TD
 
 根拠: `frontend/src/components/layout/Navbar.tsx:56-115`
 
-- `/manage`（ワークショップ管理）、`/manage/payout`（参加費の受け取り設定）、`/reservations`（参加予定）、`/reservations/history`（予約・参加履歴）、`/favorites`（お気に入り）、`/following`（フォロー中の主催者）、`/me/profile`、ヘルプ・規約の各ページへは Navbar に直接リンクはなく、マイページ（`/me`）のメニューから遷移する（`frontend/src/pages/me/MyPage.tsx:67-129`）。
+- `/manage`（ワークショップ管理）、`/manage/payout`（売上と振込）、`/manage/payout-requests`（振込の申請。admin のみ）、`/reservations`（参加予定）、`/reservations/history`（予約・参加履歴）、`/favorites`（お気に入り）、`/following`（フォロー中の主催者）、`/me/profile`、ヘルプ・規約の各ページへは Navbar に直接リンクはなく、マイページ（`/me`）のメニューから遷移する（`frontend/src/pages/me/MyPage.tsx:67-129`）。
 
 ---
 
@@ -198,6 +206,8 @@ flowchart TD
 - `frontend/src/pages/help/helpDocuments.ts`
 - `frontend/src/pages/manage/WorkshopFormFields.tsx`
 - `frontend/src/pages/manage/PayoutSettingsPage.tsx`
+- `frontend/src/pages/manage/BankAccountForm.tsx`
+- `frontend/src/pages/manage/AdminPayoutRequestsPage.tsx`
 - `frontend/src/pages/reservations/PaymentCompletePage.tsx`
 - `frontend/src/pages/reservations/MyReservationsPage.tsx`
 - `frontend/src/utils/payment.ts`

@@ -12,6 +12,7 @@ from app.config import settings
 from app.core.body_limit import BodySizeLimitMiddleware
 from app.database import SessionLocal
 from app.routers import (
+    admin_payouts,
     auth,
     facilitators,
     favorites,
@@ -57,6 +58,7 @@ def _run_payment_job() -> None:
 async def lifespan(app: FastAPI):
     settings.check_jwt_secret()
     settings.check_stripe_settings()
+    settings.check_payout_settings()
     scheduler = BackgroundScheduler()
     scheduler.add_job(_run_reminder_job, "interval", minutes=REMINDER_JOB_INTERVAL_MINUTES)
     scheduler.add_job(_run_payment_job, "interval", minutes=PAYMENT_JOB_INTERVAL_MINUTES)
@@ -99,6 +101,7 @@ app.include_router(notifications.router, prefix=api_router_prefix)
 app.include_router(inquiries.router, prefix=api_router_prefix)
 app.include_router(manage.router, prefix=api_router_prefix)
 app.include_router(payouts.router, prefix=api_router_prefix)
+app.include_router(admin_payouts.router, prefix=api_router_prefix)
 app.include_router(stripe_webhook.router, prefix=api_router_prefix)
 
 settings.upload_path.mkdir(parents=True, exist_ok=True)

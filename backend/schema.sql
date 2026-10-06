@@ -1,5 +1,5 @@
 -- Workshop App: MySQL schema
--- Matches app/models/*.py and alembic/versions (up to 0020). Keep in sync if models change.
+-- Matches app/models/*.py and alembic/versions (up to 0021). Keep in sync if models change.
 
 CREATE TABLE users (
 	id INTEGER NOT NULL AUTO_INCREMENT,
@@ -9,12 +9,9 @@ CREATE TABLE users (
 	role ENUM('admin','facilitator','participant') NOT NULL DEFAULT 'participant',
 	bio TEXT NOT NULL DEFAULT '',
 	avatar_url VARCHAR(2000) NOT NULL DEFAULT '',
-	stripe_account_id VARCHAR(255) NULL,
-	stripe_charges_enabled BOOLEAN NOT NULL DEFAULT FALSE,
 	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (id),
-	UNIQUE KEY ix_users_email (email),
-	CONSTRAINT uq_users_stripe_account_id UNIQUE (stripe_account_id)
+	UNIQUE KEY ix_users_email (email)
 );
 
 CREATE TABLE workshops (
@@ -61,12 +58,12 @@ CREATE TABLE reservations (
 CREATE TABLE payments (
 	id INTEGER NOT NULL AUTO_INCREMENT,
 	reservation_id INTEGER NOT NULL,
-	stripe_account_id VARCHAR(255) NOT NULL,
 	stripe_checkout_session_id VARCHAR(255) NULL,
 	stripe_payment_intent_id VARCHAR(255) NULL,
 	stripe_refund_id VARCHAR(255) NULL,
 	amount INTEGER NOT NULL,
-	application_fee_amount INTEGER NOT NULL,
+	platform_fee_amount INTEGER NOT NULL,
+	facilitator_amount INTEGER NOT NULL,
 	stripe_fee_amount INTEGER NULL,
 	refund_amount INTEGER NULL,
 	currency VARCHAR(3) NOT NULL,
@@ -79,11 +76,52 @@ CREATE TABLE payments (
 	CONSTRAINT uq_payments_stripe_checkout_session_id UNIQUE (stripe_checkout_session_id),
 	CONSTRAINT uq_payments_stripe_payment_intent_id UNIQUE (stripe_payment_intent_id),
 	CONSTRAINT ck_payments_amount CHECK (amount > 0),
-	CONSTRAINT ck_payments_application_fee CHECK (application_fee_amount >= 0 AND application_fee_amount <= amount),
+	CONSTRAINT ck_payments_platform_fee CHECK (platform_fee_amount >= 0 AND platform_fee_amount <= amount),
+	CONSTRAINT ck_payments_facilitator_amount CHECK (facilitator_amount >= 0 AND facilitator_amount + platform_fee_amount = amount),
 	CONSTRAINT ck_payments_refund CHECK (refund_amount IS NULL OR (refund_amount >= 0 AND refund_amount <= amount)),
 	CONSTRAINT ck_payments_refund_attempts CHECK (refund_attempts >= 0),
 	KEY ix_payments_reservation_id (reservation_id),
 	FOREIGN KEY(reservation_id) REFERENCES reservations (id)
+);
+
+CREATE TABLE payout_bank_accounts (
+	id INTEGER NOT NULL AUTO_INCREMENT,
+	user_id INTEGER NOT NULL,
+	bank_name VARCHAR(100) NOT NULL,
+	bank_code VARCHAR(4) NOT NULL,
+	branch_name VARCHAR(100) NOT NULL,
+	branch_code VARCHAR(3) NOT NULL,
+	account_type ENUM('ordinary','checking') NOT NULL,
+	account_number VARCHAR(7) NOT NULL,
+	account_holder VARCHAR(100) NOT NULL,
+	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_payout_bank_accounts_user_id UNIQUE (user_id),
+	FOREIGN KEY(user_id) REFERENCES users (id)
+);
+
+CREATE TABLE payout_requests (
+	id INTEGER NOT NULL AUTO_INCREMENT,
+	facilitator_id INTEGER NOT NULL,
+	amount INTEGER NOT NULL,
+	transfer_fee INTEGER NOT NULL,
+	transfer_amount INTEGER NOT NULL,
+	status ENUM('requested','paid','rejected') NOT NULL,
+	bank_name VARCHAR(100) NOT NULL,
+	bank_code VARCHAR(4) NOT NULL,
+	branch_name VARCHAR(100) NOT NULL,
+	branch_code VARCHAR(3) NOT NULL,
+	account_type ENUM('ordinary','checking') NOT NULL,
+	account_number VARCHAR(7) NOT NULL,
+	account_holder VARCHAR(100) NOT NULL,
+	note TEXT NOT NULL,
+	requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	processed_at DATETIME NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT ck_payout_requests_amount CHECK (amount > 0),
+	CONSTRAINT ck_payout_requests_transfer CHECK (transfer_fee >= 0 AND transfer_amount > 0 AND transfer_amount + transfer_fee = amount),
+	KEY ix_payout_requests_facilitator_id (facilitator_id),
+	FOREIGN KEY(facilitator_id) REFERENCES users (id)
 );
 
 CREATE TABLE stripe_events (

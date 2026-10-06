@@ -9,6 +9,7 @@ import { isWorkshopFinished } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 type Tab = 'upcoming' | 'draft' | 'history'
 
@@ -84,7 +85,7 @@ export function ManageWorkshopsPage() {
         <h1 className="text-xl font-semibold text-fg">ワークショップ管理</h1>
         <Link
           to="/manage/workshops/new"
-          className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+          className={PRIMARY_BUTTON_CLASS}
         >
           新規作成
         </Link>

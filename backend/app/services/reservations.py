@@ -57,14 +57,15 @@ _PAYABLE_STATUSES = (PaymentStatus.pending, PaymentStatus.expired)
 
 
 def _payment_summary(reservation: Reservation, show_fees: bool) -> PaymentSummary | None:
-    """手数料の内訳は主催者が負担するものなので、主催者・運営にだけ見せる"""
+    """手数料の内訳と主催者の受取額は、主催者・運営にだけ見せる"""
     payment = latest_payment(reservation)
     if payment is None:
         return None
     return PaymentSummary(
         status=payment.status,
         amount=payment.amount,
-        application_fee_amount=payment.application_fee_amount if show_fees else None,
+        platform_fee_amount=payment.platform_fee_amount if show_fees else None,
+        facilitator_amount=payment.facilitator_amount if show_fees else None,
         stripe_fee_amount=payment.stripe_fee_amount if show_fees else None,
         refund_amount=payment.refund_amount,
     )
@@ -153,7 +154,7 @@ def create_reservation(db: Session, workshop_id: int, user: User, payload: Reser
         raise conflict("自分が主催するワークショップは予約できません")
     online = workshop.payment_method == PaymentMethod.online
     if online:
-        ensure_can_accept_online_payment(workshop.facilitator)
+        ensure_can_accept_online_payment()
 
     existing = db.scalar(
         select(Reservation).where(Reservation.workshop_id == workshop_id, Reservation.user_id == user.id)
@@ -198,7 +199,7 @@ def create_reservation(db: Session, workshop_id: int, user: User, payload: Reser
     previous = latest_payment(reservation) if existing else None
     if previous is not None and previous.status == PaymentStatus.pending:
         previous.status = PaymentStatus.expired
-    payment = add_payment(db, reservation, workshop, workshop.facilitator)
+    payment = add_payment(db, reservation, workshop)
     db.flush()
     return ReservationStart(reservation=reservation, new_payment=payment)
 
@@ -267,7 +268,7 @@ def apply_checkout_state(db: Session, payment: Payment, state: stripe_client.Che
         if payment.status not in _PAYABLE_STATUSES:
             return
         stripe_fee = (
-            stripe_client.retrieve_stripe_fee(state.payment_intent_id, account_id=payment.stripe_account_id)
+            stripe_client.retrieve_stripe_fee(state.payment_intent_id)
             if state.payment_intent_id
             else 0
         )
@@ -291,9 +292,7 @@ def sync_pending_payment(db: Session, reservation: Reservation) -> None:
     ):
         return
     try:
-        state = stripe_client.retrieve_checkout_session(
-            payment.stripe_checkout_session_id, account_id=payment.stripe_account_id
-        )
+        state = stripe_client.retrieve_checkout_session(payment.stripe_checkout_session_id)
         apply_checkout_state(db, payment, state)
     except stripe_client.StripeUnavailable:
         return
@@ -312,9 +311,7 @@ def abandon_payment(db: Session, reservation: Reservation) -> None:
         # 支払い画面を作っている途中。ここで手放すと、作り終えた画面から支払えてしまう
         raise conflict("お支払いの準備中です。少し待ってからもう一度お試しください")
     try:
-        stripe_client.expire_checkout_session(
-            payment.stripe_checkout_session_id, account_id=payment.stripe_account_id
-        )
+        stripe_client.expire_checkout_session(payment.stripe_checkout_session_id)
     except stripe_client.StripeUnavailable:
         sync_pending_payment(db, reservation)
         if reservation.status == ReservationStatus.pending_payment:
@@ -330,9 +327,7 @@ def resume_checkout(db: Session, reservation: Reservation, payment: Payment) -> 
     その状態を反映して確定してから 409 で伝える。Webhook を待たずに、席の確保や予約の確定を実際の状態に合わせるため
     """
     try:
-        state = stripe_client.retrieve_checkout_session(
-            payment.stripe_checkout_session_id, account_id=payment.stripe_account_id
-        )
+        state = stripe_client.retrieve_checkout_session(payment.stripe_checkout_session_id)
         if state.status == "open" and state.url is not None:
             return state.url
         apply_checkout_state(db, payment, state)
