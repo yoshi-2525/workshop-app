@@ -153,6 +153,27 @@ class TestUpdateWorkshop:
         assert res.status_code == 409
         assert "参加費" in res.json()["detail"]
 
+    def test_published_cannot_change_participant_guide(self, client: TestClient, make_user, make_workshop):
+        """当日の案内は予約の確定時に送っているので、公開後は変えさせない(追加の連絡は一斉送信で行う)"""
+        owner = make_user(UserRole.facilitator)
+        workshop = make_workshop(owner)
+        for overrides, label in (({"participant_guide": "1階受付へ"}, "当日のご案内"), ({"emergency_contact": "090"}, "緊急連絡先")):
+            res = client.put(
+                f"/api/workshops/{workshop.id}", json=workshop_payload(workshop, **overrides), headers=auth_headers(owner)
+            )
+            assert res.status_code == 409
+            assert label in res.json()["detail"]
+
+    def test_draft_can_change_participant_guide(self, client: TestClient, make_user, make_workshop):
+        owner = make_user(UserRole.facilitator)
+        workshop = make_workshop(owner, status=WorkshopStatus.draft)
+        res = client.put(
+            f"/api/workshops/{workshop.id}",
+            json=workshop_payload(workshop, participant_guide="1階受付へ"),
+            headers=auth_headers(owner),
+        )
+        assert res.status_code == 200
+
     def test_published_cannot_return_to_draft(self, client: TestClient, make_user, make_workshop):
         owner = make_user(UserRole.facilitator)
         workshop = make_workshop(owner)

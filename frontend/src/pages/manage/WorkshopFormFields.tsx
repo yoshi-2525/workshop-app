@@ -261,7 +261,7 @@ export function WorkshopFormFields({
 
       {lockConditions && (
         <p id={lockedHelpId} className="rounded-md bg-surface/70 p-3 text-xs text-fg-secondary">
-          公開中のワークショップは開催場所・開催日時・参加費・支払方法を変更できません。
+          公開中のワークショップは開催場所・開催日時・参加費・支払方法・参加者への案内を変更できません。
           開催の条件を変える場合は、中止してから新しく作成してください。
         </p>
       )}
@@ -417,7 +417,9 @@ export function WorkshopFormFields({
         <legend className="sr-only">参加者への案内</legend>
         <p id={participantInfoHelpId} className="rounded-md bg-surface/70 p-3 text-xs text-fg-secondary">
           以下の2項目は、予約した参加者だけに表示されます(一般には公開されません)。
-          開催の約1日前に、この内容が主催者からのメッセージとして予約した参加者全員へ自動で送信されます。
+          予約が確定したときに、この内容が主催者からのメッセージとして参加者へ自動で送信されます。
+          公開後は変更できません。空欄のまま公開した場合や、追加でお伝えしたいことがある場合は、
+          「問い合わせ・お知らせ」の「参加者全員へのお知らせ」からお送りください。
         </p>
         <div>
           <label htmlFor={guideId} className={LABEL_CLASS}>
@@ -429,6 +431,7 @@ export function WorkshopFormFields({
             maxLength={WORKSHOP_PARTICIPANT_GUIDE_MAX_LENGTH}
             value={form.participant_guide}
             onChange={(e) => setField('participant_guide', e.target.value)}
+            disabled={lockConditions}
             placeholder={
               '例: 開始10分前に会場2階の受付へお越しください。\n持ち物: 筆記用具、汚れてもよい服装\nオンライン参加URL: https://...'
             }
@@ -448,6 +451,7 @@ export function WorkshopFormFields({
             maxLength={WORKSHOP_EMERGENCY_CONTACT_MAX_LENGTH}
             value={form.emergency_contact}
             onChange={(e) => setField('emergency_contact', e.target.value)}
+            disabled={lockConditions}
             placeholder="例: 090-1234-5678(当日の遅刻・欠席のご連絡はこちらへ)"
             aria-describedby={participantInfoHelpId}
             className={`mt-1 ${INPUT_CLASS}`}

@@ -58,7 +58,7 @@ export function FacilitatorProfilePage() {
       ) : (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {workshops.map((workshop) => (
-            <WorkshopCard key={workshop.id} workshop={workshop} backLabel={`${profile.name}さんのページ`} />
+            <WorkshopCard key={workshop.id} workshop={workshop} backLabel={`${profile.name}さんのワークショップ一覧ページ`} />
           ))}
         </div>
       )}

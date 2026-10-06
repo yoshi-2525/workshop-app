@@ -126,7 +126,9 @@ def check_workshop_input(
     if workshop.status == WorkshopStatus.published and payload.status == WorkshopStatus.draft:
         raise conflict("公開済みのワークショップは下書きに戻せません。開催を取りやめる場合は中止にしてください")
 
-    # 公開中のものは、参加者が予約したときの条件(参加費・日時・場所)を変えさせない
+    # 公開中のものは、参加者が予約したときの条件(参加費・日時・場所)を変えさせない。
+    # 当日の案内・緊急連絡先は予約の確定時にメッセージで送っているので、送った内容と食い違わないよう変えさせない
+    # (追加の連絡は、参加者への一斉送信で行う)
     if workshop.status == WorkshopStatus.published:
         changed = [
             label
@@ -137,6 +139,8 @@ def check_workshop_input(
                 ("終了日時", payload.end_at, workshop.end_at),
                 ("開催形式", payload.location_type, workshop.location_type),
                 ("場所", payload.location, workshop.location),
+                ("当日のご案内", payload.participant_guide, workshop.participant_guide),
+                ("緊急連絡先", payload.emergency_contact, workshop.emergency_contact),
             )
             if new != old
         ]

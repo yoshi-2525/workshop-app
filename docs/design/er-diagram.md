@@ -327,7 +327,7 @@ stateDiagram-v2
 | published_at | DATETIME | 可 | — | — | 初めて公開（published）になった日時（UTC）。ORM のイベントで自動設定し、以後変わらない。一覧の「公開日時の新しい順」に使う |
 | created_at | DATETIME | 不可 | DB: `CURRENT_TIMESTAMP` | — | 作成日時（UTC） |
 
-- 公開中のワークショップは、参加費・支払方法・開始日時・終了日時・開催形式・場所を変更できない（API が 409。`backend/app/services/workshops.py:129-144`）。
+- 公開中のワークショップは、参加費・支払方法・開始日時・終了日時・開催形式・場所・当日の案内・緊急連絡先を変更できない（API が 409。`backend/app/services/workshops.py:129-149`）。
 - `payment_method = 'online'` で新しく公開するには、運営側でオンライン決済が有効（`STRIPE_SECRET_KEY` 設定済み）である必要がある（無効なら 409「現在、オンライン決済はご利用いただけません」）。主催者ごとの設定は要らない。下書きはいつでも保存でき、公開中のものは確かめない（`backend/app/services/workshops.py:77-90`、`backend/app/core/errors.py:9`）。
 - ワークショップごとのキャンセルポリシー（自由記述の `cancellation_policy`。0006 で追加）は 0020 で削除した。オンライン決済の返金額に主催者独自のキャンセル料を反映できず、記載と実際の返金額が食い違うため、キャンセルと返金は本サービス共通のキャンセルポリシー（`/help/cancellation-policy`）に従う（`backend/alembic/versions/0020_drop_workshop_cancellation_policy.py:20-22`）。ダウングレードすると列は空文字で戻るが、削除した文章は戻らない。
 

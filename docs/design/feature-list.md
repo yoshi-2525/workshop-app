@@ -51,7 +51,7 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 | 機能ID | カテゴリ | 機能名 | 概要 | 利用者（権限） | 画面 | API（メソッド + パス） |
 |---|---|---|---|---|---|---|
 | F-RSV-01 | 予約 | 予約（参加者情報入力） | 連絡先メールアドレスとチケット枚数（1〜「残席と 4 の小さい方」）を入力し、内容確認のチェック後に予約（有料ならお支払い金額の下に「キャンセルについて」の要約を表示し、確認の文言は「ワークショップの内容とキャンセルについての案内を確認しました」）。参加者名はアカウント名。当日払い・無料はこの時点で確定（オンライン決済は F-PAY-05）。開始 24 時間前以降・自分が主催するもの・予約済み・主催者に取り消されたもの・残席不足は 409。支払われずに期限切れになった予約は同じ行で予約し直す | ログイン | `/workshops/:id/reserve` | `GET /api/workshops/{workshop_id}`、`POST /api/workshops/{workshop_id}/reservations` |
-| F-RSV-05 | 予約 | 当日の案内の送付 | 予約が確定したとき（当日払い・無料の予約時、オンライン決済の支払いの反映時）、当日の案内・緊急連絡先があれば、主催者からの一斉送信のメッセージとして参加者とのやり取りに送る（確定と同じトランザクション）。送るのは確定時の内容で、その後の編集は送り直さない | システム（予約の確定を契機） | `/inquiries` に表示 | `POST /api/workshops/{workshop_id}/reservations`、Webhook・完了画面からの確認の内部処理 |
+| F-RSV-05 | 予約 | 当日の案内の送付 | 予約が確定したとき（当日払い・無料の予約時、オンライン決済の支払いの反映時）、当日の案内・緊急連絡先があれば、主催者からの一斉送信のメッセージとして参加者とのやり取りに送る（確定と同じトランザクション）。当日の案内・緊急連絡先は公開後は変更できない（送った内容と食い違わないため）。空欄のまま公開した場合や追加の連絡は、「参加者全員へのお知らせ」（一斉送信）で行う | システム（予約の確定を契機） | `/inquiries` に表示 | `POST /api/workshops/{workshop_id}/reservations`、Webhook・完了画面からの確認の内部処理 |
 | F-RSV-02 | 予約 | 参加予定のワークショップ | 確定済みとお支払い待ちの予約のうち、中止でなく終了前のものを開始日時の順に表示。お支払い待ちには期限と「お支払いを再開する」、確定済みには「主催者に問い合わせる」を表示。予約直後（当日払い・無料）は完了メッセージを表示。期限切れ（`expired`）の予約は表示しない | ログイン | `/reservations` | `GET /api/reservations/me` |
 | F-RSV-03 | 予約 | 予約キャンセル（主催者による取消） | 参加者は自分で取り消せない（画面には「キャンセルをご希望の場合は、ワークショップの主催者にご連絡ください。」と表示）。主催者が予約状況画面で理由（主催者の都合 / 参加者からの申し出）を選んで取り消すと、予約を `canceled` にして理由を記録し、参加者へ `reservation_canceled` 通知。オンライン決済で支払い済みなら理由に応じて返金（F-PAY-10）。確定済み・ワークショップが中止でない・開始前の予約だけが対象（それ以外は 409）。取り消された参加者は同じワークショップを再予約できない | 主催者（所有者 / admin） | `/manage/workshops/:id/reservations` | `POST /api/workshops/{workshop_id}/reservations/{reservation_id}/cancel` |
 | F-RSV-04 | 予約 | 予約・参加履歴 | 「参加履歴」（確定済みで終了後）と「予約履歴」（取消・中止を含む全予約を予約日時の新しい順。状態と返金の状況を表示）をタブで切り替える | ログイン | `/reservations/history` | `GET /api/reservations/me` |
@@ -138,7 +138,7 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 |---|---|---|---|---|---|---|
 | F-MNG-01 | 主催者管理 | 自分のワークショップ一覧 | 自分のワークショップ（admin は全件）を「開催予定」/「下書き」/「開催履歴」タブで表示。開催予定・開催履歴では中止したものを見出しを分けて表示。定員・参加者数を表示 | 主催者 | `/manage` | `GET /api/manage/workshops` |
 | F-MNG-02 | 主催者管理 | ワークショップ作成 | タイトル・説明・画像・開催形式・場所・日時・定員・参加費・支払方法（F-PAY-04）・当日の案内・緊急連絡先を入力し、下書き保存または公開 | 主催者 | `/manage/workshops/new` | `POST /api/workshops` |
-| F-MNG-03 | 主催者管理 | ワークショップ編集 | 既存ワークショップを編集し、下書き保存（下書きのみ）または公開。開催済み・中止のものは編集不可（API も 409）。公開中は参加費・支払方法・日時・開催形式・場所を変更できず、下書きにも戻せない。定員は確保済みのチケット枚数を下回れない | 主催者（所有者 / admin） | `/manage/workshops/:id/edit` | `GET /api/workshops/{workshop_id}`、`PUT /api/workshops/{workshop_id}` |
+| F-MNG-03 | 主催者管理 | ワークショップ編集 | 既存ワークショップを編集し、下書き保存（下書きのみ）または公開。開催済み・中止のものは編集不可（API も 409）。公開中は参加費・支払方法・日時・開催形式・場所・当日の案内・緊急連絡先を変更できず、下書きにも戻せない。定員は確保済みのチケット枚数を下回れない | 主催者（所有者 / admin） | `/manage/workshops/:id/edit` | `GET /api/workshops/{workshop_id}`、`PUT /api/workshops/{workshop_id}` |
 | F-MNG-04 | 主催者管理 | ワークショップ画像の登録・削除 | jpg / png / webp / gif（5MB 以内）の画像をアップロード、または削除。旧画像ファイルは削除。開催済み・中止のものは API が 409 を返す | 主催者（所有者 / admin） | `/manage/workshops/new`、`/manage/workshops/:id/edit` | `POST /api/workshops/{workshop_id}/image`、`DELETE /api/workshops/{workshop_id}/image` |
 | F-MNG-05 | 主催者管理 | ワークショップ中止 | 公開中のワークショップのみ。確認（オンライン決済なら全額返金の旨を追記）後、ステータスを `canceled` に更新し、F-NTF-05 の通知と F-PAY-11 の返金を行う。操作は編集画面の下部の「ワークショップの中止」から行う（編集中の内容は保存しない）。下書き・中止済み・開催済みは 409 | 主催者（所有者 / admin） | `/manage/workshops/:id/edit` | `POST /api/workshops/{workshop_id}/cancel` |
 | F-MNG-06 | 主催者管理 | ワークショップ削除 | 下書きのみ削除できる（確認後に物理削除。関連するお気に入り・通知・問い合わせも ORM カスケードで削除）。公開中・中止のものは記録として残すため削除ボタンを出さず、API も 409 を返す | 主催者（所有者 / admin） | `/manage` | `DELETE /api/workshops/{workshop_id}` |
@@ -171,7 +171,7 @@ TAIWA の機能をカテゴリごとに一覧化し、利用者（権限）・�
 | 6 | GET | `/api/workshops/{workshop_id}` | 任意 | ワークショップ詳細。非公開は所有者 / admin 以外 404。ただし中止済みは、そのワークショップを予約したことのあるユーザーも閲覧可。`payment_method`、`viewer`（`is_payment_pending` を含む）、`participant_info`（予約者・主催者のみ）を返す | `backend/app/routers/workshops.py` |
 | 6-2 | GET | `/api/workshops/{workshop_id}/related` | 任意 | 関連するワークショップ（同じ主催者 / 類似 / 近く） | `backend/app/routers/workshops.py` |
 | 7 | POST | `/api/workshops` | 主催者 | ワークショップ作成。`payment_method = online` で公開するときに運営側でオンライン決済が無効なら 409 | `backend/app/routers/workshops.py` |
-| 8 | PUT | `/api/workshops/{workshop_id}` | 主催者（所有者 / admin） | ワークショップ更新。`canceled` への変更、公開中の条件（参加費・支払方法・日時・開催形式・場所）の変更、公開済みから下書きへの変更は 409 | `backend/app/routers/workshops.py` |
+| 8 | PUT | `/api/workshops/{workshop_id}` | 主催者（所有者 / admin） | ワークショップ更新。`canceled` への変更、公開中の条件（参加費・支払方法・日時・開催形式・場所・当日の案内・緊急連絡先）の変更、公開済みから下書きへの変更は 409 | `backend/app/routers/workshops.py` |
 | 8-2 | POST | `/api/workshops/{workshop_id}/cancel` | 主催者（所有者 / admin） | 公開中のワークショップを中止にし、予約確定済みの参加者へ中止通知を作成。オンライン決済の支払いは全額返金し、開いている Checkout を閉じる。下書き・中止済み・開催済みは 409 | `backend/app/routers/workshops.py` |
 | 9 | DELETE | `/api/workshops/{workshop_id}` | 主催者（所有者 / admin） | ワークショップ削除（204）。下書きのみ。公開中・中止は 409 | `backend/app/routers/workshops.py` |
 | 10 | POST | `/api/workshops/{workshop_id}/image` | 主催者（所有者 / admin） | 画像アップロード（multipart, `file`） | `backend/app/routers/workshops.py` |
