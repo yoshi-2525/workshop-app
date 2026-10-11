@@ -84,19 +84,19 @@ export function HomeHero() {
         </g>
       </svg>
 
-      <p className="text-sm tracking-[0.25em] text-fg-muted">夜、ひとりで考えていたこと。</p>
+      <p className="text-sm tracking-[0.15em] text-fg-muted">誰にもわかってもらえない。誰かにわかってほしい。</p>
       <h1
         id="home-hero-heading"
         className="mt-5 font-brand text-3xl font-semibold leading-snug tracking-widest text-fg sm:text-5xl sm:leading-tight"
       >
-        その違和感は、
+        対話を通して
         <br />
-        話していい。
+        モヤモヤを掬う
       </h1>
       <p className="mt-8 max-w-2xl leading-loose text-fg-secondary">
-        うまく言葉にならなくても、答えが出なくても、かまいません。
+        心の奥底にある、誰にも話せなかったモヤモヤ。
         <br className="hidden sm:inline" />
-        仕事帰りに、同じように立ち止まっている誰かと、少しだけ話してみませんか。
+        対話を通して、仲間とともに自分だけのモヤモヤを言葉にしてみませんか。
       </p>
       <Link
         to="/about"

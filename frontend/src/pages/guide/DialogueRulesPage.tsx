@@ -9,12 +9,11 @@ export function DialogueRulesPage() {
   const backState = useBackState('対話のルール')
   return (
     <div className="mx-auto max-w-2xl py-4">
-      <p className="text-sm tracking-[0.25em] text-fg-muted">参加の前に</p>
       <h1 className="mt-3 font-brand text-3xl font-semibold tracking-widest text-fg">対話のルール</h1>
       <p className="mt-4 leading-loose text-fg-secondary">
-        TAIWA の場が、誰にとっても安心して話せる場所であるための約束ごとです。
+        対話の場では誰もが安心して自分の考えを話し、互いの理解を深められる場を目指しています。
         <br className="hidden sm:inline" />
-        参加のたびに、そっと思い出してもらえるとうれしいです。
+        一人ひとりが有意義な時間を過ごせるよう、ルールの順守にご協力をお願いいたします。
       </p>
 
       {/* 右下の角の折れが最後の文章にかからないよう、下の余白を広めに取る */}

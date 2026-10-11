@@ -68,8 +68,7 @@ export function WorkshopListPage() {
     <div>
       <HomeHero />
 
-      <h2 className="font-brand text-xl font-semibold tracking-wider text-fg">これから開かれる場</h2>
-      <p className="mt-1 text-sm text-fg-muted">聞いているだけでもかまいません。気になったら、のぞいてみてください。</p>
+      <h2 className="font-brand text-xl font-semibold tracking-wider text-fg">これから開かれる対話</h2>
 
       <WorkshopSearchForm listState={listState} disabled={loading} onSearch={handleSearch} />
 
