@@ -24,7 +24,23 @@ import { removeWorkshopDraft, useWorkshopDraft, workshopDraftKey } from '@/pages
 import { GHOST_BUTTON_CLASS, PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 // 公開中のワークショップで変更できない項目(参加者が予約したときの条件)。バックエンドの check_workshop_input と揃える
-const LOCKED_WHEN_PUBLISHED = ['price', 'payment_method', 'start_at', 'end_at', 'location_type', 'location'] as const
+const LOCKED_WHEN_PUBLISHED = [
+  'price',
+  'payment_method',
+  'start_at',
+  'end_at',
+  'location_type',
+  'location',
+  'participant_guide',
+  'emergency_contact',
+] as const
+
+// 空白だけでは保存できない必須の文字欄(画面の並び順)
+const BLANK_CHECKED_FIELDS = [
+  { key: 'title', label: 'タイトル' },
+  { key: 'description', label: '説明' },
+  { key: 'location', label: '場所' },
+] as const
 
 const emptyForm: WorkshopInput = {
   title: '',
@@ -184,6 +200,12 @@ export function WorkshopFormPage() {
       setError('未入力または入力範囲外の項目があります。赤枠の項目を確認してください。')
       return
     }
+    // required は空白だけの入力を通すので、必須の文字欄はここで確かめる(バックエンドは前後の空白を除いてから検証する)
+    const blankField = BLANK_CHECKED_FIELDS.find(({ key }) => !form[key].trim())
+    if (blankField) {
+      setError(`${blankField.label}を入力してください。`)
+      return
+    }
 
     const startDate = new Date(form.start_at)
     const endDate = new Date(form.end_at)
@@ -210,7 +232,14 @@ export function WorkshopFormPage() {
     // 公開中なら、変更できない項目は保存済みの値をそのまま送る
     // (フォームの日時は分単位なので、作り直すと秒以下が保存済みの値とずれることがある)
     if (lockConditions && savedWorkshop) {
-      for (const key of LOCKED_WHEN_PUBLISHED) Object.assign(payload, { [key]: savedWorkshop[key] })
+      // 当日のご案内・緊急連絡先は Workshop では participant_info の中にあるので、入力値の形にそろえてから取り出す。
+      // 日時はフォームの分単位の値ではなく、保存済みの値(ISO 形式)をそのまま使う
+      const savedValues: WorkshopInput = {
+        ...toWorkshopInput(savedWorkshop),
+        start_at: savedWorkshop.start_at,
+        end_at: savedWorkshop.end_at,
+      }
+      for (const key of LOCKED_WHEN_PUBLISHED) Object.assign(payload, { [key]: savedValues[key] })
     }
     // 保存済みのものがあれば更新する。新規作成のあと画像の保存だけ失敗した場合も、
     // もう一度保存したときに同じワークショップを二重に作らないよう、作成済みのものを更新する

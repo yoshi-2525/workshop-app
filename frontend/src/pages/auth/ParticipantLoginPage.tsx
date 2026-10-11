@@ -3,16 +3,11 @@ import { LoginForm } from '@/components/auth/LoginForm'
 export function ParticipantLoginPage() {
   return (
     <LoginForm
-      theme="participant"
-      title="参加者ログイン"
-      subtitle="ワークショップの予約・管理を行います。"
+      role="participant"
+      description="参加予定のワークショップや、主催者とのやり取りを確認できます。"
       allowedRoles={['participant']}
-      wrongRoleMessage="このアカウントは参加者用ではありません。主催者ログインをご利用ください。"
+      wrongRoleMessage="このアカウントは参加者用ではありません。上の「主催者として」からログインしてください。"
       defaultRedirect="/"
-      registerTo="/register/participant"
-      registerLabel="参加者として新規登録"
-      switchTo="/login/facilitator"
-      switchLabel="主催者としてログインする方はこちら"
     />
   )
 }

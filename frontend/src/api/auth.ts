@@ -1,4 +1,4 @@
-import { apiClient } from '@/api/client'
+import { apiClient, LOGIN_PATH } from '@/api/client'
 import type { SelfRegisterRole, User } from '@/types'
 
 export interface LoginPayload {
@@ -22,7 +22,7 @@ export async function login(payload: LoginPayload): Promise<string> {
   const form = new URLSearchParams()
   form.set('username', payload.email)
   form.set('password', payload.password)
-  const { data } = await apiClient.post<TokenResponse>('/auth/login', form, {
+  const { data } = await apiClient.post<TokenResponse>(LOGIN_PATH, form, {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   })
   return data.access_token

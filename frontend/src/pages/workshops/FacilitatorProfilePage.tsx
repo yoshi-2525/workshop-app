@@ -5,6 +5,7 @@ import { FollowButton } from '@/components/facilitator/FollowButton'
 import { Avatar } from '@/components/ui/Avatar'
 import { WorkshopCard } from '@/components/workshop/WorkshopCard'
 import { useApiResource } from '@/hooks/useApiResource'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { parseIdParam } from '@/utils/params'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PaperCard } from '@/components/ui/PaperCard'
@@ -21,6 +22,7 @@ export function FacilitatorProfilePage() {
       ]),
     '主催者情報の取得に失敗しました',
   )
+  usePageTitle(data ? `${data[0].name}さんのプロフィール` : null)
 
   if (loading) return <LoadingMessage />
   if (facilitatorId === null || error)

@@ -1,8 +1,6 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute'
-import { LoginChooserPage } from '@/pages/auth/LoginChooserPage'
-import { RegisterChooserPage } from '@/pages/auth/RegisterChooserPage'
 import { ParticipantLoginPage } from '@/pages/auth/ParticipantLoginPage'
 import { FacilitatorLoginPage } from '@/pages/auth/FacilitatorLoginPage'
 import { ParticipantRegisterPage } from '@/pages/auth/ParticipantRegisterPage'
@@ -37,6 +35,13 @@ import { FacilitatorGuidelinesPage } from '@/pages/help/FacilitatorGuidelinesPag
 import { TokushohoPage } from '@/pages/help/TokushohoPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
+// 参加者・主催者を選ぶ画面はなくし、ログイン・新規登録の画面の中で切り替える。
+// /login と /register は参加者の画面へ移し、ログイン後の戻り先(state.from)は引き継ぐ
+function RedirectKeepingState({ to }: { to: string }) {
+  const location = useLocation()
+  return <Navigate to={to} replace state={location.state} />
+}
+
 export default function App() {
   return (
     <Routes>
@@ -45,10 +50,10 @@ export default function App() {
         <Route path="workshops/:id" element={<WorkshopDetailPage />} />
         <Route path="facilitators/:id" element={<FacilitatorProfilePage />} />
 
-        <Route path="login" element={<LoginChooserPage />} />
+        <Route path="login" element={<RedirectKeepingState to="/login/participant" />} />
         <Route path="login/participant" element={<ParticipantLoginPage />} />
         <Route path="login/facilitator" element={<FacilitatorLoginPage />} />
-        <Route path="register" element={<RegisterChooserPage />} />
+        <Route path="register" element={<RedirectKeepingState to="/register/participant" />} />
         <Route path="register/participant" element={<ParticipantRegisterPage />} />
         <Route path="register/facilitator" element={<FacilitatorRegisterPage />} />
 

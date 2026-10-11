@@ -30,9 +30,14 @@ export function ProfileEditPage() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    setSaved(false)
+    // required は空白だけの入力を通すので、ここで確かめる(バックエンドは前後の空白を除いてから検証する)
+    if (!name.trim()) {
+      setError('表示名を入力してください')
+      return
+    }
     setSaving(true)
     setError(null)
-    setSaved(false)
     try {
       await updateMe({ name, bio })
     } catch (err) {

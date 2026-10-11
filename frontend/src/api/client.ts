@@ -15,10 +15,14 @@ export const apiClient = axios.create({
   baseURL: '/api',
 })
 
+// ログインの API。トークンを付けずに送る
+export const LOGIN_PATH = '/auth/login'
+
 apiClient.interceptors.request.use((config) => {
   const token = tokenStore.get()
-  // 呼び出し側で指定済み(ログイン直後の役割確認など)なら、保存済みのトークンで上書きしない
-  if (token && !config.headers.Authorization) {
+  // 呼び出し側で指定済み(ログイン直後の役割確認など)なら、保存済みのトークンで上書きしない。
+  // ログインのリクエストには付けない(パスワード違いの 401 を、今のトークンの失効と取り違えてログアウトさせないため)
+  if (token && !config.headers.Authorization && config.url !== LOGIN_PATH) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
@@ -52,12 +56,24 @@ export function fileFormData(file: File): FormData {
   return formData
 }
 
+// 日本語(ひらがな・カタカナ・漢字)を含むか
+const JAPANESE_TEXT = /[\u3040-\u30ff\u3400-\u9fff]/
+
+// 入力の検証エラー(422)で、利用者向けの日本語のメッセージがなかったときに出す文言
+export const VALIDATION_ERROR_MESSAGE = '入力内容に誤りがあります。各項目の入力内容を確認してください。'
+
 export function extractErrorMessage(error: unknown, fallback = 'エラーが発生しました'): string {
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail
     if (typeof detail === 'string') return detail
-    if (Array.isArray(detail) && detail.length > 0 && detail[0]?.msg) {
-      return detail.map((d: { msg: string }) => d.msg).join(', ')
+    // 422 の detail は Pydantic のエラーの配列。バックエンドが独自に日本語で書いたメッセージだけを見せ、
+    // Pydantic 既定の英語のメッセージ(String should have at least 1 character など)は出さない
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .map((d: { msg?: unknown }) => (typeof d?.msg === 'string' ? d.msg.replace(/^Value error, /, '') : ''))
+        .filter((msg) => JAPANESE_TEXT.test(msg))
+      if (messages.length > 0) return [...new Set(messages)].join(' ')
+      if (detail.length > 0) return VALIDATION_ERROR_MESSAGE
     }
   }
   return fallback

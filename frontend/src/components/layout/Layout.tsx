@@ -1,13 +1,17 @@
+import { useRef } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
+import { RouteChangeHandler } from '@/components/layout/RouteChangeHandler'
 import { ScrollToTop } from '@/components/layout/ScrollToTop'
 
 export function Layout() {
+  const mainRef = useRef<HTMLElement>(null)
   return (
     <div className="flex min-h-screen flex-col bg-night">
       <ScrollToTop />
+      <RouteChangeHandler mainRef={mainRef} />
       <Navbar />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-4">
+      <main ref={mainRef} className="mx-auto w-full max-w-5xl flex-1 px-4 py-4">
         <Outlet />
       </main>
       <footer className="border-t border-border-muted">

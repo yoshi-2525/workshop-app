@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getRelatedWorkshops, getWorkshop } from '@/api/workshops'
 import { useAuth } from '@/context/AuthContext'
 import { useApiResource } from '@/hooks/useApiResource'
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { Avatar } from '@/components/ui/Avatar'
 import { FavoriteButton } from '@/components/workshop/FavoriteButton'
 import { LocationTypeBadge } from '@/components/workshop/LocationTypeBadge'
@@ -65,6 +66,7 @@ export function WorkshopDetailPage() {
     (signal) => getWorkshop(workshopId!, signal),
     'ワークショップの取得に失敗しました',
   )
+  usePageTitle(workshop?.title)
   // 関連するワークショップは本体とは別に読み込む。補助的な情報なので、取得に失敗しても欄を出さないだけにする
   const { data: related } = useApiResource(
     resourceKey,

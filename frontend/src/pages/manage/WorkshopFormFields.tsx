@@ -385,7 +385,8 @@ export function WorkshopFormFields({
               emptyInitially={isNew}
               min={0}
               max={WORKSHOP_PRICE_MAX}
-              step={100}
+              // 参加費は1円単位で設定できる(オンライン決済の下限 50 円なども入力できるよう、刻みは付けない)
+              step={1}
               required
               disabled={lockConditions}
               aria-describedby={lockConditions ? lockedHelpId : undefined}
@@ -416,9 +417,9 @@ export function WorkshopFormFields({
       <fieldset className="space-y-4 border-t border-border-muted pt-4">
         <legend className="sr-only">参加者への案内</legend>
         <p id={participantInfoHelpId} className="rounded-md bg-surface/70 p-3 text-xs text-fg-secondary">
-          以下の2項目は、予約した参加者だけに表示されます(一般には公開されません)。
-          予約が確定したときに、この内容が主催者からのメッセージとして参加者へ自動で送信されます。
-          公開後は変更できません。空欄のまま公開した場合や、追加でお伝えしたいことがある場合は、
+          以下の2項目は、予約した参加者だけに表示されます。
+          予約が確定したときに、この内容が主催者からのメッセージとして参加者へ自動送信されます。
+          公開後は変更できません。追加でお伝えしたいことがある場合は、
           「問い合わせ・お知らせ」の「参加者全員へのお知らせ」からお送りください。
         </p>
         <div>
@@ -433,7 +434,7 @@ export function WorkshopFormFields({
             onChange={(e) => setField('participant_guide', e.target.value)}
             disabled={lockConditions}
             placeholder={
-              '例: 開始10分前に会場2階の受付へお越しください。\n持ち物: 筆記用具、汚れてもよい服装\nオンライン参加URL: https://...'
+              '例: 開始10分前に会場2階の受付へお越しください。\nオンライン参加URL: https://...'
             }
             aria-describedby={participantInfoHelpId}
             className={`mt-1 ${INPUT_CLASS}`}
@@ -452,7 +453,7 @@ export function WorkshopFormFields({
             value={form.emergency_contact}
             onChange={(e) => setField('emergency_contact', e.target.value)}
             disabled={lockConditions}
-            placeholder="例: 090-1234-5678(当日の遅刻・欠席のご連絡はこちらへ)"
+            placeholder="例: 090-1234-5678"
             aria-describedby={participantInfoHelpId}
             className={`mt-1 ${INPUT_CLASS}`}
           />

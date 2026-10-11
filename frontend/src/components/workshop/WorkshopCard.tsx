@@ -44,41 +44,44 @@ export function WorkshopCard({ workshop, backLabel }: { workshop: Workshop; back
       ) : (
         <NoImage className="mb-1 rounded-md" />
       )}
-      {/* タイトルが1行でも2行でも日時以降の位置がそろうよう、タイトル(最大2行)+主催の分の高さを確保する。
-          主催はタイトルのすぐ下に出し、余りは主催の下に回す */}
-      <div className="min-h-[4.5rem]">
-        <div className="flex items-center justify-between gap-4">
-          <h3 className="line-clamp-2 min-w-0 text-lg font-semibold text-fg" title={workshop.title}>
-            <Link
-              to={`/workshops/${workshop.id}`}
-              state={backLabel ? backState : undefined}
-              className="after:absolute after:inset-0 after:rounded-lg focus:outline-none"
-            >
-              {workshop.title}
-            </Link>
-          </h3>
-          <div className="relative z-10 flex shrink-0 items-center gap-1">
-            {/* 満員はタイトルの横(予約済みと同じ並び)に出す。残席僅かは定員の右 */}
-            <FullBadge workshop={workshop} />
-            {workshop.viewer.is_reserved && (
-              <span className="shrink-0 whitespace-nowrap rounded-full bg-indigo-400/15 px-2.5 py-0.5 text-sm font-medium text-indigo-200">
-                予約済み
-              </span>
-            )}
-            {/* 共有とお気に入りは、それぞれ薄いグレーの丸で囲む */}
-            <FavoriteButton
-              workshopId={workshop.id}
-              isFavorited={workshop.viewer.is_favorited}
-              className="rounded-full bg-fg/10"
-            />
-          </div>
+      <div className="flex items-center justify-between gap-4">
+        {/* 長いタイトルは折り返さず、1行に収まらない分を「…」で省く(全文は title で出す)。
+            行の高さがそろうので、タイトルの長さによらず主催者・日時以降の位置もそろう */}
+        {/* スマホ幅は1列でカードが広いので、タイトルを一段大きくする */}
+        <h3 className="min-w-0 truncate text-xl font-semibold text-fg sm:text-lg" title={workshop.title}>
+          <Link
+            to={`/workshops/${workshop.id}`}
+            state={backLabel ? backState : undefined}
+            className="after:absolute after:inset-0 after:rounded-lg focus:outline-none"
+          >
+            {workshop.title}
+          </Link>
+        </h3>
+        <div className="relative z-10 flex shrink-0 items-center gap-1">
+          {/* 満員はタイトルの横(予約済みと同じ並び)に出す。残席僅かは定員の右 */}
+          <FullBadge workshop={workshop} />
+          {workshop.viewer.is_reserved && (
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-indigo-400/15 px-2.5 py-0.5 text-sm font-medium text-indigo-200">
+              予約済み
+            </span>
+          )}
+          {/* 共有とお気に入りは、それぞれ薄いグレーの丸で囲む */}
+          <FavoriteButton
+            workshopId={workshop.id}
+            isFavorited={workshop.viewer.is_favorited}
+            className="rounded-full bg-fg/10"
+          />
         </div>
-        <p className="flex items-center gap-2 text-sm text-fg-muted">
-          <Avatar url={workshop.facilitator_avatar_url} name={workshop.facilitator_name} className="h-6 w-6 text-xs" />
-          {workshop.facilitator_name}
-        </p>
       </div>
       <dl className="mt-2 space-y-2 text-sm text-fg-muted">
+        {/* 主催者は日時などと同じ並びの1行目に置き、項目アイコンの位置にアバターを出す(項目名は読み上げ用だけ) */}
+        <div>
+          <dt className="sr-only">主催者</dt>
+          <dd className="flex items-center gap-2">
+            <Avatar url={workshop.facilitator_avatar_url} name={workshop.facilitator_name} className="h-6 w-6 text-xs" />
+            {workshop.facilitator_name}
+          </dd>
+        </div>
         <div className="flex gap-2">
           <FieldIcon icon="schedule" label="日時" />
           <dd><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} /></dd>

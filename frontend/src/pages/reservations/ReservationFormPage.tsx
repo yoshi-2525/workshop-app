@@ -213,7 +213,10 @@ export function ReservationFormPage() {
 
   const remaining = workshop.capacity - workshop.reserved_count
   const maxTickets = Math.max(1, Math.min(remaining, MAX_TICKETS_PER_RESERVATION))
-  const totalPrice = workshop.price * ticketCount
+  // 取り直して残席が減ったときに、選んでいた枚数が選択肢の上限を超えたまま残らないよう丸める
+  // (表示・合計金額・送信する枚数をすべてこの値にそろえる)
+  const effectiveTickets = Math.min(ticketCount, maxTickets)
+  const totalPrice = workshop.price * effectiveTickets
   const online = isOnlinePayment(workshop)
   // キャンセルについての案内を出すか(確認のチェックの文言もこれに合わせる)
   const hasCancellationNotice = cancellationSummary(workshop) !== null
@@ -222,7 +225,7 @@ export function ReservationFormPage() {
     event.preventDefault()
     if (!workshop) return
     const result = await submitAction.run(
-      () => reserveWorkshop(workshop.id, { contact, ticket_count: ticketCount }),
+      () => reserveWorkshop(workshop.id, { contact, ticket_count: effectiveTickets }),
       online ? '予約またはお支払いの準備ができませんでした' : '予約に失敗しました',
     )
     if (result.ok) {
@@ -323,7 +326,7 @@ export function ReservationFormPage() {
             </label>
             <select
               id={ticketCountId}
-              value={ticketCount}
+              value={effectiveTickets}
               onChange={(e) => setTicketCount(Number(e.target.value))}
               aria-describedby={ticketCountHelpId}
               className={INPUT_CLASS}

@@ -174,3 +174,10 @@ select option {
 ::selection {
   background-color: rgb(227 176 113 / 0.3);
 }
+
+/* 画面遷移のときに、スクリプトからフォーカスを移した見出し・main(RouteChangeHandler)には枠を出さない。
+   操作できる部品ではなく、読み上げの開始位置を示すためだけのフォーカスなので */
+main[tabindex="-1"]:focus,
+main h1[tabindex="-1"]:focus {
+  outline: none;
+}
