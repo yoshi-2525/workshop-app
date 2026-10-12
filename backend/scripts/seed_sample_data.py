@@ -3,6 +3,7 @@
 Usage: ./venv/Scripts/python scripts/seed_sample_data.py
 """
 
+import shutil
 import struct
 import sys
 import zlib
@@ -52,7 +53,11 @@ SAMPLE_FACILITATORS = {
 # 開催日時は実行した日(日本時間)を基準にする。いつ投入しても、これからの場と終わった場がそろう
 JST = timezone(timedelta(hours=9))
 
-# Solid-color placeholder banners (no external assets / image libraries needed).
+# サンプルのワークショップ用のバナー画像(1600×900)。ファイル名は sample_workshops の key に合わせる
+SAMPLE_IMAGE_DIR = Path(__file__).resolve().parent / "sample_images"
+SAMPLE_IMAGE_URL_PREFIX = "/api/uploads/workshops/sample-"
+
+# 用意した画像がないとき(seed_bulk_workshops.py など)に使う単色の画像
 SAMPLE_IMAGE_COLORS = [
     (217, 119, 6),  # amber
     (13, 148, 136),  # teal
@@ -88,15 +93,29 @@ def _workshop_image_dir() -> Path:
     return path
 
 
-def ensure_sample_image(workshop: Workshop, color_index: int) -> None:
-    """画像のないワークショップに、生成したバナー画像を設定する"""
-    if workshop.image_url:
+def ensure_sample_image(workshop: Workshop, color_index: int, key: str | None = None) -> None:
+    """ワークショップにサンプルのバナー画像を設定する
+
+    key に対応する画像が SAMPLE_IMAGE_DIR にあればそれを使い、なければ単色の画像を生成する。
+    主催者がアップロードした画像は上書きしない。前にこのスクリプトが設定した画像(sample-*)は、
+    用意した画像に置き換える。古いサンプルデータのまま再投入しても新しい画像になるようにするため。
+    """
+    if workshop.image_url and not workshop.image_url.startswith(SAMPLE_IMAGE_URL_PREFIX):
         return
-    filename = f"sample-{workshop.id}.png"
-    path = _workshop_image_dir() / filename
-    if not path.exists():
-        color = SAMPLE_IMAGE_COLORS[color_index % len(SAMPLE_IMAGE_COLORS)]
-        path.write_bytes(_make_placeholder_png(800, 450, color))
+    source = SAMPLE_IMAGE_DIR / f"{key}.png" if key else None
+    if source is not None and source.exists():
+        filename = f"sample-{workshop.id}-{key}.png"
+        path = _workshop_image_dir() / filename
+        if not path.exists():
+            shutil.copyfile(source, path)
+    else:
+        if workshop.image_url:
+            return
+        filename = f"sample-{workshop.id}.png"
+        path = _workshop_image_dir() / filename
+        if not path.exists():
+            color = SAMPLE_IMAGE_COLORS[color_index % len(SAMPLE_IMAGE_COLORS)]
+            path.write_bytes(_make_placeholder_png(800, 450, color))
     workshop.image_url = f"/api/uploads/workshops/{filename}"
 
 
@@ -624,7 +643,7 @@ def main() -> None:
                 status=item.get("status", WorkshopStatus.published),
                 facilitator_id=item["facilitator"].id,
             )
-            ensure_sample_image(workshop, index)
+            ensure_sample_image(workshop, index, item["key"])
             workshops[item["key"]] = workshop
 
         db.flush()
