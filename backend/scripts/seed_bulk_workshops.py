@@ -20,6 +20,7 @@ from app.models.user import User, UserRole  # noqa: E402
 from app.models.workshop import LocationType, Workshop, WorkshopStatus  # noqa: E402
 from seed_sample_data import (  # noqa: E402
     PASSWORD,
+    SAMPLE_FACILITATORS,
     ensure_sample_image,
     get_or_create_user,
     get_or_create_workshop,
@@ -47,10 +48,6 @@ OFFLINE_VENUES = [
     "神奈川県横浜市中区山下町 横浜みなとスペース",
 ]
 ONLINE_VENUE = "Zoom"
-EXTRA_FACILITATORS = [
-    ("takahashi@example.com", "高橋 誠", "高校で倫理を教えています。10代から大人まで一緒に考える場を開いています。"),
-    ("nakamura@example.com", "中村 さやか", "読書会と哲学対話を組み合わせた会を月2回主催しています。"),
-]
 EXTRA_PARTICIPANTS = [
     ("participant01@example.com", "加藤 翔太"),
     ("participant02@example.com", "吉田 恵"),
@@ -131,10 +128,11 @@ def main() -> None:
     rng = random.Random(SEED)
     db = SessionLocal()
     try:
+        # 主催者は seed_sample_data.py と同じ5人
         facilitators = [
-            get_or_create_user(db, "yamada@example.com", "山田 太郎", UserRole.facilitator),
-            get_or_create_user(db, "suzuki@example.com", "鈴木 花子", UserRole.facilitator),
-        ] + [get_or_create_user(db, e, n, UserRole.facilitator, bio=b) for e, n, b in EXTRA_FACILITATORS]
+            get_or_create_user(db, email, name, UserRole.facilitator, bio=bio)
+            for email, name, bio in SAMPLE_FACILITATORS.values()
+        ]
         participants = [
             u for u in (db.query(User).filter(User.email == e).first() for e in SAMPLE_PARTICIPANT_EMAILS) if u
         ] + [get_or_create_user(db, e, n, UserRole.participant) for e, n in EXTRA_PARTICIPANTS]
@@ -179,7 +177,7 @@ def main() -> None:
 
         db.commit()
         print(f"bulk seed complete: {created} workshops created ({WORKSHOP_COUNT - created} already existed)")
-        print(f"  facilitators: takahashi@example.com, nakamura@example.com / {PASSWORD}")
+        print(f"  facilitators: {', '.join(email for email, _, _ in SAMPLE_FACILITATORS.values())} / {PASSWORD}")
         print(f"  participants: participant01〜10@example.com / {PASSWORD}")
     finally:
         db.close()
