@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import type { SelfRegisterRole } from '@/types'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
 
 export type AuthKind = 'login' | 'register'
 
 const ROLE_LABEL: Record<SelfRegisterRole, string> = {
-  participant: '参加者として',
-  facilitator: '主催者として',
+  participant: '参加者',
+  facilitator: '主催者',
 }
 
 const KIND_TITLE: Record<AuthKind, string> = {
@@ -15,36 +16,28 @@ const KIND_TITLE: Record<AuthKind, string> = {
   register: '新規登録',
 }
 
-// 参加者・主催者のどちらで使うかの切り替え。色ではなく小さな文字のラベルで示し、選んでいる方を濃くする。
+const ROLE_OPTIONS: ToggleOption<SelfRegisterRole>[] = (Object.keys(ROLE_LABEL) as SelfRegisterRole[]).map((r) => ({
+  value: r,
+  label: ROLE_LABEL[r],
+}))
+
+// 参加者・主催者のどちらで使うかの切り替え。フォームと同じ幅のトグルを置き、押すと切り替え先の画面へ移る。
 // 以前の選択画面の代わりで、ログイン後の戻り先(state.from)は切り替え先にも引き継ぐ
 function RoleSwitch({ kind, role }: { kind: AuthKind; role: SelfRegisterRole }) {
   const location = useLocation()
+  const navigate = useNavigate()
   return (
-    <nav aria-label="アカウントの種類" className="mt-3 flex items-center gap-3 text-sm">
-      {(Object.keys(ROLE_LABEL) as SelfRegisterRole[]).map((r, i) => (
-        <span key={r} className="flex items-center gap-3">
-          {i > 0 && (
-            <span aria-hidden="true" className="text-fg-subtle">
-              ｜
-            </span>
-          )}
-          {r === role ? (
-            <span aria-current="page" className="font-medium text-fg">
-              {ROLE_LABEL[r]}
-            </span>
-          ) : (
-            <Link
-              to={`/${kind}/${r}`}
-              state={location.state}
-              replace
-              className="text-fg-muted underline-offset-4 hover:text-fg-secondary hover:underline"
-            >
-              {ROLE_LABEL[r]}
-            </Link>
-          )}
-        </span>
-      ))}
-    </nav>
+    <ToggleGroup
+      label="アカウントの種類"
+      hideLabel
+      options={ROLE_OPTIONS}
+      value={role}
+      onChange={(next) => {
+        if (next !== role) navigate(`/${kind}/${next}`, { state: location.state, replace: true })
+      }}
+      fullWidth
+      className="mt-4"
+    />
   )
 }
 

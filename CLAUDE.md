@@ -18,6 +18,8 @@ npm run dev
 ./venv/Scripts/python -m pytest tests/test_reservations.py -k cancel   # 名前で絞る
 ./venv/Scripts/python -m alembic upgrade head                     # マイグレーション適用
 ./venv/Scripts/python scripts/seed_sample_data.py                 # サンプルデータ(パスワードは全員 password123)
+./venv/Scripts/python scripts/seed_bulk_workshops.py              # 一覧・検索・ページ送り確認用の50件(一時的。sample のあとに実行)
+./venv/Scripts/python scripts/seed_bulk_workshops.py --delete     # ↑で作ったデータを消す(確認が済んだら必ず実行する)
 ./venv/Scripts/python scripts/set_role.py you@example.com admin   # admin への昇格(admin は自己登録不可)
 
 # フロントエンド (frontend/ で実行)
@@ -66,6 +68,11 @@ npx vitest run src/utils/workshop.test.ts   # 1 ファイル
 - 色はクラスに直接書かず、`index.css` の `@theme` トークン（`bg-surface`, `text-fg`, `bg-accent`, `border-border` など）を使う。`bg-white` や `text-slate-*` は使わない。紙面のカードは `theme-paper` の中に置く。
 - トーンは「静かに寄り添う」。命令・煽り・感嘆符・絵文字は使わない。用語は **主催者**（「開催者」は使わない）／**参加者**。管理画面・規約・エラーメッセージは正確さを優先する。
 - `DESIGN.md` とコードが食い違ったらコード（`index.css`, `components/ui/`）が正。
+
+### Figma
+
+- デザインシステムは Figma の「TAIWA Design System」（fileKey `Dyvi7vBf0rnae8EN8nLOb6`）。部品・トークン・画面とコードの対応は [FIGMA.md](FIGMA.md) にまとめている。Figma のノードは Figma MCP（`get_design_context` / `get_screenshot` / `get_variable_defs`）で読む。
+- 画面・部品・トークンを変えたら、対応する Figma と `FIGMA.md` も直す。Figma 側の変更をコードに入れるときも、`FIGMA.md` で対応先を確かめる。
 
 ## 設計書・エージェント
 

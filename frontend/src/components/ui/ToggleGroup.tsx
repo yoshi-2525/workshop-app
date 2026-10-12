@@ -11,6 +11,8 @@ interface ToggleGroupProps<T extends string> {
   onChange: (next: T) => void
   // 選択を変えられないようにする(選択中の値は表示したまま)
   disabled?: boolean
+  // 親の幅いっぱいに広げ、各ボタンを同じ幅にする
+  fullWidth?: boolean
   className?: string
 }
 
@@ -22,6 +24,7 @@ export function ToggleGroup<T extends string>({
   value,
   onChange,
   disabled = false,
+  fullWidth = false,
   className = '',
 }: ToggleGroupProps<T>) {
   const labelId = useId()
@@ -33,7 +36,7 @@ export function ToggleGroup<T extends string>({
       <div
         role="group"
         aria-labelledby={labelId}
-        className="inline-flex rounded-md border border-border p-0.5 text-sm"
+        className={`${fullWidth ? 'flex w-full' : 'inline-flex'} rounded-md border border-border p-0.5 text-sm`}
       >
         {options.map((option) => (
           <button
@@ -42,7 +45,7 @@ export function ToggleGroup<T extends string>({
             aria-pressed={value === option.value}
             onClick={() => onChange(option.value)}
             disabled={disabled}
-            className={`rounded px-3 py-1.5 font-medium transition focus-ring focus:outline-none disabled:cursor-not-allowed ${
+            className={`${fullWidth ? 'flex-1' : ''} rounded px-3 py-1.5 font-medium transition focus-ring focus:outline-none disabled:cursor-not-allowed ${
               value === option.value
                 ? 'bg-accent text-accent-foreground disabled:opacity-60'
                 : 'text-fg-secondary enabled:hover:bg-surface-strong disabled:opacity-50'

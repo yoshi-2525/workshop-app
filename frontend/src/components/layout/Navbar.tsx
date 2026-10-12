@@ -96,7 +96,7 @@ export function Navbar() {
             <>
               <Link
                 to="/login"
-                className="whitespace-nowrap rounded-md border border-border px-2.5 py-1.5 text-fg-secondary hover:bg-surface-muted sm:px-4 sm:py-2"
+                className="whitespace-nowrap rounded-md border border-secondary-border bg-secondary px-2.5 py-1.5 text-secondary-foreground hover:bg-secondary-hover sm:px-4 sm:py-2"
               >
                 ログイン
               </Link>

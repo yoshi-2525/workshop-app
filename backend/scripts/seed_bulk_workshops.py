@@ -4,17 +4,33 @@ Varies status, date (past / upcoming), location type, price and fill rate so
 every screen state shows up. Output is deterministic and re-running skips
 workshops whose title already exists.
 
-Usage: ./venv/Scripts/python scripts/seed_bulk_workshops.py
+一覧などの確認用の一時的なデータ。確認が済んだら --delete で消す
+(このスクリプトで作ったワークショップ・予約などと参加者 participant01〜10 を消す。
+seed_sample_data.py のデータと、主催者 5 人は残す)。
+
+Usage:
+    ./venv/Scripts/python scripts/seed_bulk_workshops.py           # 投入
+    ./venv/Scripts/python scripts/seed_bulk_workshops.py --delete  # 削除
 """
 
+import argparse
 import random
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+from sqlalchemy import or_  # noqa: E402
+
+from app.config import settings  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
+from app.models.favorite import Favorite  # noqa: E402
+from app.models.follow import FacilitatorFollow  # noqa: E402
+from app.models.inquiry import Inquiry, InquiryMessage  # noqa: E402
+from app.models.notification import Notification  # noqa: E402
+from app.models.payment import Payment  # noqa: E402
 from app.models.reservation import MAX_TICKETS_PER_RESERVATION, Reservation, ReservationStatus  # noqa: E402
 from app.models.user import User, UserRole  # noqa: E402
 from app.models.workshop import LocationType, Workshop, WorkshopStatus  # noqa: E402
@@ -73,14 +89,22 @@ def jst_to_utc(days: int, hour: int, minute: int = 0) -> datetime:
     return local.astimezone(timezone.utc).replace(tzinfo=None)
 
 
-def build_titles(rng: random.Random) -> list[tuple[str, str]]:
-    # seed_sample_data.py で使っているタイトルは除き、50件すべてを新しいものにする
-    pairs = [
+def _title_pairs() -> list[tuple[str, str]]:
+    # 以前の seed_sample_data.py で使っていたタイトルと重ならないよう、この組み合わせは除く
+    return [
         (theme, fmt)
         for theme in THEMES
         for fmt in FORMATS
         if (theme, fmt) != ("幸せとは何か", "哲学カフェ")
     ]
+
+
+def make_title(theme: str, fmt: str) -> str:
+    return f"『{theme}』を考える{fmt}"
+
+
+def build_titles(rng: random.Random) -> list[tuple[str, str]]:
+    pairs = _title_pairs()
     rng.shuffle(pairs)
     return pairs[:WORKSHOP_COUNT]
 
@@ -139,7 +163,7 @@ def main() -> None:
 
         created = 0
         for index, (theme, fmt) in enumerate(build_titles(rng)):
-            title = f"『{theme}』を考える{fmt}"
+            title = make_title(theme, fmt)
             exists = db.query(Workshop).filter(Workshop.title == title).first() is not None
 
             status = pick_status(rng)
@@ -179,9 +203,91 @@ def main() -> None:
         print(f"bulk seed complete: {created} workshops created ({WORKSHOP_COUNT - created} already existed)")
         print(f"  facilitators: {', '.join(email for email, _, _ in SAMPLE_FACILITATORS.values())} / {PASSWORD}")
         print(f"  participants: participant01〜10@example.com / {PASSWORD}")
+        print("確認が済んだら --delete で消してください")
     finally:
         db.close()
 
 
+def _delete_reservations(db, condition) -> int:
+    reservation_ids = [r.id for r in db.query(Reservation.id).filter(condition)]
+    if not reservation_ids:
+        return 0
+    db.query(Payment).filter(Payment.reservation_id.in_(reservation_ids)).delete(synchronize_session=False)
+    return db.query(Reservation).filter(Reservation.id.in_(reservation_ids)).delete(synchronize_session=False)
+
+
+def _delete_inquiries(db, condition) -> int:
+    inquiry_ids = [i.id for i in db.query(Inquiry.id).filter(condition)]
+    if not inquiry_ids:
+        return 0
+    db.query(InquiryMessage).filter(InquiryMessage.inquiry_id.in_(inquiry_ids)).delete(synchronize_session=False)
+    return db.query(Inquiry).filter(Inquiry.id.in_(inquiry_ids)).delete(synchronize_session=False)
+
+
+def delete_bulk() -> None:
+    """このスクリプトで作ったワークショップ(タイトルで見分ける)と参加者 participant01〜10 を、
+    ぶら下がる予約・問い合わせ・通知・お気に入りごと消す。生成した単色の画像ファイルも消す"""
+    titles = [make_title(theme, fmt) for theme, fmt in _title_pairs()]
+    db = SessionLocal()
+    try:
+        workshops = db.query(Workshop).filter(Workshop.title.in_(titles)).all()
+        workshop_ids = [w.id for w in workshops]
+        # 単色の画像は sample-<id>.png(用意した画像の sample-<id>-<key>.png は消さない)
+        image_files = [
+            w.image_url.rsplit("/", 1)[1]
+            for w in workshops
+            if w.image_url and re.fullmatch(r"/api/uploads/workshops/sample-\d+\.png", w.image_url)
+        ]
+        participant_ids = [
+            u.id for u in db.query(User.id).filter(User.email.in_([e for e, _ in EXTRA_PARTICIPANTS]))
+        ]
+
+        counts = {
+            "reservations": _delete_reservations(
+                db, or_(Reservation.workshop_id.in_(workshop_ids), Reservation.user_id.in_(participant_ids))
+            ),
+            "inquiries": _delete_inquiries(
+                db, or_(Inquiry.workshop_id.in_(workshop_ids), Inquiry.participant_id.in_(participant_ids))
+            ),
+        }
+        db.query(InquiryMessage).filter(InquiryMessage.sender_id.in_(participant_ids)).delete(
+            synchronize_session=False
+        )
+        counts["notifications"] = db.query(Notification).filter(
+            or_(Notification.workshop_id.in_(workshop_ids), Notification.user_id.in_(participant_ids))
+        ).delete(synchronize_session=False)
+        counts["favorites"] = db.query(Favorite).filter(
+            or_(Favorite.workshop_id.in_(workshop_ids), Favorite.user_id.in_(participant_ids))
+        ).delete(synchronize_session=False)
+        db.query(FacilitatorFollow).filter(FacilitatorFollow.follower_id.in_(participant_ids)).delete(
+            synchronize_session=False
+        )
+        counts["workshops"] = db.query(Workshop).filter(Workshop.id.in_(workshop_ids)).delete(
+            synchronize_session=False
+        )
+        counts["participants"] = db.query(User).filter(User.id.in_(participant_ids)).delete(
+            synchronize_session=False
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+    removed = 0
+    for filename in image_files:
+        path = settings.upload_path / "workshops" / filename
+        if path.exists():
+            path.unlink()
+            removed += 1
+    print("bulk data deleted: " + ", ".join(f"{k} {v}" for k, v in counts.items()) + f", images {removed}")
+
+
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="一覧などの確認用のワークショップを投入・削除する")
+    parser.add_argument("--delete", action="store_true", help="このスクリプトで作ったデータを消す")
+    if parser.parse_args().delete:
+        delete_bulk()
+    else:
+        main()

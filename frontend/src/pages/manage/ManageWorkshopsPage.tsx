@@ -9,7 +9,7 @@ import { isWorkshopFinished } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PaperCard } from '@/components/ui/PaperCard'
-import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { PAPER_SECONDARY_SMALL_BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 type Tab = 'upcoming' | 'draft' | 'history'
 
@@ -147,14 +147,14 @@ export function ManageWorkshopsPage() {
                         <Link
                           to={`/manage/workshops/${workshop.id}/reservations`}
                           aria-label={`${workshop.title}の予約・出欠`}
-                          className="rounded-md bg-surface px-3 py-1.5 text-fg-secondary shadow-sm hover:bg-white"
+                          className={PAPER_SECONDARY_SMALL_BUTTON_CLASS}
                         >
                           予約・出欠
                         </Link>
                         <Link
                           to={`/inquiries?workshop_id=${workshop.id}`}
                           aria-label={`${workshop.title}への問い合わせ・お知らせ`}
-                          className="rounded-md bg-surface px-3 py-1.5 text-fg-secondary shadow-sm hover:bg-white"
+                          className={PAPER_SECONDARY_SMALL_BUTTON_CLASS}
                         >
                           問い合わせ・お知らせ
                         </Link>
@@ -165,7 +165,7 @@ export function ManageWorkshopsPage() {
                       <Link
                         to={`/manage/workshops/${workshop.id}/edit`}
                         aria-label={`${workshop.title}を編集`}
-                        className="rounded-md bg-surface px-3 py-1.5 text-fg-secondary shadow-sm hover:bg-white"
+                        className={PAPER_SECONDARY_SMALL_BUTTON_CLASS}
                       >
                         編集
                       </Link>

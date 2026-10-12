@@ -9,17 +9,19 @@ export const PRIMARY_BUTTON_CLASS =
 export const GHOST_BUTTON_CLASS =
   'rounded-md px-4 py-2 text-sm text-fg-muted hover:bg-surface-muted focus-ring focus:outline-hidden disabled:opacity-50 disabled:hover:bg-transparent'
 
-// 主な操作の横に置く、枠線付きの補助ボタン(下書き保存・ルールを読むなど)。夜の地の上で使う(紙の上では PAPER_SECONDARY_BUTTON_CLASS)
-export const SECONDARY_BUTTON_CLASS =
-  'rounded-md border border-border px-4 py-2 text-sm font-medium text-fg-secondary hover:bg-surface-muted focus-ring focus:outline-hidden disabled:opacity-50 disabled:hover:bg-transparent'
+// 補助のボタンは secondary の色(明るい面に濃い文字)にする。面の明るさだけ、夜の地と紙の上で index.css が差し替える
 
-// 紙のカードの上に置く補助の操作(フォロー中の解除など)のボタン。紙の上では枠線だけだと輪郭が見えにくいので白い面にする
+// 主な操作の横に置く、枠線付きの補助ボタン(下書き保存・ルールを読むなど)。夜の地でも紙の上でも使える
+export const SECONDARY_BUTTON_CLASS =
+  'rounded-md border border-secondary-border bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary-hover focus-ring focus:outline-hidden disabled:opacity-50 disabled:hover:bg-secondary'
+
+// 紙のカードの上に置く補助の操作(フォロー中の解除など)のボタン。枠線の代わりに影で紙から浮かせる
 export const PAPER_SECONDARY_BUTTON_CLASS =
-  'rounded-md bg-surface px-4 py-2 text-sm font-medium text-fg-secondary shadow-sm hover:bg-white focus-ring focus:outline-hidden disabled:opacity-50 disabled:hover:bg-surface'
+  'rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground shadow-sm hover:bg-secondary-hover focus-ring focus:outline-hidden disabled:opacity-50 disabled:hover:bg-secondary'
 
 // 紙のカードの上に置く小さな補助の操作(問い合わせ・お支払いの再開など)。<Link> にも付けられる
 export const PAPER_SECONDARY_SMALL_BUTTON_CLASS =
-  'inline-flex shrink-0 items-center gap-1 rounded-md bg-surface px-3 py-1.5 text-sm text-fg-secondary shadow-sm hover:bg-white focus-ring focus:outline-hidden'
+  'inline-flex shrink-0 items-center gap-1 rounded-md bg-secondary px-3 py-1.5 text-sm text-secondary-foreground shadow-sm hover:bg-secondary-hover focus-ring focus:outline-hidden'
 
 // 参加の取り消しなど、元に戻せない操作の小さなボタン
 export const DANGER_SMALL_BUTTON_CLASS =

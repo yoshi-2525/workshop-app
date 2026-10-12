@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom'
+import chairTableUrl from '@/assets/home/chair-table.svg'
+import tableUrl from '@/assets/home/table.svg'
 
 // ヒーロー全体に散らす遠くの星 [x, y, 半径, 不透明度]。座標は 1000×400 の枠の中。
 // 見出しと本文が載る左側は少なめ・薄めにして、文字の読みやすさを保つ
@@ -26,7 +28,7 @@ const SKY_STARS: [number, number, number, number][] = [
 ]
 
 // トップページの冒頭。サービスの空気感(夜・静けさ・寄り添い)を伝える。
-// 月と星は装飾なので読み上げない
+// 月と星、机といすのイラストは装飾なので読み上げない
 export function HomeHero() {
   return (
     <section aria-labelledby="home-hero-heading" className="relative overflow-hidden py-12 sm:py-20">
@@ -55,19 +57,19 @@ export function HomeHero() {
           </filter>
           <mask id="home-hero-moon">
             <rect width="200" height="120" fill="white" />
-            <circle cx="160" cy="38" r="22" fill="black" />
+            <circle cx="161" cy="37" r="29" fill="black" />
           </mask>
         </defs>
         <circle
-          cx="150"
-          cy="46"
-          r="24"
+          cx="148"
+          cy="48"
+          r="32"
           fill="currentColor"
           opacity="0.45"
           mask="url(#home-hero-moon)"
           filter="url(#home-hero-moon-glow)"
         />
-        <circle cx="150" cy="46" r="24" fill="currentColor" mask="url(#home-hero-moon)" />
+        <circle cx="148" cy="48" r="32" fill="currentColor" mask="url(#home-hero-moon)" />
         {/* 遠くの星 */}
         <g fill="currentColor" className="text-fg">
           <circle cx="40" cy="30" r="1" opacity="0.9" />
@@ -83,6 +85,15 @@ export function HomeHero() {
           <circle cx="15" cy="70" r="0.9" opacity="0.45" />
         </g>
       </svg>
+
+      {/* 向かい合ういすと、湯気の立つ2つのカップを載せた机。文字と重ならない広い画面だけに出す */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute right-[29px] top-[274px] hidden h-[169px] w-[343px] lg:block"
+      >
+        <img src={chairTableUrl} alt="" className="absolute inset-0 h-full w-full" />
+        <img src={tableUrl} alt="" className="absolute left-[115px] top-[2px] h-[164px] w-[112px]" />
+      </div>
 
       <p className="text-sm tracking-[0.15em] text-fg-muted">誰にもわかってもらえない。誰かにわかってほしい。</p>
       <h1

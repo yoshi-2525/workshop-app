@@ -297,7 +297,7 @@ export function WorkshopFormFields({
               target="_blank"
               rel="noopener noreferrer"
               aria-disabled={!mapUrl}
-              className={`shrink-0 whitespace-nowrap rounded-md bg-surface px-3 py-2 text-sm text-fg-secondary shadow-sm hover:bg-white ${
+              className={`shrink-0 whitespace-nowrap rounded-md bg-secondary px-3 py-2 text-sm text-secondary-foreground shadow-sm hover:bg-secondary-hover ${
                 mapUrl ? '' : 'pointer-events-none opacity-50'
               }`}
             >

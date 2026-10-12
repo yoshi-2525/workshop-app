@@ -22,6 +22,14 @@
   --color-accent-hover: #edc48f;
   --color-accent-foreground: #1a1308;
 
+  /* 補助の操作のボタン(ログイン・下書き保存・紙の上の白いボタンなど)。明るい面に濃い文字にする。
+     夜の地では真っ白だとまぶしいので少し落とした色にし、紙の上は theme-paper で白に差し替える。
+     文字と枠線の色は夜の地と紙の上で同じ。Figma の secondary/* と対応 */
+  --color-secondary: #e8ebf0;
+  --color-secondary-hover: #c8ced9;
+  --color-secondary-foreground: #334155;
+  --color-secondary-border: #475569;
+
   --color-border: #313d58; /* 入力欄・ボタンの枠線 */
   --color-border-muted: #212a40; /* カード・区切り線 */
   --color-ring: #e3b071; /* フォーカスリング・フォーカス時の枠線 */
@@ -101,6 +109,9 @@
   --color-ring: #94632f;
   /* リングのすき間は紙の色にする(夜の色のままだと、明るいボタンのまわりに黒い縁が出る) */
   --color-ring-offset: #d3d8e1;
+  /* 補助のボタンの面は、紙(#d3d8e1)より明るい白にして紙から浮かせる */
+  --color-secondary: #f8fafc;
+  --color-secondary-hover: #e8ebf0;
 
   /* バッジや曜日などの状態の色は、夜の地向けの淡い色を、紙の上で読める濃い色に置き換える */
   --color-amber-200: #92400e;
