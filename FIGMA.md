@@ -138,14 +138,39 @@ Figma のフォントは代わりのもの(本番の游明朝 → Noto Serif JP�
 
 ## 画面
 
-| Figma(ID) | ルート | コード |
+Screens ページ(`2:4`)は 2 種類。
+
+- **取り込んだ画面**(セクション: 未ログイン `118:778` / 参加者 `118:780` / 主催者 `118:782` / 運営 `118:784`): 動いているアプリ(幅 1280px)を Figma に取り込んだもの。フレーム名は「画面名 — ルート」。部品のインスタンスではない(見た目の確認用)。フォントは Noto Sans JP / Noto Serif JP / Material Symbols Rounded に置き換えてある。2026-10-13 時点のコードとサンプルデータ。
+- **部品で組んだ代表画面**(セクション `118:786`): コンポーネントのインスタンスで組んだ画面。部品を直すと追従する。
+
+| 取り込んだ画面 | ルート | コード(`pages/`) |
+|---|---|---|
+| トップ(`84:778`) | `/` | `workshops/WorkshopListPage.tsx` |
+| ワークショップ詳細 未ログイン(`86:778`)/ 予約済み(`98:778`) | `/workshops/:id` | `workshops/WorkshopDetailPage.tsx` |
+| 主催者のページ(`87:778`) | `/facilitators/:id` | `workshops/FacilitatorProfilePage.tsx` |
+| ログイン 参加者(`90:778`)/ 主催者(`93:778`) | `/login/participant` / `/login/facilitator` | `auth/ParticipantLoginPage.tsx` / `FacilitatorLoginPage.tsx` |
+| 新規登録 参加者(`96:778`)/ 主催者(`99:778`) | `/register/participant` / `/register/facilitator` | `auth/ParticipantRegisterPage.tsx` / `FacilitatorRegisterPage.tsx` |
+| TAIWA について(`102:778`)、対話のルール(`105:778`) | `/about`、`/rules` | `guide/AboutPage.tsx`、`guide/DialogueRulesPage.tsx` |
+| ヘルプ・規約(`108:778`)、利用規約(`111:778`)、キャンセルポリシー(`115:778`)、主催者ガイドライン(`88:778`)、特定商取引法(`91:778`) | `/help`、`/help/*` | `help/*` |
+| 404(`94:778`) | `/404` | `NotFoundPage.tsx` |
+| 予約フォーム(`100:778`) | `/workshops/:id/reserve` | `reservations/ReservationFormPage.tsx` |
+| 参加予定(`103:778`)、予約・参加履歴(`106:778`) | `/reservations`、`/reservations/history` | `reservations/MyReservationsPage.tsx` ほか |
+| お気に入り(`109:778`)、フォロー中(`113:778`)、通知(`116:778`) | `/favorites`、`/following`、`/notifications` | `me/*` |
+| 主催者に問い合わせる(`119:778`)、問い合わせ一覧(`89:778`)、やり取り(`92:778`) | `/workshops/:id/inquiry`、`/inquiries`、`/inquiries/:id` | `inquiries/*` |
+| マイページ 参加者(`95:778`)/ 主催者(`117:778`)、プロフィール編集(`97:778`) | `/me`、`/me/profile` | `me/MyPage.tsx`、`manage/ProfileEditPage.tsx` |
+| ワークショップ管理(`101:778`)、作成(`104:778`)、編集(`107:778`) | `/manage`、`/manage/workshops/new`、`/manage/workshops/:id/edit` | `manage/ManageWorkshopsPage.tsx`、`manage/WorkshopFormPage.tsx` |
+| 予約状況(`110:778`) | `/manage/workshops/:id/reservations` | `manage/WorkshopReservationsPage.tsx` |
+| 売上と振込(`114:778`) | `/manage/payout` | `manage/PayoutSettingsPage.tsx` |
+| 振込の申請(運営、`120:778`) | `/manage/payout-requests` | `manage/AdminPayoutRequestsPage.tsx` |
+
+| 部品で組んだ画面 | ルート | コード |
 |---|---|---|
 | Top / ワークショップ一覧(`9:2`) | `/` | `pages/workshops/WorkshopListPage.tsx` |
 | ワークショップ詳細(`10:219` 未予約 / `26:630` 予約済み) | `/workshops/:id` | `pages/workshops/WorkshopDetailPage.tsx`。カードの中身は `Card Content/ワークショップ詳細`(`20:609`) |
 | 予約フォーム(`11:257`) | `/workshops/:id/reserve` | `pages/reservations/ReservationFormPage.tsx`。カードの中身は `Card Content/予約フォーム`(`20:719`) |
-| 予約完了(`40:55`)、アニメーション(`40:99`) | `/reservations/complete` | `pages/reservations/ReservationCompletePage.tsx`。カードの中身は `Card Content/予約完了`(`40:54`)、線を描く動きは `index.css` の `animate-draw-stroke` |
+| 予約完了(`40:55`、Reservation Complete ページ)、アニメーション(`40:99`) | `/reservations/complete` | `pages/reservations/ReservationCompletePage.tsx`。カードの中身は `Card Content/予約完了`(`40:54`)、線を描く動きは `index.css` の `animate-draw-stroke` |
 
-Figma にまだない画面: ログイン・登録、マイページ、参加予定・履歴、お気に入り、フォロー中、通知、問い合わせ、主催者のページ、管理画面(ワークショップ管理・開催フォーム・予約者一覧・受け取り設定・振込申請)、ヘルプ・規約、TAIWA について、対話のルール、404。
+Figma にない画面: 支払い完了(`/reservations/:id/payment/complete`。オンライン決済のデータが要る)。
 
 ## Figma で表せていないこと
 

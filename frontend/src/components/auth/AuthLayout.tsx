@@ -3,13 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import type { SelfRegisterRole } from '@/types'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
+import { ROLE_LABEL } from '@/components/auth/roleLabels'
 
 export type AuthKind = 'login' | 'register'
-
-const ROLE_LABEL: Record<SelfRegisterRole, string> = {
-  participant: '参加者',
-  facilitator: '主催者',
-}
 
 const KIND_TITLE: Record<AuthKind, string> = {
   login: 'ログイン',

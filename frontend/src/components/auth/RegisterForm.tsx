@@ -4,12 +4,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { extractErrorMessage } from '@/api/client'
 import type { SelfRegisterRole } from '@/types'
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_PATTERN, USER_NAME_MAX_LENGTH } from '@/utils/user'
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, USER_NAME_MAX_LENGTH } from '@/utils/user'
+import { passwordCharsError, passwordConfirmError, validateRegisterForm } from '@/utils/registerValidation'
+import { AuthField } from '@/components/auth/AuthField'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { ErrorMessage } from '@/components/ui/StatusMessage'
-import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
-
-const PASSWORD_CHARS_MESSAGE = 'パスワードは半角英数字と記号で入力してください(全角文字・スペースは使えません)'
+import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 // 規約へのリンク。新しいタブで開くことを読み上げでも伝える
 function LegalLink({ to, children }: { to: string; children: string }) {
@@ -27,9 +27,6 @@ interface RegisterFormProps {
   afterRegisterPath: string
 }
 
-// 入力の誤りがある欄(aria-invalid)は枠線を赤くする
-const VALIDATED_INPUT_CLASS = `${INPUT_CLASS} aria-invalid:border-red-500`
-
 export function RegisterForm({ role, description, afterRegisterPath }: RegisterFormProps) {
   const { register } = useAuth()
   const navigate = useNavigate()
@@ -41,39 +38,15 @@ export function RegisterForm({ role, description, afterRegisterPath }: RegisterF
   const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const nameId = useId()
-  const emailId = useId()
-  const passwordId = useId()
-  const passwordHelpId = useId()
-  const passwordConfirmId = useId()
-  const passwordConfirmErrorId = useId()
   const agreementId = useId()
   const agreeCheckboxId = useId()
-  // 全角文字やスペースが含まれているとき(入力した時点で知らせる)
-  const passwordInvalidChars = !PASSWORD_PATTERN.test(password)
-  const passwordErrorId = useId()
-  // 確認用の欄に入力があり、パスワードと一致しないとき(入力の途中から知らせる)
-  const passwordMismatch = passwordConfirm !== '' && passwordConfirm !== password
   const agreementTarget = role === 'facilitator' ? '利用規約と主催者ガイドライン' : '利用規約'
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    // required は空白だけの入力を通すので、ここで確かめる(バックエンドは前後の空白を除いてから検証する)
-    if (!name.trim()) {
-      setError('名前を入力してください')
-      return
-    }
-    if (password !== passwordConfirm) {
-      setError('パスワードと確認用のパスワードが一致しません')
-      return
-    }
-    if (!agreed) {
-      setError(`${agreementTarget}に同意してください`)
-      return
-    }
-    // maxLength は文字数でしか数えないので、日本語などを含むパスワードはバイト数でも確かめる
-    if (passwordInvalidChars) {
-      setError(PASSWORD_CHARS_MESSAGE)
+    const validationError = validateRegisterForm({ name, password, passwordConfirm, agreed }, agreementTarget)
+    if (validationError) {
+      setError(validationError)
       return
     }
     setError(null)
@@ -103,82 +76,44 @@ export function RegisterForm({ role, description, afterRegisterPath }: RegisterF
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor={nameId} className={LABEL_CLASS}>
-            名前
-          </label>
-          <input
-            id={nameId}
-            autoComplete="name"
-            required
-            maxLength={USER_NAME_MAX_LENGTH}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={INPUT_CLASS}
-          />
-        </div>
-        <div>
-          <label htmlFor={emailId} className={LABEL_CLASS}>
-            メールアドレス
-          </label>
-          <input
-            id={emailId}
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={INPUT_CLASS}
-          />
-        </div>
-        <div>
-          <label htmlFor={passwordId} className={LABEL_CLASS}>
-            パスワード
-          </label>
-          <input
-            id={passwordId}
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={PASSWORD_MIN_LENGTH}
-            maxLength={PASSWORD_MAX_LENGTH}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            aria-invalid={passwordInvalidChars || undefined}
-            aria-describedby={passwordInvalidChars ? `${passwordErrorId} ${passwordHelpId}` : passwordHelpId}
-            className={VALIDATED_INPUT_CLASS}
-          />
-          {passwordInvalidChars && (
-            <p id={passwordErrorId} className="mt-1 text-xs text-red-300">
-              {PASSWORD_CHARS_MESSAGE}
-            </p>
-          )}
-          <p id={passwordHelpId} className="mt-1 text-xs text-fg-muted">
-            半角英数字・記号で{PASSWORD_MIN_LENGTH}～{PASSWORD_MAX_LENGTH}文字
-          </p>
-        </div>
-        <div>
-          <label htmlFor={passwordConfirmId} className={LABEL_CLASS}>
-            パスワード(確認用)
-          </label>
-          <input
-            id={passwordConfirmId}
-            type="password"
-            autoComplete="new-password"
-            required
-            maxLength={PASSWORD_MAX_LENGTH}
-            value={passwordConfirm}
-            onChange={(e) => setPasswordConfirm(e.target.value)}
-            aria-invalid={passwordMismatch || undefined}
-            aria-describedby={passwordMismatch ? passwordConfirmErrorId : undefined}
-            className={VALIDATED_INPUT_CLASS}
-          />
-          {passwordMismatch && (
-            <p id={passwordConfirmErrorId} className="mt-1 text-xs text-red-300">
-              パスワードが一致しません
-            </p>
-          )}
-        </div>
+        <AuthField
+          label="名前"
+          autoComplete="name"
+          required
+          maxLength={USER_NAME_MAX_LENGTH}
+          value={name}
+          onChange={setName}
+        />
+        <AuthField
+          label="メールアドレス"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={setEmail}
+        />
+        <AuthField
+          label="パスワード"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={PASSWORD_MIN_LENGTH}
+          maxLength={PASSWORD_MAX_LENGTH}
+          value={password}
+          onChange={setPassword}
+          error={passwordCharsError(password)}
+          help={`半角英数字・記号で${PASSWORD_MIN_LENGTH}～${PASSWORD_MAX_LENGTH}文字`}
+        />
+        <AuthField
+          label="パスワード(確認用)"
+          type="password"
+          autoComplete="new-password"
+          required
+          maxLength={PASSWORD_MAX_LENGTH}
+          value={passwordConfirm}
+          onChange={setPasswordConfirm}
+          error={passwordConfirmError(password, passwordConfirm)}
+        />
         <ErrorMessage message={error} className="text-sm" />
         {/* 規約は入力中の内容を消さないよう、新しいタブで開く */}
         <p id={agreementId} className="text-xs leading-relaxed text-fg-secondary">

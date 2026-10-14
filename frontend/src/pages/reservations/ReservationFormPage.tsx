@@ -230,7 +230,7 @@ export function ReservationFormPage() {
     )
     if (result.ok) {
       goNext(result.value.checkout_url, workshop.title)
-    } else if (online) {
+    } else if (online && !result.skipped) {
       // 席の確保だけ済んで支払い画面に進めなかった場合もあるので、取り直して今の状態を出す
       reload()
     }

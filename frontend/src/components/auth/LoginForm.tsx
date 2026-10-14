@@ -1,22 +1,23 @@
-import { useId, useState } from 'react'
+import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { extractErrorMessage } from '@/api/client'
-import type { SelfRegisterRole, UserRole } from '@/types'
+import type { SelfRegisterRole } from '@/types'
+import { AuthField } from '@/components/auth/AuthField'
 import { AuthLayout } from '@/components/auth/AuthLayout'
+import { ROLE_LABEL } from '@/components/auth/roleLabels'
 import { ErrorMessage } from '@/components/ui/StatusMessage'
-import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 
 interface LoginFormProps {
+  // この画面からログインできる役割。ほかの役割のアカウント(管理者を含む)はログインさせない
   role: SelfRegisterRole
   description: string
-  allowedRoles: UserRole[]
-  wrongRoleMessage: string
   defaultRedirect: string
 }
 
-export function LoginForm({ role, description, allowedRoles, wrongRoleMessage, defaultRedirect }: LoginFormProps) {
+export function LoginForm({ role, description, defaultRedirect }: LoginFormProps) {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -24,15 +25,15 @@ export function LoginForm({ role, description, allowedRoles, wrongRoleMessage, d
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const emailId = useId()
-  const passwordId = useId()
+  // パスワードは合っているが、この画面の役割(role)のアカウントではないときのメッセージ
+  const wrongRoleMessage = `このアカウントは${ROLE_LABEL[role]}用ではありません。`
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
     setSubmitting(true)
     try {
-      const user = await login(email, password, allowedRoles)
+      const user = await login(email, password, [role])
       if (!user) {
         setError(wrongRoleMessage)
         return
@@ -61,34 +62,22 @@ export function LoginForm({ role, description, allowedRoles, wrongRoleMessage, d
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor={emailId} className={LABEL_CLASS}>
-            メールアドレス
-          </label>
-          <input
-            id={emailId}
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={INPUT_CLASS}
-          />
-        </div>
-        <div>
-          <label htmlFor={passwordId} className={LABEL_CLASS}>
-            パスワード
-          </label>
-          <input
-            id={passwordId}
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={INPUT_CLASS}
-          />
-        </div>
+        <AuthField
+          label="メールアドレス"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={setEmail}
+        />
+        <AuthField
+          label="パスワード"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={setPassword}
+        />
         <ErrorMessage message={error} className="text-sm" />
         <button type="submit" disabled={submitting} className={`w-full ${PRIMARY_BUTTON_CLASS}`}>
           {submitting ? 'ログイン中...' : 'ログイン'}
