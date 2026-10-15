@@ -15,11 +15,12 @@ import { useApiResource } from '@/hooks/useApiResource'
 import { useImageSelection } from '@/hooks/useImageSelection'
 import type { Workshop, WorkshopInput, WorkshopStatus } from '@/types'
 import { toDateTimeInputValue } from '@/utils/date'
-import { formatDateTime, formatTime } from '@/utils/format'
+import { formatDateTime } from '@/utils/format'
 import { parseIdParam } from '@/utils/params'
 import { isWorkshopFinished } from '@/utils/workshop'
 import { FULL_REFUND_FEE_NOTE, isOnlinePayment } from '@/utils/payment'
 import { WorkshopFormFields } from '@/pages/manage/WorkshopFormFields'
+import { PublishedWorkshopFormFields } from '@/pages/manage/PublishedWorkshopFormFields'
 import { removeWorkshopDraft, useWorkshopDraft, workshopDraftKey } from '@/pages/manage/useWorkshopDraft'
 import { GHOST_BUTTON_CLASS, PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from '@/components/ui/styles'
 
@@ -139,7 +140,7 @@ export function WorkshopFormPage() {
   const formReady = !isEdit || (loadedWorkshop !== undefined && loadedWorkshop === appliedWorkshop)
   const draftKey =
     user && formReady && !finished ? workshopDraftKey(user.id, isEdit ? workshopId : null) : null
-  const { pendingDraft, lastSavedAt, takePendingDraft, discardPendingDraft, clearDraft } =
+  const { pendingDraft, takePendingDraft, discardPendingDraft, clearDraft } =
     useWorkshopDraft({ storageKey: draftKey, form, baseline: initialForm })
 
   // 編集できなくなった(開催済み・中止の)ワークショップの下書きは、残しておいても使えないので消す
@@ -288,11 +289,74 @@ export function WorkshopFormPage() {
     )
   }
 
+  // 保存のボタンは入力欄と同じカードの中、右下に置く(角の折れはカードの下の余白で避ける)
+  const footer = (
+    <div className="border-t border-border-muted pt-4">
+      <ErrorMessage message={error} className="text-sm" />
+      <div className="mt-3 flex flex-wrap justify-end gap-3">
+        <button type="button" onClick={handleCancelClick} className={GHOST_BUTTON_CLASS}>
+          キャンセル
+        </button>
+        {/* 下書き保存は新規作成と下書きの編集のときだけ。公開済みのものは API でも下書きに戻せない */}
+        {(!savedWorkshop || savedWorkshop.status === 'draft') && (
+          <button
+            type="button"
+            onClick={() => handleSave('draft')}
+            disabled={saving}
+            className={SECONDARY_BUTTON_CLASS}
+          >
+            {saving ? '保存中...' : '下書きとして保存'}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => handleSave('published')}
+          disabled={saving}
+          className={PRIMARY_BUTTON_CLASS}
+        >
+          {saving ? '保存中...' : lockConditions ? '変更を保存する' : '公開する'}
+        </button>
+      </div>
+      {/* 中止は保存とは別の操作なので、カードの一番下に区切って小さく置く。
+          下書きは参加者の目に触れておらず予約もないので中止はできない(取りやめるときは一覧から削除する) */}
+      {savedWorkshop?.status === 'published' && (
+        <section
+          aria-labelledby="cancel-workshop-heading"
+          className="mt-7 flex flex-wrap items-center justify-between gap-4 border-t border-border-muted pt-3.5"
+        >
+          <div className="min-w-60 flex-1 text-xs leading-relaxed text-fg-muted">
+            <h2 id="cancel-workshop-heading" className="font-semibold text-fg-secondary">
+              ワークショップを中止する
+            </h2>
+            <p>
+              {reservedCount > 0 ? `予約済みの${reservedCount}名に中止のお知らせが届き` : '中止すると予約を受け付けなくなり'}
+              {isOnlinePayment(savedWorkshop) ? '、オンラインで支払われた参加費は全額返金されます。' : 'ます。'}
+              元に戻せません。
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleCancelWorkshop}
+            disabled={canceling || saving}
+            className="shrink-0 rounded-md border border-red-700/40 px-3 py-1.5 text-[13px] font-semibold text-red-700 hover:bg-red-700/10 focus-visible:bg-red-700/10 focus-ring focus:outline-hidden disabled:opacity-50"
+          >
+            {canceling ? '処理中...' : '中止する'}
+          </button>
+        </section>
+      )}
+    </div>
+  )
+
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="text-xl font-semibold text-fg">
-        {isEdit ? 'ワークショップを編集' : 'ワークショップを新規作成'}
-      </h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-xl font-semibold text-fg">
+          {isEdit ? 'ワークショップを編集' : 'ワークショップを新規作成'}
+        </h1>
+        {lockConditions && (
+          <span className="rounded-full border border-border px-2.5 py-0.5 text-xs text-fg-secondary">公開中</span>
+        )}
+      </div>
       {pendingDraft && (
         <div
           role="status"
@@ -321,85 +385,38 @@ export function WorkshopFormPage() {
         </div>
       )}
       <form ref={formRef} onSubmit={(e) => e.preventDefault()} className="mt-6">
-        <WorkshopFormFields
-          form={form}
-          setForm={setForm}
-          imageInputRef={imageInputRef}
-          imagePreviewUrl={image.previewUrl}
-          currentImageUrl={currentImageUrl}
-          removeImage={image.removed}
-          onImageChange={image.select}
-          onRemoveImage={image.remove}
-          lockConditions={lockConditions}
-          reservedCount={reservedCount}
-          isNew={!isEdit}
-          footer={
-            // 保存のボタンは入力欄と同じカードの中、右下に置く(角の折れはカードの下の余白で避ける)
-            <div className="border-t border-border-muted pt-4">
-              <ErrorMessage message={error} className="text-sm" />
-              <div className="mt-3 flex flex-wrap justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={handleCancelClick}
-                  className={GHOST_BUTTON_CLASS}
-                >
-                  キャンセル
-                </button>
-                {/* 下書き保存は新規作成と下書きの編集のときだけ。公開済みのものは API でも下書きに戻せない */}
-                {(!savedWorkshop || savedWorkshop.status === 'draft') && (
-                  <button
-                    type="button"
-                    onClick={() => handleSave('draft')}
-                    disabled={saving}
-                    className={SECONDARY_BUTTON_CLASS}
-                  >
-                    {saving ? '保存中...' : '下書きとして保存'}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleSave('published')}
-                  disabled={saving}
-                  className={PRIMARY_BUTTON_CLASS}
-                >
-                  {saving ? '保存中...' : '公開する'}
-                </button>
-              </div>
-              <p className="mt-3 text-right text-xs text-fg-muted" aria-live="polite">
-                {lastSavedAt
-                  ? `入力内容をこのブラウザに自動保存しました(${formatTime(lastSavedAt)})`
-                  : '入力内容はこのブラウザに自動保存されます'}
-              </p>
-            </div>
-          }
-        />
+        {lockConditions && savedWorkshop ? (
+          // 公開中は、変更できる項目だけを入力欄にしたフォームを使う(予約の条件は文字で見せる)
+          <PublishedWorkshopFormFields
+            form={form}
+            setForm={setForm}
+            workshop={savedWorkshop}
+            imageInputRef={imageInputRef}
+            imagePreviewUrl={image.previewUrl}
+            currentImageUrl={currentImageUrl}
+            removeImage={image.removed}
+            onImageChange={image.select}
+            onRemoveImage={image.remove}
+            reservedCount={reservedCount}
+            footer={footer}
+          />
+        ) : (
+          <WorkshopFormFields
+            form={form}
+            setForm={setForm}
+            imageInputRef={imageInputRef}
+            imagePreviewUrl={image.previewUrl}
+            currentImageUrl={currentImageUrl}
+            removeImage={image.removed}
+            onImageChange={image.select}
+            onRemoveImage={image.remove}
+            lockConditions={lockConditions}
+            reservedCount={reservedCount}
+            isNew={!isEdit}
+            footer={footer}
+          />
+        )}
       </form>
-
-      {/* 中止は保存とは別の操作なので、フォームのボタンから離して置く。
-          下書きは参加者の目に触れておらず予約もないので中止はできない(取りやめるときは一覧から削除する) */}
-      {savedWorkshop?.status === 'published' && (
-        <section
-          aria-labelledby="cancel-workshop-heading"
-          className="mt-12 rounded-lg border border-amber-400/30 bg-amber-400/10 p-4"
-        >
-          <h2 id="cancel-workshop-heading" className="text-sm font-semibold text-amber-200">
-            ワークショップの中止
-          </h2>
-          <p className="mt-1 text-sm text-amber-200">
-            開催を取りやめる場合は中止にします。予約済みの参加者には中止のお知らせが自動で届きます。
-          </p>
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              onClick={handleCancelWorkshop}
-              disabled={canceling || saving}
-              className="rounded-md border border-amber-400/30 bg-surface px-4 py-2 text-sm font-medium text-amber-200 hover:bg-amber-400/20 disabled:opacity-50"
-            >
-              {canceling ? '処理中...' : '中止する'}
-            </button>
-          </div>
-        </section>
-      )}
     </div>
   )
 }

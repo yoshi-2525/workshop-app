@@ -5,6 +5,7 @@ import { getInquiry, markInquiryRead, replyInquiry } from '@/api/inquiries'
 import { extractErrorMessage } from '@/api/client'
 import { useNotifications } from '@/context/NotificationContext'
 import { Avatar } from '@/components/ui/Avatar'
+import { MaterialIcon } from '@/components/ui/MaterialIcon'
 import { InquiryComposer } from '@/components/inquiry/InquiryComposer'
 import { InquiryMessageList } from '@/components/inquiry/InquiryMessageList'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
@@ -113,37 +114,54 @@ export function InquiryThreadPage() {
   return (
     <div className="mx-auto max-w-2xl">
       {backLink}
-      <PaperCard cornerFold={false} className="flex items-center gap-3 p-4">
-        <Avatar url={inquiry.counterpart_avatar_url} name={inquiry.counterpart_name} />
-        <div className="min-w-0">
-          <h1 className="font-semibold text-fg">
-            {isParticipant ? (
-              <Link to={`/facilitators/${inquiry.counterpart_id}`} className="hover:underline">
-                {inquiry.counterpart_name}
-              </Link>
-            ) : (
-              inquiry.counterpart_name
-            )}
-            <span className="ml-2 text-xs font-normal text-fg-muted">{isParticipant ? '主催者' : '参加者'}</span>
-          </h1>
-          <Link
-            to={`/workshops/${inquiry.workshop_id}`}
-            state={workshopBackState}
-            className="block truncate text-sm text-fg-secondary underline hover:text-fg"
-          >
-            {inquiry.workshop_title}
-          </Link>
+      {/* 画面を「誰と(相手とワークショップ)」「何を話したか(やり取り)」「何を送るか(送信欄)」の3つに分け、
+          面の違いで見分けられるようにする: 相手は暗い面のカード、やり取りは枠線で囲んだ一段暗い面、送信欄は紙のカード */}
+      <section aria-labelledby="counterpart-name" className="rounded-lg bg-surface-muted p-5 shadow-card sm:px-6">
+        <div className="flex items-center gap-4">
+          <Avatar url={inquiry.counterpart_avatar_url} name={inquiry.counterpart_name} className="h-14 w-14 text-xl" />
+          <div className="min-w-0">
+            <p className="text-xs tracking-wider text-fg-muted">
+              {isParticipant ? '主催者への問い合わせ' : '参加者からの問い合わせ'}
+            </p>
+            <h1 id="counterpart-name" className="mt-0.5 break-all text-xl font-semibold text-fg">
+              {isParticipant ? (
+                <Link to={`/facilitators/${inquiry.counterpart_id}`} className="hover:underline">
+                  {inquiry.counterpart_name}
+                </Link>
+              ) : (
+                inquiry.counterpart_name
+              )}
+            </h1>
+          </div>
         </div>
-      </PaperCard>
+        <Link
+          to={`/workshops/${inquiry.workshop_id}`}
+          state={workshopBackState}
+          className="mt-4 flex items-center gap-3 rounded-md bg-surface px-3.5 py-3 transition-colors hover:bg-surface-strong focus-ring focus:outline-hidden"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs text-fg-muted">対象のワークショップ</span>
+            <span className="mt-0.5 block truncate text-sm font-medium text-fg">{inquiry.workshop_title}</span>
+          </span>
+          <MaterialIcon name="chevron_right" className="shrink-0 text-[20px] text-fg-subtle" />
+        </Link>
+      </section>
 
-      <div className="mt-6">
-        <InquiryMessageList messages={inquiry.messages} />
-      </div>
+      {/* 余白とスクロールは InquiryMessageList の中で付ける(スクロールバーを欄の端に出すため) */}
+      <section aria-label="やり取り" className="mt-8 overflow-hidden rounded-lg border border-border-muted bg-surface/60">
+        <InquiryMessageList messages={inquiry.messages} counterpartAvatarUrl={inquiry.counterpart_avatar_url} />
+      </section>
 
-      <div className="mt-6 border-t border-border-muted pt-4">
+      {/* 送信欄は紙のカード。中の入力欄と送信ボタンは theme-paper で紙用の色に切り替わる。
+          右下の送信ボタンと重ならないよう、角の折れは付けない */}
+      <PaperCard as="section" aria-label="送信欄" cornerFold={false} className="mt-4 p-5 sm:px-6">
         <ErrorMessage message={sendError} className="mb-2 text-sm" />
-        <InquiryComposer onSend={handleSend} label={isParticipant ? '主催者へのメッセージ' : '参加者への返信'} />
-      </div>
+        <InquiryComposer
+          onSend={handleSend}
+          label={isParticipant ? '主催者へのメッセージ' : '参加者への返信'}
+          placeholder={`${inquiry.counterpart_name}さんへの${isParticipant ? 'メッセージ' : '返信'}を書く`}
+        />
+      </PaperCard>
     </div>
   )
 }

@@ -7,7 +7,7 @@ import { CancelReservationForm } from '@/pages/manage/CancelReservationForm'
 import { formatDateTime } from '@/utils/format'
 import { isAttendanceOpen, isWorkshopStarted } from '@/utils/workshop'
 import { ErrorMessage } from '@/components/ui/StatusMessage'
-import { PaperCard } from '@/components/ui/PaperCard'
+import { Avatar } from '@/components/ui/Avatar'
 import { DANGER_SMALL_BUTTON_CLASS } from '@/components/ui/styles'
 
 const ATTENDANCE_OPTIONS: ToggleOption<AttendanceStatus>[] = [
@@ -27,7 +27,18 @@ function PaymentAndReasonLine({ reservation }: { reservation: Reservation }) {
   // 理由は、参加を取り消した予約にだけ出す(中止のときは中止の表示で分かる)
   const reason = reservation.status === 'canceled' && reservation.cancel_reason ? CANCEL_REASON_LABEL[reservation.cancel_reason] : null
   if (!payment && !reason) return null
-  return <p className="mt-1 text-fg-muted">{[payment, reason].filter(Boolean).join(' ・ ')}</p>
+  return <p className="mt-0.5 text-fg-muted">{[payment, reason].filter(Boolean).join(' ・ ')}</p>
+}
+
+// 予約の状態(確定・お支払い待ち・キャンセル済み)の小さなラベル。
+// 色だけに頼らないよう、点と文字で示す(点は飾りなので読み上げない)
+function StatusBadge({ className, children }: { className: string; children: string }) {
+  return (
+    <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${className}`}>
+      <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
+      {children}
+    </span>
+  )
 }
 
 interface ReservationCardProps {
@@ -83,19 +94,34 @@ export function ReservationCard({ reservation, workshop, onCancel, onAttendanceC
   }
 
   return (
-    <PaperCard as="li" cornerFold={false} className="p-3 text-sm">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <span ref={nameRef} tabIndex={-1} className="min-w-0 break-all font-medium text-fg focus:outline-none">
-          {reservation.user_name}
-        </span>
+    <li className="p-4 text-sm sm:px-5">
+      <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3">
+        <div className="flex min-w-0 flex-[1_1_18rem] items-center gap-3.5">
+          <Avatar url="" name={reservation.user_name} />
+          <div className="min-w-0">
+            <span ref={nameRef} tabIndex={-1} className="block break-all text-base font-medium text-fg focus:outline-none">
+              {reservation.user_name}
+            </span>
+            <p className="mt-0.5 flex flex-wrap gap-x-3.5 gap-y-0.5 text-fg-muted">
+              <span className="min-w-0 break-all">
+                {reservation.contact ? `メール: ${reservation.contact}` : 'メール未登録'}
+              </span>
+              <span>チケット{reservation.ticket_count}枚</span>
+              <span>予約 {formatDateTime(reservation.created_at)}</span>
+            </p>
+            <PaymentAndReasonLine reservation={reservation} />
+          </div>
+        </div>
         <div className="flex items-center gap-3">
           {/* 支払い待ちは、期限までに支払われなければ自動で席が空く */}
           {reservation.status === 'pending_payment' && !workshopCanceled ? (
-            <span className="text-fg-muted">お支払い待ち</span>
+            <StatusBadge className="bg-fg/5 text-fg-secondary">お支払い待ち</StatusBadge>
+          ) : // ワークショップを中止しても予約の状態は確定のまま残る(参加者側で「中止」と区別して伝えるため)ので、
+          // 表示ではキャンセル済みとして扱う
+          active ? (
+            <StatusBadge className="bg-emerald-400/10 text-emerald-300">確定</StatusBadge>
           ) : (
-            // ワークショップを中止しても予約の状態は確定のまま残る(参加者側で「中止」と区別して伝えるため)ので、
-            // 表示ではキャンセル済みとして扱う
-            <span className={active ? 'text-emerald-300' : 'text-fg-subtle'}>{active ? '確定' : 'キャンセル済み'}</span>
+            <StatusBadge className="bg-fg/5 text-fg-muted">キャンセル済み</StatusBadge>
           )}
           {canCancel && (
             <button
@@ -113,13 +139,6 @@ export function ReservationCard({ reservation, workshop, onCancel, onAttendanceC
           )}
         </div>
       </div>
-      <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 text-fg-muted">
-        <span className="min-w-0 break-all">
-          メール: {reservation.contact} ・ チケット{reservation.ticket_count}枚
-        </span>
-        <span>{formatDateTime(reservation.created_at)}</span>
-      </div>
-      <PaymentAndReasonLine reservation={reservation} />
       {cancelFormOpen && (
         <CancelReservationForm
           id={cancelFormId}
@@ -138,10 +157,10 @@ export function ReservationCard({ reservation, workshop, onCancel, onAttendanceC
           value={reservation.attendance}
           onChange={handleAttendanceChange}
           disabled={attendanceAction.pending}
-          className="mt-2"
+          className="mt-3 sm:ml-[3.375rem]"
         />
       )}
       <ErrorMessage message={attendanceAction.error} className="mt-1 text-xs" />
-    </PaperCard>
+    </li>
   )
 }

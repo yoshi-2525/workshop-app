@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { followFacilitator, unfollowFacilitator } from '@/api/follows'
 import { useAuth } from '@/context/AuthContext'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
-import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, THIRDLY_BUTTON_CLASS } from '@/components/ui/styles'
 import type { FacilitatorProfile } from '@/types'
 import { followButtonMode } from '@/utils/user'
 
@@ -14,11 +14,13 @@ interface FollowButtonProps {
   facilitator: Pick<FacilitatorProfile, 'id' | 'name' | 'role'>
   isFollowing: boolean
   onChange?: (isFollowing: boolean) => void
+  // 置く面。paper: 紙のカード(主催者ページ)、dark: 暗い面のカード(フォロー中の一覧)。
+  // dark では「フォロー中」をカードより暗い Thirdly のボタンにする(白いボタンだと暗い面の中で浮きすぎるため)
+  surface?: 'paper' | 'dark'
   className?: string
 }
 
-// 紙のカード(主催者ページ・フォロー中の一覧)の上に置く前提の配色にしている
-export function FollowButton({ facilitator, isFollowing, onChange, className = '' }: FollowButtonProps) {
+export function FollowButton({ facilitator, isFollowing, onChange, surface = 'paper', className = '' }: FollowButtonProps) {
   const { user } = useAuth()
   const location = useLocation()
   const [following, setFollowing] = useState(isFollowing)
@@ -75,7 +77,7 @@ export function FollowButton({ facilitator, isFollowing, onChange, className = '
         // 状態は aria-pressed で伝え、名前は表示の切り替えに関係なく固定にする
         aria-pressed={following}
         aria-label={`${facilitator.name}さんをフォロー`}
-        className={following ? SECONDARY_BUTTON_CLASS : PRIMARY_BUTTON_CLASS}
+        className={following ? (surface === 'dark' ? THIRDLY_BUTTON_CLASS : SECONDARY_BUTTON_CLASS) : PRIMARY_BUTTON_CLASS}
       >
         {following ? 'フォロー中' : 'フォローする'}
       </button>

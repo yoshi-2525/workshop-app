@@ -1,11 +1,11 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { listFollowedFacilitators, listFollowedWorkshops } from '@/api/follows'
 import type { WorkshopSort } from '@/api/workshops'
 import { FollowButton } from '@/components/facilitator/FollowButton'
 import { Avatar } from '@/components/ui/Avatar'
+import { MaterialIcon } from '@/components/ui/MaterialIcon'
 import { Pagination } from '@/components/ui/Pagination'
-import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
 import { WorkshopCard } from '@/components/workshop/WorkshopCard'
@@ -119,71 +119,71 @@ function FollowedWorkshops({
 function FollowedFacilitators() {
   const backState = useBackState(PAGE_TITLE)
   const [page, setPage] = useState(1)
-  // フォローを解除した結果を読み上げる文と、解除後にフォーカスを移す先
-  const [announcement, setAnnouncement] = useState('')
-  const headingRef = useRef<HTMLHeadingElement>(null)
-  const { data, loading, error, reload } = useApiResource(
+  const { data, loading, error } = useApiResource(
     `following-facilitators:${page}`,
     (signal) => listFollowedFacilitators(page, FACILITATORS_PER_PAGE, signal),
     'フォロー中の主催者の取得に失敗しました',
   )
   const facilitators = data?.items ?? []
   const totalPages = pageCount(data?.total, FACILITATORS_PER_PAGE)
-  // 解除で件数が減り、今のページがなくなったら最後のページへ移る
+  // 他の画面で解除して件数が減り、今のページがなくなったら最後のページへ移る
   if (data && page > totalPages) setPage(totalPages)
-
-  // 解除した主催者は一覧から消え、押したボタンもなくなるので、見出しへフォーカスを移して結果を伝える
-  function handleFollowChange(name: string, isFollowing: boolean) {
-    if (isFollowing) return
-    setAnnouncement(`${name}さんのフォローを解除しました。`)
-    headingRef.current?.focus()
-    reload()
-  }
 
   return (
     <section className="mt-6" aria-labelledby="following-facilitators-heading">
-      <h2 id="following-facilitators-heading" ref={headingRef} tabIndex={-1} className="sr-only">
+      <h2 id="following-facilitators-heading" className="sr-only">
         フォロー一覧
       </h2>
-      <p className="sr-only" aria-live="polite">
-        {announcement}
-      </p>
       {loading && !data && <LoadingMessage />}
       <ErrorMessage message={error} />
       {data && facilitators.length === 0 && (
         <p className="text-fg-muted">まだフォローしている主催者はいません。主催者のページからフォローできます。</p>
       )}
       {facilitators.length > 0 && (
-        <ul className="space-y-3">
-          {facilitators.map((facilitator) => (
-            // カード全体を主催者ページへのリンクにする(名前のリンクの当たり判定を after で広げる)。
-            // フォローボタンは relative z-10 で、広げたリンクより手前に出す
-            <PaperCard
-              key={facilitator.id}
-              as="li"
-              cornerFold={false}
-              interactive
-              className="flex items-center justify-between gap-4 p-4"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <Avatar url={facilitator.avatar_url} name={facilitator.name} />
-                <Link
-                  to={`/facilitators/${facilitator.id}`}
-                  state={backState}
-                  className="truncate text-sm font-medium text-fg after:absolute after:inset-0 after:rounded-lg focus:outline-none"
-                >
-                  {facilitator.name}
-                </Link>
-              </div>
-              <FollowButton
-                facilitator={facilitator}
-                isFollowing={facilitator.viewer?.is_following ?? true}
-                onChange={(isFollowing) => handleFollowChange(facilitator.name, isFollowing)}
-                className="z-10"
-              />
-            </PaperCard>
-          ))}
-        </ul>
+        <>
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <p aria-hidden="true" className="text-base font-semibold text-fg-secondary">
+              フォロー中の主催者
+            </p>
+            {data && <span className="text-sm text-fg-muted">{data.total}人</span>}
+          </div>
+          {/* 暗い面のカード1枚に、主催者を1行ずつ並べる(ワークショップ管理・予約状況の一覧と同じ面) */}
+          <ul className="divide-y divide-border-muted overflow-hidden rounded-lg bg-surface-muted shadow-card">
+            {facilitators.map((facilitator) => (
+              // 行全体を主催者ページへのリンクにする(名前のリンクの当たり判定を after で広げる)。
+              // フォローボタンは relative z-10 で、広げたリンクより手前に出す
+              <li
+                key={facilitator.id}
+                className="relative flex items-center gap-4 p-4 transition-colors hover:bg-surface-strong/40 has-[a:focus-visible]:bg-surface-strong/40 sm:gap-5 sm:px-6 sm:py-5"
+              >
+                <Avatar url={facilitator.avatar_url} name={facilitator.name} className="h-12 w-12 text-lg" />
+                <div className="min-w-0 flex-1">
+                  <Link
+                    to={`/facilitators/${facilitator.id}`}
+                    state={backState}
+                    className="block truncate text-base font-medium text-fg after:absolute after:inset-0 focus-ring focus:outline-hidden"
+                  >
+                    {facilitator.name}
+                  </Link>
+                  {/* 自己紹介は2行までにして、行の高さをそろえる。未記入なら出さない */}
+                  {facilitator.bio && <p className="mt-1 line-clamp-2 text-sm text-fg-muted">{facilitator.bio}</p>}
+                </div>
+                {/* 解除してもすぐには一覧から消さず、ボタンが「フォローする」に戻るだけにする(押し間違えてもその場で戻せるように)。
+                    一覧から消えるのは、ページやセグメントを切り替えて取り直したとき */}
+                <FollowButton
+                  facilitator={facilitator}
+                  isFollowing={facilitator.viewer?.is_following ?? true}
+                  surface="dark"
+                  className="z-10 shrink-0"
+                />
+                {/* MaterialIcon は自前で表示形式を指定しているので、狭い画面で隠すのは外側の span で行う */}
+                <span className="hidden shrink-0 sm:flex">
+                  <MaterialIcon name="chevron_right" className="text-[24px] text-fg-subtle" />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       <Pagination page={page} totalPages={totalPages} onChange={setPage} disabled={loading} />
     </section>

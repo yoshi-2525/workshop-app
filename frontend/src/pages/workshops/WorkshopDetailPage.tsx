@@ -294,7 +294,7 @@ export function WorkshopDetailPage() {
               </Link>
             }
           />
-          <RelatedWorkshopSection title="似ているワークショップ" workshops={related.similar} />
+          <RelatedWorkshopSection title="関連のワークショップ" workshops={related.similar} />
           {/* オンライン開催では、近くの代わりに他のオンライン開催のワークショップが返ってくる */}
           <RelatedWorkshopSection
             title={

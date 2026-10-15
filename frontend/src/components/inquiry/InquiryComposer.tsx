@@ -75,14 +75,16 @@ export function InquiryComposer({ onSend, label = 'メッセージ', placeholder
           メッセージを入力してください
         </p>
       )}
-      <div className="mt-2 flex items-center justify-between gap-2">
         <p id={helpId} className="text-xs text-fg-muted">
           Ctrl+Enter で送信 ・ {body.length} / {INQUIRY_MESSAGE_MAX_LENGTH} 文字
         </p>
+      {/* 入力欄の下に補足(Ctrl+Enter の案内と文字数)を左寄せで置き、その下の行に送信ボタンを右寄せで置く */}
+      <div className="mt-2 flex flex-col gap-2">
+      
         <button
           type="submit"
           disabled={sending}
-          className={PRIMARY_BUTTON_CLASS}
+          className={`${PRIMARY_BUTTON_CLASS} self-end`}
         >
           {sending ? '送信中...' : '送信する'}
         </button>

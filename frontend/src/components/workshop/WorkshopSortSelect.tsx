@@ -7,7 +7,7 @@ const SORT_OPTIONS: { value: WorkshopSort; label: string }[] = [
   { value: 'price', label: '参加費の安い順' },
 ]
 
-// ワークショップ一覧の「並び替え」。公開一覧とフォロー中の主催者の一覧で同じ選択肢を使う
+// ワークショップ一覧の「並び替え」。公開一覧・フォロー中の主催者の一覧・主催者のページで同じ選択肢を使う
 export function WorkshopSortSelect({
   value,
   onChange,

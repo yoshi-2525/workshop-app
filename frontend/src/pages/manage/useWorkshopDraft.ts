@@ -60,7 +60,6 @@ export function useWorkshopDraft({ storageKey, form, baseline }: UseWorkshopDraf
   // 画面を開いたときに見つかった下書き。復元するか破棄するか選ぶまで自動保存は止める
   const [pendingDraft, setPendingDraft] = useState<WorkshopDraft | null>(null)
   const [checkedKey, setCheckedKey] = useState<string | null>(null)
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
 
   // 保存済みの下書きを探す(キーごとに1回だけ)
   if (storageKey !== null && checkedKey !== storageKey) {
@@ -75,12 +74,10 @@ export function useWorkshopDraft({ storageKey, form, baseline }: UseWorkshopDraf
     const timer = setTimeout(() => {
       if (isSameForm(form, baseline)) {
         writeStorage('local', storageKey, null)
-        setLastSavedAt(null)
         return
       }
       const savedAt = new Date().toISOString()
       writeStorage('local', storageKey, JSON.stringify({ form, savedAt } satisfies WorkshopDraft))
-      setLastSavedAt(savedAt)
     }, SAVE_DELAY_MS)
     return () => clearTimeout(timer)
   }, [ready, storageKey, form, baseline, pendingDraft])
@@ -100,8 +97,7 @@ export function useWorkshopDraft({ storageKey, form, baseline }: UseWorkshopDraf
   // 保存に成功したときや、入力を破棄してページを離れるときに呼ぶ
   const clearDraft = useCallback(() => {
     if (storageKey !== null) writeStorage('local', storageKey, null)
-    setLastSavedAt(null)
   }, [storageKey])
 
-  return { pendingDraft, lastSavedAt, takePendingDraft, discardPendingDraft, clearDraft }
+  return { pendingDraft, takePendingDraft, discardPendingDraft, clearDraft }
 }

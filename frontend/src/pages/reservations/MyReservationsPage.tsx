@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { listMyReservations } from '@/api/reservations'
 import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup'
 import { useApiResource } from '@/hooks/useApiResource'
@@ -45,6 +45,14 @@ const HISTORY_TAB_OPTIONS: ToggleOption<HistoryTab>[] = [
   { value: 'attended', label: '参加履歴' },
   { value: 'reservations', label: '予約履歴' },
 ]
+
+// 表示中のタブは URL のクエリ(?tab=reservations)に持たせる。
+// 通知から予約履歴を直接開けるようにし、ワークショップの詳細から戻ったときも同じタブで開き直すため
+const TAB_PARAM = 'tab'
+
+function parseHistoryTab(value: string | null): HistoryTab {
+  return value === 'reservations' ? 'reservations' : 'attended'
+}
 
 // 一覧の種類。参加予定は「参加予定のワークショップ」ページ、残りは「予約・参加履歴」ページのタブ
 type ListKind = 'upcoming' | HistoryTab
@@ -187,7 +195,13 @@ export function MyReservationsPage() {
 
 // 予約・参加履歴(/reservations/history)。参加済みのワークショップと、キャンセル・中止も含めた予約の履歴をタブで切り替える
 export function ReservationHistoryPage() {
-  const [tab, setTab] = useState<HistoryTab>('attended')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = parseHistoryTab(searchParams.get(TAB_PARAM))
+
+  // 切り替えは履歴に積まない(戻るボタンで前のページへ戻れるように)。既定のタブはクエリに書かない
+  function setTab(next: HistoryTab) {
+    setSearchParams(next === 'attended' ? {} : { [TAB_PARAM]: next }, { replace: true })
+  }
 
   return (
     <div>
