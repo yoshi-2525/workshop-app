@@ -146,16 +146,18 @@ function SummaryCard({
         ))}
       </dl>
       <div className="mt-6 border-t border-border-muted pt-4">
-        <button
-          type="button"
-          onClick={handleRequest}
-          // 申請の後、売上を取り直すまでの間に、もう一度押されないようにする
-          disabled={blocker !== null || request.pending || done !== null}
-          aria-describedby="payout-request-help"
-          className={PRIMARY_BUTTON_CLASS}
-        >
-          {request.pending ? '申請しています...' : '振込を申請する'}
-        </button>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleRequest}
+            // 申請の後、売上を取り直すまでの間に、もう一度押されないようにする
+            disabled={blocker !== null || request.pending || done !== null}
+            aria-describedby="payout-request-help"
+            className={PRIMARY_BUTTON_CLASS}
+          >
+            {request.pending ? '申請しています...' : '振込を申請する'}
+          </button>
+        </div>
         <p id="payout-request-help" className="mt-2 text-xs text-fg-muted">
           {blocker === null
             ? `申請できる額の全額を申請します。振込手数料${formatYen(summary.transfer_fee)}を差し引いた${formatYen(transferAmount)}を振り込みます。`

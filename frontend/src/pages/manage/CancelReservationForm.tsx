@@ -3,7 +3,7 @@ import { ErrorMessage } from '@/components/ui/StatusMessage'
 import type { CancelReason, Reservation } from '@/types'
 import { formatYen } from '@/utils/format'
 import { FULL_REFUND_FEE_NOTE, refundAmountFor } from '@/utils/payment'
-import { DANGER_SMALL_BUTTON_CLASS } from '@/components/ui/styles'
+import { DANGER_SMALL_BUTTON_CLASS, RADIO_CLASS } from '@/components/ui/styles'
 
 const REASON_OPTIONS: { value: CancelReason; label: string; description: string }[] = [
   {
@@ -53,7 +53,7 @@ export function CancelReservationForm({ id, reservation, pending, error, onConfi
         <div className="mt-2 space-y-2">
           {REASON_OPTIONS.map((option) => (
             <div key={option.value}>
-              <label className="flex items-start gap-2 text-fg">
+              <label className="flex items-start gap-2 font-medium text-fg">
                 <input
                   type="radio"
                   name={name}
@@ -62,7 +62,7 @@ export function CancelReservationForm({ id, reservation, pending, error, onConfi
                   onChange={() => setReason(option.value)}
                   disabled={pending}
                   aria-describedby={paid ? `${id}-${option.value}-description` : undefined}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-accent"
+                  className={`mt-0.5 ${RADIO_CLASS}`}
                 />
                 {option.label}
               </label>

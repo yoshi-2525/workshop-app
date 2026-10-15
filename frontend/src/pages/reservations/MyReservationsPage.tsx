@@ -6,11 +6,10 @@ import { useApiResource } from '@/hooks/useApiResource'
 import type { Reservation } from '@/types'
 import { formatDateTime } from '@/utils/format'
 import { refundLabel } from '@/utils/payment'
-import { PAPER_SECONDARY_SMALL_BUTTON_CLASS } from '@/components/ui/styles'
+import { THIRDLY_BUTTON_CLASS } from '@/components/ui/styles'
 import { isWorkshopFinished } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { MaterialIcon } from '@/components/ui/MaterialIcon'
-import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { useBackState } from '@/hooks/useBackState'
 
@@ -90,44 +89,58 @@ function ReservationList({ kind }: { kind: ListKind }) {
       )}
       <ul className="mt-6 space-y-3">
         {filtered.map((reservation) => (
-          <PaperCard
-            as="li"
+          // ワークショップ管理の一覧と同じく、紙ではなく夜の地より一段明るい面のカードにする。
+          // カード全体がリンクなので、中のリンクにフォーカスしたら枠を出す
+          <li
             key={reservation.id}
-            cornerFold={false}
-            interactive
-            className="flex items-center justify-between gap-4 p-4"
+            className="relative flex items-center justify-between gap-4 rounded-lg bg-surface-muted p-4 shadow-card focus-within:ring-2 focus-within:ring-ring"
           >
-            <div className="min-w-0">
-              {/* WorkshopCard と同じく、タイトルのリンクの当たり判定(::after)をカード全体に広げる */}
-              <Link
-                to={`/workshops/${reservation.workshop.id}`}
-                state={backState}
-                className="font-medium text-fg after:absolute after:inset-0 after:rounded-lg focus:outline-none"
-              >
-                {reservation.workshop.title}
-              </Link>
-              <p className="text-sm text-fg-muted"><WorkshopDateTime start={reservation.workshop.start_at} end={reservation.workshop.end_at} /></p>
-              {/* 同じアカウントでは同じ名前で参加する想定なので、参加者名は出さず、どの主催者のワークショップかを出す */}
-              <p className="text-sm text-fg-muted">
-                {`主催者: ${reservation.workshop.facilitator_name} ・ チケット${reservation.ticket_count}枚`}
-              </p>
-              {/* 支払い待ちは、確定していないことが分かるよう参加予定にも出す */}
-              {kind === 'upcoming' && reservation.status === 'pending_payment' && (
-                <p className="text-sm font-medium text-fg">
-                  お支払い待ち
-                  {reservation.payment_expires_at &&
-                    `(${formatDateTime(reservation.payment_expires_at)}までにお支払いいただくと予約が確定します)`}
-                </p>
+            <div className="flex min-w-0 items-center gap-6">
+              {/* ワークショップ管理の一覧と同じく、タイトルの左にバナー画像を出す。スマホ幅では文字の幅を残すため小さくする */}
+              {reservation.workshop.image_url ? (
+                <img
+                  src={reservation.workshop.image_url}
+                  alt=""
+                  className="aspect-video h-16 w-auto shrink-0 rounded-md object-cover sm:h-[100px]"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                  }}
+                />
+              ) : (
+                <div className="aspect-video h-16 shrink-0 rounded-md bg-surface-strong sm:h-[100px]" />
               )}
-              {/* 参加予定・参加履歴は確定している予約だけなので、状態は予約履歴でだけ出す */}
-              {kind === 'reservations' && (
-                <p className="text-sm">
-                  <span className="text-fg-muted">予約日時: {formatDateTime(reservation.created_at)} ・ </span>
-                  <span className={reservationStatusView(reservation).className}>
-                    {reservationStatusView(reservation).label}
-                  </span>
+              <div className="min-w-0">
+                {/* WorkshopCard と同じく、タイトルのリンクの当たり判定(::after)をカード全体に広げる */}
+                <Link
+                  to={`/workshops/${reservation.workshop.id}`}
+                  state={backState}
+                  className="text-lg font-medium text-fg after:absolute after:inset-0 after:rounded-lg focus:outline-none"
+                >
+                  {reservation.workshop.title}
+                </Link>
+                <p className="text-sm text-fg-muted"><WorkshopDateTime start={reservation.workshop.start_at} end={reservation.workshop.end_at} /></p>
+                {/* 同じアカウントでは同じ名前で参加する想定なので、参加者名は出さず、どの主催者のワークショップかを出す */}
+                <p className="text-sm text-fg-muted">
+                  {`主催者: ${reservation.workshop.facilitator_name} ・ チケット${reservation.ticket_count}枚`}
                 </p>
-              )}
+                {/* 支払い待ちは、確定していないことが分かるよう参加予定にも出す */}
+                {kind === 'upcoming' && reservation.status === 'pending_payment' && (
+                  <p className="text-sm font-medium text-fg">
+                    お支払い待ち
+                    {reservation.payment_expires_at &&
+                      `(${formatDateTime(reservation.payment_expires_at)}までにお支払いいただくと予約が確定します)`}
+                  </p>
+                )}
+                {/* 参加予定・参加履歴は確定している予約だけなので、状態は予約履歴でだけ出す */}
+                {kind === 'reservations' && (
+                  <p className="text-sm">
+                    <span className="text-fg-muted">予約日時: {formatDateTime(reservation.created_at)} ・ </span>
+                    <span className={reservationStatusView(reservation).className}>
+                      {reservationStatusView(reservation).label}
+                    </span>
+                  </p>
+                )}
+              </div>
             </div>
             {/* 支払い待ちの予約は、ここから支払いを再開できる。
                 カード全体に広げたタイトルのリンクより手前に出すため relative z-10 にする */}
@@ -135,7 +148,7 @@ function ReservationList({ kind }: { kind: ListKind }) {
               <Link
                 to={`/workshops/${reservation.workshop.id}/reserve`}
                 aria-label={`${reservation.workshop.title}のお支払いを再開する`}
-                className={`relative z-10 ${PAPER_SECONDARY_SMALL_BUTTON_CLASS}`}
+                className={`relative z-10 ${THIRDLY_BUTTON_CLASS}`}
               >
                 お支払いを再開する
               </Link>
@@ -146,13 +159,13 @@ function ReservationList({ kind }: { kind: ListKind }) {
                 to={`/workshops/${reservation.workshop.id}/inquiry`}
                 state={backState}
                 aria-label={`${reservation.workshop.title}の主催者に問い合わせる`}
-                className={`relative z-10 ${PAPER_SECONDARY_SMALL_BUTTON_CLASS}`}
+                className={`relative z-10 ${THIRDLY_BUTTON_CLASS}`}
               >
                 <MaterialIcon name="chat" className="text-[18px]" />
                 主催者に問い合わせる
               </Link>
             )}
-          </PaperCard>
+          </li>
         ))}
       </ul>
     </>

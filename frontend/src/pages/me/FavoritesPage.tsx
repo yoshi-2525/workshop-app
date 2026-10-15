@@ -13,7 +13,7 @@ export function FavoritesPage() {
       {loading && <LoadingMessage className="mt-6" />}
       <ErrorMessage message={error} className="mt-6" />
       {!loading && !error && workshops.length === 0 && (
-        <p className="mt-6 text-fg-muted">まだお気に入りはありません。少しでも引っかかった場があれば、ハートで残しておけます。</p>
+        <p className="mt-6 text-fg-muted">まだお気に入りのワークショップはありません。</p>
       )}
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {workshops.map((workshop) => (

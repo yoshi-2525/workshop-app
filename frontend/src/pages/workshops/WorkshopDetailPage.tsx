@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getRelatedWorkshops, getWorkshop } from '@/api/workshops'
 import { useAuth } from '@/context/AuthContext'
@@ -27,21 +27,16 @@ import { getLastListUrl } from '@/utils/workshopListState'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
-import { PAPER_SECONDARY_SMALL_BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { PRIMARY_BUTTON_CLASS, SECONDARY_SMALL_BUTTON_CLASS } from '@/components/ui/styles'
 import { BackLink } from '@/components/ui/BackLink'
 import { CancellationPolicy } from '@/components/workshop/CancellationPolicy'
 import { paymentNote } from '@/utils/payment'
 
-// 予約済み・主催者による参加のキャンセルは、ボタンの下に理由と案内の文章を出すので、予約ボタン自体を出さない
-type HiddenButtonBlocker = 'reserved' | 'reservation_canceled'
-
-function hidesReserveButton(blocker: ReservationBlocker | null): blocker is HiddenButtonBlocker {
-  return blocker === 'reserved' || blocker === 'reservation_canceled'
-}
-
-// 予約できないときの予約ボタンの文言(予約ボタンは公開中のときだけ出すので、not_published は出ない)
-const RESERVE_BUTTON_BLOCKED_LABEL: Record<Exclude<ReservationBlocker, HiddenButtonBlocker>, string> = {
-  not_published: '予約できません',
+// 予約できないときに、予約ボタンの下に出す理由(予約ボタンは公開中のときだけ出すので、not_published は出ない)
+const RESERVATION_BLOCKED_NOTE: Record<ReservationBlocker, string> = {
+  not_published: 'このワークショップは予約できません',
+  reserved: 'このワークショップは予約済みです',
+  reservation_canceled: '主催者により参加がキャンセルされました',
   started: '開始済みのため予約できません',
   closed: '予約の受付は終了しました',
   full: '空席がないため予約できません',
@@ -75,6 +70,7 @@ export function WorkshopDetailPage() {
   )
   // 読み込めなかった画像の URL。一致する間は画像なしと同じ表示にする(別のワークショップへ移れば URL が変わる)
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
+  const blockedNoteId = useId()
 
   // ログインが必要なページへ移る。未ログインならログイン画面を挟み、ログイン後にそのページへ戻す
   function navigateWithLogin(path: string) {
@@ -158,7 +154,7 @@ export function WorkshopDetailPage() {
           {isOwnWorkshop ? (
             <Link
               to={`/inquiries?workshop_id=${workshop.id}`}
-              className={`ml-auto ${PAPER_SECONDARY_SMALL_BUTTON_CLASS}`}
+              className={`ml-auto ${SECONDARY_SMALL_BUTTON_CLASS}`}
             >
               <MaterialIcon name="chat" className="text-[18px]" />
               届いた問い合わせ
@@ -168,7 +164,7 @@ export function WorkshopDetailPage() {
               <button
                 type="button"
                 onClick={() => navigateWithLogin(`/workshops/${workshop.id}/inquiry`)}
-                className={`ml-auto ${PAPER_SECONDARY_SMALL_BUTTON_CLASS}`}
+                className={`ml-auto ${SECONDARY_SMALL_BUTTON_CLASS}`}
               >
                 <MaterialIcon name="chat" className="text-[18px]" />
                 主催者に問い合わせる
@@ -231,36 +227,29 @@ export function WorkshopDetailPage() {
         <p className="mt-6 whitespace-pre-wrap text-fg-secondary">{workshop.description}</p>
         {workshop.status === 'published' && (
           <>
-            {/* 予約ボタンと、その下の案内はカードの右下(予約フォームと同じ位置)に右寄せで置く */}
-            {!hidesReserveButton(reservationBlocker) && (
-              <div className="mt-6 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => navigateWithLogin(`/workshops/${workshop.id}/reserve`)}
-                  disabled={reservationBlocker !== null}
-                  className={PRIMARY_BUTTON_CLASS}
+            {/* 予約ボタンと、予約できない理由の注意書きはカードの右下(予約フォームと同じ位置)に右寄せで置く。
+                ボタンの文言は「予約する」に統一し、予約できないときは押せなくして理由を下に出す */}
+            <div className="mt-6 flex flex-col items-end gap-2">
+              <button
+                type="button"
+                onClick={() => navigateWithLogin(`/workshops/${workshop.id}/reserve`)}
+                disabled={reservationBlocker !== null}
+                aria-describedby={reservationBlocker !== null ? blockedNoteId : undefined}
+                className={PRIMARY_BUTTON_CLASS}
+              >
+                予約する
+              </button>
+              {reservationBlocker !== null && (
+                // 枠は文章の長さに合わせる
+                <p
+                  id={blockedNoteId}
+                  className="flex items-center gap-0.5 rounded-lg bg-surface/70 px-2 py-1 text-sm text-fg-muted"
                 >
-                  {reservationBlocker !== null
-                    ? RESERVE_BUTTON_BLOCKED_LABEL[reservationBlocker]
-                    : !user
-                      ? 'ログインして予約する'
-                      : workshop.viewer.is_payment_pending
-                        ? 'お支払いを再開する'
-                        : '予約する'}
-                </button>
-              </div>
-            )}
-            {workshop.viewer.is_reserved && (
-              // 枠は文章の長さに合わせ、予約ボタンと同じく右に寄せる
-              <div className="mt-4 ml-auto w-fit rounded-lg bg-surface/70 px-4 py-3">
-                <p className="text-sm text-fg-muted">このワークショップは予約済みです。</p>
-              </div>
-            )}
-            {workshop.viewer.is_reservation_canceled && (
-              <p className="mt-6 text-right text-sm text-fg-muted">
-                主催者により参加がキャンセルされたため、このワークショップは予約できません。
-              </p>
-            )}
+                  <MaterialIcon name="info" className="text-2xl" />
+                  {RESERVATION_BLOCKED_NOTE[reservationBlocker]}
+                </p>
+              )}
+            </div>
           </>
         )}
       </PaperCard>

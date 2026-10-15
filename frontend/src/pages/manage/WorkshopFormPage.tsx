@@ -333,43 +333,46 @@ export function WorkshopFormPage() {
           lockConditions={lockConditions}
           reservedCount={reservedCount}
           isNew={!isEdit}
+          footer={
+            // 保存のボタンは入力欄と同じカードの中、右下に置く(角の折れはカードの下の余白で避ける)
+            <div className="border-t border-border-muted pt-4">
+              <ErrorMessage message={error} className="text-sm" />
+              <div className="mt-3 flex flex-wrap justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelClick}
+                  className={GHOST_BUTTON_CLASS}
+                >
+                  キャンセル
+                </button>
+                {/* 下書き保存は新規作成と下書きの編集のときだけ。公開済みのものは API でも下書きに戻せない */}
+                {(!savedWorkshop || savedWorkshop.status === 'draft') && (
+                  <button
+                    type="button"
+                    onClick={() => handleSave('draft')}
+                    disabled={saving}
+                    className={SECONDARY_BUTTON_CLASS}
+                  >
+                    {saving ? '保存中...' : '下書きとして保存'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleSave('published')}
+                  disabled={saving}
+                  className={PRIMARY_BUTTON_CLASS}
+                >
+                  {saving ? '保存中...' : '公開する'}
+                </button>
+              </div>
+              <p className="mt-3 text-right text-xs text-fg-muted" aria-live="polite">
+                {lastSavedAt
+                  ? `入力内容をこのブラウザに自動保存しました(${formatTime(lastSavedAt)})`
+                  : '入力内容はこのブラウザに自動保存されます'}
+              </p>
+            </div>
+          }
         />
-
-        <ErrorMessage message={error} className="mt-4 text-sm" />
-        <p className="mt-3 text-right text-xs text-fg-muted" aria-live="polite">
-          {lastSavedAt
-            ? `入力内容をこのブラウザに自動保存しました(${formatTime(lastSavedAt)})`
-            : '入力内容はこのブラウザに自動保存されます'}
-        </p>
-        {/* 入力欄のカードとボタンの間は広めに空ける */}
-        <div className="mt-8 flex flex-wrap justify-end gap-3">
-          <button
-            type="button"
-            onClick={handleCancelClick}
-            className={GHOST_BUTTON_CLASS}
-          >
-            キャンセル
-          </button>
-          {/* 下書き保存は新規作成と下書きの編集のときだけ。公開済みのものは API でも下書きに戻せない */}
-          {(!savedWorkshop || savedWorkshop.status === 'draft') && (
-            <button
-              type="button"
-              onClick={() => handleSave('draft')}
-              disabled={saving}
-              className={SECONDARY_BUTTON_CLASS}
-            >
-              {saving ? '保存中...' : '下書きとして保存'}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => handleSave('published')}
-            disabled={saving}
-            className={PRIMARY_BUTTON_CLASS}
-          >
-            {saving ? '保存中...' : '公開する'}
-          </button>
-        </div>
       </form>
 
       {/* 中止は保存とは別の操作なので、フォームのボタンから離して置く。

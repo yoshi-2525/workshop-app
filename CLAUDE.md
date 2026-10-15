@@ -20,6 +20,8 @@ npm run dev
 ./venv/Scripts/python scripts/seed_sample_data.py                 # サンプルデータ(パスワードは全員 password123)
 ./venv/Scripts/python scripts/seed_bulk_workshops.py              # 一覧・検索・ページ送り確認用の50件(一時的。sample のあとに実行)
 ./venv/Scripts/python scripts/seed_bulk_workshops.py --delete     # ↑で作ったデータを消す(確認が済んだら必ず実行する)
+./venv/Scripts/python scripts/seed_sample_notifications.py        # 通知一覧の確認用に sato@example.com へ全種類の通知(一時的。sample のあとに実行)
+./venv/Scripts/python scripts/seed_sample_notifications.py --delete  # ↑で入れた通知を消す(確認が済んだら必ず実行する)
 ./venv/Scripts/python scripts/set_role.py you@example.com admin   # admin への昇格(admin は自己登録不可)
 
 # フロントエンド (frontend/ で実行)

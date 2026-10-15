@@ -1,4 +1,4 @@
-import { useId, useState, type ChangeEvent, type Dispatch, type RefObject, type SetStateAction } from 'react'
+import { useId, useState, type ChangeEvent, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react'
 import { getPayoutSummary } from '@/api/payouts'
 import { useApiResource } from '@/hooks/useApiResource'
 import { DateTimeField } from '@/components/ui/DateTimeField'
@@ -19,7 +19,7 @@ import {
   WORKSHOP_TITLE_MAX_LENGTH,
 } from '@/utils/workshop'
 import { PaperCard } from '@/components/ui/PaperCard'
-import { FILE_INPUT_CLASS } from '@/components/ui/styles'
+import { FILE_INPUT_CLASS, RADIO_CLASS } from '@/components/ui/styles'
 import { ErrorMessage } from '@/components/ui/StatusMessage'
 import { NumberInput } from '@/components/ui/NumberInput'
 
@@ -43,6 +43,8 @@ interface WorkshopFormFieldsProps {
   reservedCount?: number
   // 新規作成のとき。参加費の初期値の 0 を、入力済みに見せないよう空欄で表示する
   isNew?: boolean
+  // カードの最後(入力欄の下)に置く内容。保存などのボタンを入力欄と同じカードに入れる
+  footer?: ReactNode
 }
 
 // 参加費の支払方法。オンライン決済は、運営側でオンライン決済を使える設定になっているときだけ選べる。
@@ -107,11 +109,11 @@ function PaymentMethodField({
               onChange={() => onChange(option.value)}
               disabled={disabled || free || !option.enabled}
               aria-describedby={option.value === 'online' && showOnlineHelp ? onlineHelpId : undefined}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-accent"
+              className={`mt-0.5 ${RADIO_CLASS}`}
             />
-            <span>
+            <span className="font-medium">
               {option.label}
-              <span className="block text-xs text-fg-muted">{option.description}</span>
+              <span className="block text-xs font-normal text-fg-muted">{option.description}</span>
             </span>
           </label>
         ))}
@@ -146,6 +148,7 @@ export function WorkshopFormFields({
   lockConditions = false,
   reservedCount = 0,
   isNew = false,
+  footer,
 }: WorkshopFormFieldsProps) {
   // 開始日時は時刻まで入力しないと form.start_at に入らないので、選んだ開始日だけを別に持っておく
   const [pickedStartDate, setPickedStartDate] = useState('')
@@ -262,7 +265,6 @@ export function WorkshopFormFields({
       {lockConditions && (
         <p id={lockedHelpId} className="rounded-md bg-surface/70 p-3 text-xs text-fg-secondary">
           公開中のワークショップは開催場所・開催日時・参加費・支払方法・参加者への案内を変更できません。
-          開催の条件を変える場合は、中止してから新しく作成してください。
         </p>
       )}
 
@@ -459,6 +461,7 @@ export function WorkshopFormFields({
           />
         </div>
       </fieldset>
+      {footer}
     </PaperCard>
   )
 }

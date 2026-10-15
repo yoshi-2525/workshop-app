@@ -3,7 +3,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { getMyReservation } from '@/api/reservations'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage } from '@/components/ui/StatusMessage'
-import { PAPER_SECONDARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { SECONDARY_BUTTON_CLASS } from '@/components/ui/styles'
 import { useApiResource } from '@/hooks/useApiResource'
 import type { Reservation } from '@/types'
 import { refundLabel } from '@/utils/payment'
@@ -110,7 +110,7 @@ export function PaymentCompletePage() {
             <Link to="/reservations" className={LINK_CLASS}>
               参加予定のワークショップを見る
             </Link>
-            <button type="button" onClick={checkAgain} className={PAPER_SECONDARY_BUTTON_CLASS}>
+            <button type="button" onClick={checkAgain} className={SECONDARY_BUTTON_CLASS}>
               もう一度確認する
             </button>
           </div>

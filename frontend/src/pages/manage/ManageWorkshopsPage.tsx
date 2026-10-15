@@ -8,8 +8,7 @@ import type { Workshop } from '@/types'
 import { isWorkshopFinished } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
-import { PaperCard } from '@/components/ui/PaperCard'
-import { PAPER_SECONDARY_SMALL_BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { PRIMARY_BUTTON_CLASS, THIRDLY_BUTTON_CLASS } from '@/components/ui/styles'
 
 type Tab = 'upcoming' | 'draft' | 'history'
 
@@ -110,53 +109,53 @@ export function ManageWorkshopsPage() {
           ) : (
             <ul className="space-y-3">
               {section.items.map((workshop) => (
-                <PaperCard
-                  as="li"
+                // 管理の一覧は紙ではなく、夜の地より一段明るい面のカードにする
+                <li
                   key={workshop.id}
-                  cornerFold={false}
-                  className="flex items-center justify-between p-4"
+                  className="flex items-center justify-between gap-4 rounded-lg bg-surface-muted p-4 shadow-card"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-6">
+                    {/* スマホ幅では文字の幅を残すため、画像を小さくする */}
                     {workshop.image_url ? (
                       <img
                         src={workshop.image_url}
                         alt=""
-                        className="aspect-video h-12 w-auto shrink-0 rounded-md object-cover"
+                        className="aspect-video h-16 w-auto shrink-0 rounded-md object-cover sm:h-[100px]"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none'
                         }}
                       />
                     ) : (
-                      <div className="aspect-video h-12 shrink-0 rounded-md bg-surface-strong" />
+                      <div className="aspect-video h-16 shrink-0 rounded-md bg-surface-strong sm:h-[100px]" />
                     )}
-                    <div>
-                      <p className="font-medium text-fg">{workshop.title}</p>
+                    <div className="min-w-0">
+                      <p className="text-lg font-medium text-fg">{workshop.title}</p>
                       <p className="text-sm text-fg-muted"><WorkshopDateTime start={workshop.start_at} end={workshop.end_at} /></p>
                       {/* 下書きは予約を受け付けていないので、定員・参加者数は出さない */}
                       {workshop.status !== 'draft' && (
                         <p className="text-sm text-fg-muted">
-                          定員：{workshop.capacity}名・参加者数：{workshop.reserved_count}名
+                          参加者数：{workshop.reserved_count}/{workshop.capacity}名
                         </p>
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-2 text-sm">
+                  <div className="flex shrink-0 flex-wrap items-start justify-end gap-2 text-sm">
                     {/* 下書きは参加者に公開されておらず、予約も問い合わせも受けないので出さない */}
                     {workshop.status !== 'draft' && (
                       <>
                         <Link
                           to={`/manage/workshops/${workshop.id}/reservations`}
-                          aria-label={`${workshop.title}の予約・出欠`}
-                          className={PAPER_SECONDARY_SMALL_BUTTON_CLASS}
+                          aria-label={`${workshop.title}の参加者一覧`}
+                          className={THIRDLY_BUTTON_CLASS}
                         >
-                          予約・出欠
+                          参加者一覧
                         </Link>
                         <Link
                           to={`/inquiries?workshop_id=${workshop.id}`}
                           aria-label={`${workshop.title}への問い合わせ・お知らせ`}
-                          className={PAPER_SECONDARY_SMALL_BUTTON_CLASS}
+                          className={THIRDLY_BUTTON_CLASS}
                         >
-                          問い合わせ・お知らせ
+                          お知らせ
                         </Link>
                       </>
                     )}
@@ -165,7 +164,7 @@ export function ManageWorkshopsPage() {
                       <Link
                         to={`/manage/workshops/${workshop.id}/edit`}
                         aria-label={`${workshop.title}を編集`}
-                        className={PAPER_SECONDARY_SMALL_BUTTON_CLASS}
+                        className={THIRDLY_BUTTON_CLASS}
                       >
                         編集
                       </Link>
@@ -183,7 +182,7 @@ export function ManageWorkshopsPage() {
                       </button>
                     )}
                   </div>
-                </PaperCard>
+                </li>
               ))}
             </ul>
           )}

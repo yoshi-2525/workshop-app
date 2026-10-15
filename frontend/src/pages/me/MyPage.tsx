@@ -132,9 +132,9 @@ export function MyPage() {
   return (
     <div className="mx-auto max-w-xl">
       <h1 className="text-xl font-semibold text-fg">マイページ</h1>
-      <MenuSection heading="予約・お気に入り" links={reservationLinks} />
-      {/* ワークショップを開けるのは主催者と運営だけ */}
+      {/* ワークショップを開けるのは主催者と運営だけ。主催者はワークショップの管理が主な用事なので、一番上に置く */}
       {isFacilitator && <MenuSection heading="主催者メニュー" links={facilitatorLinks} />}
+      <MenuSection heading="予約・お気に入り" links={reservationLinks} />
       <MenuSection heading="問い合わせ" links={inquiryLinks} />
       <MenuSection heading="アカウント" links={accountLinks} />
       <MenuSection heading="ヘルプ・規約" links={HELP_DOCUMENTS} />

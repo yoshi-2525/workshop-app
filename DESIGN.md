@@ -87,9 +87,10 @@ TAIWA の見た目と言葉づかいの方針、それを実装するための�
 | `fg-subtle` | `#6b7690` | 装飾的なアイコンだけ（3:1 以上） |
 | `accent` | `#e3b071` | 主な操作のボタン（灯りの琥珀色）。上の文字は `accent-foreground` の暗い色 |
 | `border` / `border-muted` | `#313d58` / `#212a40` | 入力欄・ボタンの枠線／区切り線 |
-| `ring` | `#e3b071` | フォーカスの枠 |
+| `ring` | `#cda267` | フォーカスの枠 |
 | `secondary` / `secondary-hover` | `#e8ebf0` / `#c8ced9` | 補助の操作のボタンの明るい面／ホバー。真っ白だとまぶしいので少し落とす。紙の上では `#f8fafc` / `#e8ebf0` に差し替わる |
 | `secondary-foreground` / `secondary-border` | `#334155` / `#475569` | 補助のボタンの文字（夜の地の面の上で 8.66:1、紙の上で 9.9:1）／枠線。夜の地と紙の上で同じ |
+| `thirdly` / `thirdly-hover` / `thirdly-foreground` | `#121a2c` / `#232e49` / `#ece7dc` | 暗い面のカード（ワークショップ管理の一覧）の中の補助のボタン（Thirdly）の面／ホバー／文字。ホバーはカード（`#19223a`）より明るくして見分ける。紙の中では使わない |
 
 ### 紙の上（`theme-paper` の中）
 
@@ -100,9 +101,9 @@ TAIWA の見た目と言葉づかいの方針、それを実装するための�
 | 紙の地 | `#d3d8e1` | ざらつき（SVG ノイズ）と縁のくすみを重ねる |
 | `surface` | `#e8ebf0` | 紙の上の白い面（入力欄・情報欄） |
 | `fg` | `#1f2433` | インクの色 |
-| `accent` | `#ca9759` | **沈めた琥珀色**。夜の地の灯りの色を、青みの紙の上で明るさが近づきすぎないよう暗めにしたもの。ホバーは `#b78345` |
+| `accent` | `#d5a469` | **沈めた琥珀色**。夜の地の灯りの色を、青みの紙の上で明るさが近づきすぎないよう暗めにしたもの。ホバーは `#c39358` |
 | `accent-foreground` | `#1a1308` | 主な操作の上の文字。夜の地と同じ暗い色（`accent` の上で 7:1 程度） |
-| `ring` | `#94632f` | 濃い琥珀色（紙・夜の地のどちらとも 3:1 以上） |
+| `ring` | `#dcb17c` | フォーカスの枠・入力欄のフォーカス時の枠線 |
 
 ### 色数を絞る
 
@@ -133,7 +134,7 @@ TAIWA の見た目と言葉づかいの方針、それを実装するための�
 - **`interactive`**：カード全体がリンクのとき。ホバーで少し持ち上がり、中のリンクにフォーカスすると枠が出る。リンクはタイトルに付け、`after:absolute after:inset-0` で当たり判定をカード全体に広げる。カードの中の別のボタンは `relative z-10` で手前に出す。
 - **紙の上のボタン**：
   - 主な操作は `PRIMARY_BUTTON_CLASS`。紙の中では自動で沈めた琥珀色になる。
-  - 補助の操作（共有・お気に入り・問い合わせ・管理画面の各ボタン）は `PAPER_SECONDARY_BUTTON_CLASS`（小さいものは `PAPER_SECONDARY_SMALL_BUTTON_CLASS`）の白いボタン（`secondary` の色＋`shadow-sm`）にする。紙の上では枠線だけのボタンは輪郭が見えにくい。枠線を付けたいときは `SECONDARY_BUTTON_CLASS`（白い面＋濃い枠線）を使う。
+  - 補助の操作（共有・お気に入り・問い合わせ・管理画面の各ボタン）は `SECONDARY_BUTTON_CLASS`（小さいものは `SECONDARY_SMALL_BUTTON_CLASS`）。夜の地では白い面＋濃い枠線、紙の中では枠線の代わりに `shadow-sm` に自動で切り替わる。紙の上は地も面も明るく、枠線だけでは輪郭が見えにくいため。
   - 「キャンセル」「予約をやめる」など主な操作の横の控えめなボタンは `GHOST_BUTTON_CLASS`。
 - **紙の上の情報欄**：日時・料金・キャンセルについての案内など、まとまった情報は `rounded-lg bg-surface/70 p-4` の明るい面に載せる。紙より暗い面（`surface-muted`）に注記の文字を置くと、コントラストが基準を下回る。
 
@@ -173,17 +174,18 @@ TAIWA の見た目と言葉づかいの方針、それを実装するための�
 | `PaperCard` | `components/ui/PaperCard.tsx` | 紙の面すべて（4 章） |
 | `PRIMARY_BUTTON_CLASS` | `components/ui/styles.ts` | 保存・送信など主な操作のボタン。`<button>` にも `<Link>` にも付けられる |
 | `GHOST_BUTTON_CLASS` | 同上 | キャンセル・取りやめなど、主な操作の横に置く控えめなボタン |
-| `SECONDARY_BUTTON_CLASS` | 同上 | 枠線付きの補助ボタン(下書き保存など)。白い面で、夜の地でも紙の上でも使える |
-| `PAPER_SECONDARY_BUTTON_CLASS` / `PAPER_SECONDARY_SMALL_BUTTON_CLASS` | 同上 | 紙の上の補助の操作(白いボタン) |
+| `SECONDARY_BUTTON_CLASS` / `SECONDARY_SMALL_BUTTON_CLASS` | 同上 | 補助の操作の白いボタン(下書き保存・フォロー中・問い合わせなど)。夜の地では枠線、紙の中では影で浮かせる |
 | `DANGER_SMALL_BUTTON_CLASS` | 同上 | 参加の取り消しなど、元に戻せない操作の小さなボタン |
+| `THIRDLY_BUTTON_CLASS` | 同上 | 暗い面のカード（ワークショップ管理の一覧）の中の補助の操作。カードより暗い面に明るい文字で、枠線・影なし |
 | `LABEL_CLASS` | 同上 | 入力欄の上のラベル |
 | `INPUT_CLASS` | 同上 | `<input>` / `<textarea>` / `<select>`。面で塗るので夜の地でも紙の上でも境目が見える |
+| `RADIO_CLASS` | `components/ui/styles.ts` | ラジオボタン。ブラウザ標準の見た目を消して描き、選ぶと枠と中の点が琥珀色になる。ラベルは `font-medium` |
 | `FILE_INPUT_CLASS` | 同上 | 画像の選択 |
 | `LoadingMessage` / `ErrorMessage` | `components/ui/StatusMessage.tsx` | 読み込み中・失敗の表示 |
 | `BackLink` + `useBackState` | `components/ui/BackLink.tsx`、`hooks/useBackState.ts` | 「← ○○に戻る」。リンク元が `state={useBackState('ページ名')}` を渡すと、そのページへ戻る。渡されなければ既定の戻り先 |
 | `MaterialIcon` | `components/ui/MaterialIcon.tsx` | アイコン。使えるのは `index.html` の `icon_names` にあるものだけ（アルファベット順に追加する） |
 | `ToggleGroup` | `components/ui/ToggleGroup.tsx` | 2〜5 個の選択肢の切り替え（タブ・絞り込み） |
-| `focus-ring` | `index.css` のユーティリティ | キーボードフォーカスの枠。`focus:outline-hidden` と組み合わせる(`outline-none` だと強制カラーモードで枠が消える)。リングのすき間は `ring-offset` トークンで、紙の中では紙の色になる |
+| `focus-ring` | `index.css` のユーティリティ | キーボードフォーカスの枠(ボタンはすべてに付ける。紙の中の Ghost と Danger Small は枠に加えて面の色も変える)。`focus:outline-hidden` と組み合わせる(`outline-none` だと強制カラーモードで枠が消える)。リングのすき間は `ring-offset` トークンで、紙の中では紙の色になる |
 
 **`MaterialIcon` の注意**：自前で表示形式を指定しているため、画面幅で隠すときは外側の `<span className="flex sm:hidden">` などで隠す。
 

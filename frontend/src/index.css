@@ -29,15 +29,22 @@
   --color-secondary-hover: #c8ced9;
   --color-secondary-foreground: #334155;
   --color-secondary-border: #475569;
+  /* 暗い面のカード(ワークショップ管理の一覧など)の中の補助のボタン(Thirdly)。カードより一段暗い面に明るい文字にし、
+     ホバーではカード(surface-muted)より明るい面にして、カードと見分けられるようにする。Figma の thirdly/* と対応 */
+  --color-thirdly: #121a2c;
+  --color-thirdly-hover: #232e49;
+  --color-thirdly-foreground: #ece7dc;
 
   --color-border: #313d58; /* 入力欄・ボタンの枠線 */
   --color-border-muted: #212a40; /* カード・区切り線 */
-  --color-ring: #e3b071; /* フォーカスリング・フォーカス時の枠線 */
+  --color-ring: #cda267; /* フォーカスリング・フォーカス時の枠線 */
   --color-ring-offset: #0b1120; /* フォーカスリングと部品の間のすき間。置かれた面の色にする */
 
   /* 紙のカードの影。枠線の代わりに、机に置いた紙のような柔らかい影で地から浮かせる。
      上辺のごく細い明るい線は、紙の厚みが光を受けている感じを出す */
   --shadow-paper: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 20px -6px rgb(0 0 0 / 0.6);
+  /* 紙ではない暗い面のカード(ワークショップ管理の一覧など)の影。紙の影から上辺の明るい線を除いたもの */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 20px -6px rgb(0 0 0 / 0.6);
   --shadow-paper-lift: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 2px 4px rgb(0 0 0 / 0.5), 0 18px 32px -10px rgb(0 0 0 / 0.7);
 
   /* サービス名(ロゴ)や見出しの游明朝。font-brand で参照する。
@@ -101,12 +108,12 @@
   --color-border-muted: #c2c9d5;
   /* 差し色は、夜の地の琥珀色を少し沈めた色にする。夜の地と同じ灯りの色で揃えつつ、
      青みの紙の上で明るさが近づきすぎないよう暗めにしている。上の文字は夜の地と同じ暗い色
-     (accent-foreground とのコントラスト比 7:1 程度、ホバー時も 5.5:1 程度) */
-  --color-accent: #ca9759;
-  --color-accent-hover: #b78345;
+     (accent-foreground とのコントラスト比 8:1 程度、ホバー時も 6.5:1 程度) */
+  --color-accent: #d5a469;
+  --color-accent-hover: #c39358;
   --color-accent-foreground: #1a1308;
-  /* 琥珀色のままだと紙の上で見えにくいので、フォーカスの枠は濃い琥珀色にする(紙・夜の地のどちらとも 3:1 以上) */
-  --color-ring: #94632f;
+  /* 紙の上のフォーカスの枠・入力欄のフォーカス時の枠線の色(Figma の focus/ring の Paper モード) */
+  --color-ring: #dcb17c;
   /* リングのすき間は紙の色にする(夜の色のままだと、明るいボタンのまわりに黒い縁が出る) */
   --color-ring-offset: #d3d8e1;
   /* 補助のボタンの面は、紙(#d3d8e1)より明るい白にして紙から浮かせる */

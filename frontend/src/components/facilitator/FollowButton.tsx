@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { followFacilitator, unfollowFacilitator } from '@/api/follows'
 import { useAuth } from '@/context/AuthContext'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
-import { PRIMARY_BUTTON_CLASS, PAPER_SECONDARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from '@/components/ui/styles'
 import type { FacilitatorProfile } from '@/types'
 import { followButtonMode } from '@/utils/user'
 
@@ -45,7 +45,7 @@ export function FollowButton({ facilitator, isFollowing, onChange, className = '
       <Link
         to="/login/participant"
         state={{ from: location.pathname + location.search }}
-        className={`${PAPER_SECONDARY_BUTTON_CLASS} inline-block ${className}`}
+        className={`${SECONDARY_BUTTON_CLASS} inline-block ${className}`}
       >
         ログインしてフォロー
       </Link>
@@ -75,7 +75,7 @@ export function FollowButton({ facilitator, isFollowing, onChange, className = '
         // 状態は aria-pressed で伝え、名前は表示の切り替えに関係なく固定にする
         aria-pressed={following}
         aria-label={`${facilitator.name}さんをフォロー`}
-        className={following ? PAPER_SECONDARY_BUTTON_CLASS : PRIMARY_BUTTON_CLASS}
+        className={following ? SECONDARY_BUTTON_CLASS : PRIMARY_BUTTON_CLASS}
       >
         {following ? 'フォロー中' : 'フォローする'}
       </button>

@@ -22,29 +22,35 @@ export function AboutPage() {
     <div className="mx-auto max-w-2xl py-8 sm:py-12">
       <p className="text-sm tracking-[0.25em] text-fg-muted">TAIWA について</p>
       <h1 className="mt-5 font-brand text-3xl font-semibold leading-snug tracking-widest text-fg sm:text-4xl sm:leading-snug">
-        答えを出すためではなく、
+        少人数での対話を通して、
         <br />
-        言葉にするための場所。
+        心のモヤモヤを掬う場所
       </h1>
 
       <section aria-labelledby="about-unease" className="mt-14">
         <h2 id="about-unease" className="font-brand text-xl font-semibold tracking-wider text-fg">
-          なんとなく、違和感がある
+          なんとなく感じる心のモヤモヤ
         </h2>
         <p className="mt-4 leading-loose text-fg-secondary">
-          仕事も生活も、それなりに回っている。でも、ふとした瞬間に「このままでいいのかな」と引っかかる。
-          その違和感は、誰かに話すほどでもない気がして、いつのまにか飲み込んでしまう。
+          仕事も生活も通常通りに営むことができる。でもふとした瞬間に心の中にモヤモヤが生まれる。
+          「みんながと同じような人生が何となくつまらない…」、「みんなが楽しめるものを純粋に楽しめない…」
+          そんな違和感は、うまく言葉にできない。誰かに話してみても、きっとわかってもらえない。そんなふうに感じて、心の中にしまってしまう。
         </p>
       </section>
 
       <section aria-labelledby="about-what" className="mt-12">
         <h2 id="about-what" className="font-brand text-xl font-semibold tracking-wider text-fg">
-          TAIWA は、その違和感を話せる場所です
+          その違和感をみんなで話しあえる場所
         </h2>
         <p className="mt-4 leading-loose text-fg-secondary">
-          TAIWA は、少人数の対話型ワークショップを探して参加できるサービスです。
-          テーマは「働くこと」「幸せとは」「孤独について」など、日常のすぐそばにある問い。
-          正解を探すのではなく、同じように立ち止まっている人と、ゆっくり言葉を交わします。
+          TAIWAは、少人数の対話型ワークショップを探し、参加できるサービスです。
+          <br/>
+          「働くこと」「人と話すこと」など、日常にはさまざまな問いが生まれます。
+          TAIWAではその問いと向き合い、同じように心に違和感を抱える人とじっくり言葉を交わします。
+        </p>
+        <p className="mt-4 leading-loose text-fg-secondary">
+          話すことで、自分でも気づいていなかった思いに気づいたり、誰かの言葉を聞くことで、自分のモヤモヤを少し違った角度から見つめたり。。。
+          そんな対話を通して、心の中にあるモヤモヤを、少しずつ言葉にして掬っていきます。
         </p>
       </section>
 
@@ -70,18 +76,18 @@ export function AboutPage() {
           気になる場を見つけたら、まずは詳細をのぞいてみてください。
           参加の前に「対話のルール」にも目を通してもらえると、安心して当日を迎えられます。
         </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link
-            to="/"
-            className={PRIMARY_BUTTON_CLASS}
-          >
-            場をさがす
-          </Link>
+        <div className="mt-6 flex flex-wrap justify-end gap-3 ">
           <Link
             to="/rules"
             className={SECONDARY_BUTTON_CLASS}
           >
             対話のルールを読む
+          </Link>
+          <Link
+            to="/"
+            className={PRIMARY_BUTTON_CLASS}
+          >
+            対話をさがす
           </Link>
         </div>
       </section>

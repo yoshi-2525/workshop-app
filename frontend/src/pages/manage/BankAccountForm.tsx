@@ -2,7 +2,7 @@ import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { saveBankAccount } from '@/api/payouts'
 import { ErrorMessage } from '@/components/ui/StatusMessage'
-import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BUTTON_CLASS, RADIO_CLASS } from '@/components/ui/styles'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
 import type { BankAccount, BankAccountType } from '@/types'
 import {
@@ -134,14 +134,14 @@ export function BankAccountForm({
         <legend className={LABEL_CLASS}>預金種目</legend>
         <div className="mt-2 flex gap-6">
           {(Object.keys(BANK_ACCOUNT_TYPE_LABELS) as BankAccountType[]).map((type) => (
-            <label key={type} className="flex items-center gap-2 text-sm text-fg">
+            <label key={type} className="flex items-center gap-2 text-sm font-medium text-fg">
               <input
                 type="radio"
                 name={typeName}
                 value={type}
                 checked={values.account_type === type}
                 onChange={() => update('account_type', type)}
-                className="h-4 w-4 accent-accent"
+                className={RADIO_CLASS}
               />
               {BANK_ACCOUNT_TYPE_LABELS[type]}
             </label>
@@ -149,13 +149,13 @@ export function BankAccountForm({
         </div>
       </fieldset>
       <div className="grid gap-4 sm:grid-cols-2">{ACCOUNT_FIELDS.map(renderField)}</div>
-      <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={save.pending} className={PRIMARY_BUTTON_CLASS}>
-          {save.pending ? '保存しています...' : initial ? '口座を変更する' : '口座を登録する'}
-        </button>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <p role="status" className="text-sm text-fg-muted empty:hidden">
           {saved ? '保存しました' : ''}
         </p>
+        <button type="submit" disabled={save.pending} className={PRIMARY_BUTTON_CLASS}>
+          {save.pending ? '保存しています...' : initial ? '口座を変更する' : '口座を登録する'}
+        </button>
       </div>
       <ErrorMessage message={save.error} className="text-sm" />
     </form>
