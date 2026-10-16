@@ -9,6 +9,7 @@ import { formatDateTime, formatTime } from '@/utils/format'
 import { MaterialIcon } from '@/components/ui/MaterialIcon'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { useBackState } from '@/hooks/useBackState'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 
 const typeLabel: Record<Notification['type'], string> = {
   cancellation: '中止',
@@ -16,18 +17,20 @@ const typeLabel: Record<Notification['type'], string> = {
   reservation_canceled: '参加キャンセル',
   new_workshop: '新着',
   payment_refunded: '返金',
-  payment_refund_failed: '返金',
+  // 返金済みの知らせと取り違えないよう、ラベルも分ける
+  payment_refund_failed: '返金不可',
 }
 
-// 種類は色ではなくアイコンの形とラベルで見分ける(色を使うのは未読の印だけ)。
+// 種類は色ではなくアイコンの形とラベルで見分ける(色を使うのは未読の印だけ)ので、種類ごとに違う形にする。
+// 新着は操作のボタン(＋)に見えないよう、カレンダーの形で「開催の知らせ」として示す。
 // 使えるアイコンは index.html の icon_names に指定したものだけ
 const typeIcon: Record<Notification['type'], string> = {
-  cancellation: 'info',
+  cancellation: 'event_busy',
   reminder: 'schedule',
-  reservation_canceled: 'person',
-  new_workshop: 'add',
+  reservation_canceled: 'person_remove',
+  new_workshop: 'calendar_add_on',
   payment_refunded: 'currency_yen',
-  payment_refund_failed: 'info',
+  payment_refund_failed: 'error',
 }
 
 // 予約・参加履歴の「予約履歴」タブ。キャンセル・中止も含めた予約の状態と返金の有無が分かる
@@ -107,6 +110,7 @@ export function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
+      <Breadcrumb />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-baseline gap-3">
           <h1 className="text-xl font-semibold text-fg">通知</h1>
@@ -136,11 +140,12 @@ export function NotificationsPage() {
               return (
                 <li key={notification.id} className={`relative flex gap-4 ${isLast ? '' : 'pb-7'}`}>
                   {!isLast && (
-                    <span aria-hidden="true" className="absolute bottom-0 left-4 top-9 w-px bg-border" />
+                    <span aria-hidden="true" className="absolute bottom-0 left-5 top-11 w-px bg-secondary" />
                   )}
-                  {/* 縦線がアイコンの手前で途切れて見えるよう、地の色の輪で囲む */}
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-muted text-fg-secondary ring-4 ring-background">
-                    <MaterialIcon name={typeIcon[notification.type]} className="text-[18px]" />
+                  {/* 夜の地の上で種類がひと目で分かるよう、明るい面の丸にする。
+                      縦線がアイコンの手前で途切れて見えるよう、地の色の輪で囲む */}
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground ring-4 ring-background">
+                    <MaterialIcon name={typeIcon[notification.type]} className="text-[22px]" />
                   </span>
                   <Link
                     to={notificationLink(notification)}
@@ -155,8 +160,10 @@ export function NotificationsPage() {
                       >
                         {formatTime(notification.created_at)}
                       </time>
-                      <span aria-hidden="true">・</span>
-                      {typeLabel[notification.type]}
+                      {/* 種類はアイコンの丸と同じ明るい面の札にして、時刻と区切りなしで並べても分かれて見えるようにする */}
+                      <span className="rounded-full bg-secondary px-2 py-0.5 font-medium text-secondary-foreground">
+                        {typeLabel[notification.type]}
+                      </span>
                       {!notification.is_read && (
                         <>
                           <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />

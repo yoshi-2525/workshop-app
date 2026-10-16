@@ -37,8 +37,6 @@ interface WorkshopFormFieldsProps {
   removeImage: boolean
   onImageChange: (e: ChangeEvent<HTMLInputElement>) => void
   onRemoveImage: () => void
-  // 公開中のワークショップの編集。参加者が予約したときの条件(参加費・支払方法・日時・場所)は変更できない
-  lockConditions?: boolean
   // 予約済みのチケット枚数。定員はこれより少なくできない
   reservedCount?: number
   // 新規作成のとき。参加費の初期値の 0 を、入力済みに見せないよう空欄で表示する
@@ -53,14 +51,10 @@ function PaymentMethodField({
   value,
   price,
   onChange,
-  disabled,
-  describedBy,
 }: {
   value: PaymentMethod
   price: number
   onChange: (value: PaymentMethod) => void
-  disabled: boolean
-  describedBy?: string
 }) {
   const { data: payout, error: payoutError } = useApiResource(
     'payout-summary',
@@ -91,7 +85,7 @@ function PaymentMethodField({
   ]
 
   return (
-    <fieldset aria-describedby={[describedBy, free ? freeHelpId : undefined].filter(Boolean).join(' ') || undefined}>
+    <fieldset aria-describedby={free ? freeHelpId : undefined}>
       <legend className={LABEL_CLASS}>参加費の支払方法</legend>
       {free && (
         <p id={freeHelpId} className="mt-1 text-xs text-fg-muted">
@@ -107,7 +101,7 @@ function PaymentMethodField({
               value={option.value}
               checked={value === option.value}
               onChange={() => onChange(option.value)}
-              disabled={disabled || free || !option.enabled}
+              disabled={free || !option.enabled}
               aria-describedby={option.value === 'online' && showOnlineHelp ? onlineHelpId : undefined}
               className={`mt-0.5 ${RADIO_CLASS}`}
             />
@@ -145,7 +139,6 @@ export function WorkshopFormFields({
   removeImage,
   onImageChange,
   onRemoveImage,
-  lockConditions = false,
   reservedCount = 0,
   isNew = false,
   footer,
@@ -163,7 +156,6 @@ export function WorkshopFormFields({
   const capacityId = useId()
   const priceId = useId()
   const capacityHelpId = useId()
-  const lockedHelpId = useId()
   const guideId = useId()
   const emergencyContactId = useId()
   const participantInfoHelpId = useId()
@@ -262,18 +254,11 @@ export function WorkshopFormFields({
         ) : null}
       </div>
 
-      {lockConditions && (
-        <p id={lockedHelpId} className="rounded-md bg-surface/70 p-3 text-xs text-fg-secondary">
-          公開中のワークショップは開催場所・開催日時・参加費・支払方法・参加者への案内を変更できません。
-        </p>
-      )}
-
       <ToggleGroup
         label="開催形式"
         options={LOCATION_TYPE_OPTIONS}
         value={form.location_type}
         onChange={(locationType) => setField('location_type', locationType)}
-        disabled={lockConditions}
       />
 
       {form.location_type === 'offline' ? (
@@ -290,8 +275,7 @@ export function WorkshopFormFields({
               value={form.location}
               onChange={(e) => setField('location', e.target.value)}
               placeholder="例: 東京都渋谷区神宮前4丁目 表参道カフェスペース"
-              disabled={lockConditions}
-              aria-describedby={lockConditions ? `${locationHelpId} ${lockedHelpId}` : locationHelpId}
+              aria-describedby={locationHelpId}
               className={INPUT_CLASS}
             />
             <a
@@ -323,8 +307,6 @@ export function WorkshopFormFields({
             value={form.location}
             onChange={(e) => setField('location', e.target.value)}
             placeholder="例: Zoom"
-            disabled={lockConditions}
-            aria-describedby={lockConditions ? lockedHelpId : undefined}
             className={`mt-1 ${INPUT_CLASS}`}
           />
         </div>
@@ -337,7 +319,6 @@ export function WorkshopFormFields({
           value={form.start_at}
           onChange={(start_at) => setField('start_at', start_at)}
           onDateChange={setPickedStartDate}
-          disabled={lockConditions}
         />
         <DateTimeField
           label="終了日時"
@@ -347,7 +328,6 @@ export function WorkshopFormFields({
           // 開始日を選ぶと終了日にも同じ日付を入れ、開始日より前は選べないようにする
           followDate={startDate || undefined}
           minDate={startDate || undefined}
-          disabled={lockConditions}
         />
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -390,8 +370,6 @@ export function WorkshopFormFields({
               // 参加費は1円単位で設定できる(オンライン決済の下限 50 円なども入力できるよう、刻みは付けない)
               step={1}
               required
-              disabled={lockConditions}
-              aria-describedby={lockConditions ? lockedHelpId : undefined}
               value={form.price}
               onValueChange={(price) => {
                 // 無料にしたら、支払方法は使わないので戻す
@@ -412,8 +390,6 @@ export function WorkshopFormFields({
         value={form.payment_method}
         price={form.price}
         onChange={(value) => setField('payment_method', value)}
-        disabled={lockConditions}
-        describedBy={lockConditions ? lockedHelpId : undefined}
       />
 
       <fieldset className="space-y-4 border-t border-border-muted pt-4">
@@ -434,7 +410,6 @@ export function WorkshopFormFields({
             maxLength={WORKSHOP_PARTICIPANT_GUIDE_MAX_LENGTH}
             value={form.participant_guide}
             onChange={(e) => setField('participant_guide', e.target.value)}
-            disabled={lockConditions}
             placeholder={
               '例: 開始10分前に会場2階の受付へお越しください。\nオンライン参加URL: https://...'
             }
@@ -454,7 +429,6 @@ export function WorkshopFormFields({
             maxLength={WORKSHOP_EMERGENCY_CONTACT_MAX_LENGTH}
             value={form.emergency_contact}
             onChange={(e) => setField('emergency_contact', e.target.value)}
-            disabled={lockConditions}
             placeholder="例: 090-1234-5678"
             aria-describedby={participantInfoHelpId}
             className={`mt-1 ${INPUT_CLASS}`}

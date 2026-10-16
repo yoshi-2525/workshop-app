@@ -10,6 +10,7 @@ import { canManageWorkshops, USER_BIO_MAX_LENGTH, USER_NAME_MAX_LENGTH } from '@
 import { ErrorMessage } from '@/components/ui/StatusMessage'
 import { FILE_INPUT_CLASS, INPUT_CLASS, PRIMARY_BUTTON_CLASS } from '@/components/ui/styles'
 import { PaperCard } from '@/components/ui/PaperCard'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 
 export function ProfileEditPage() {
   const { user, refreshUser } = useAuth()
@@ -66,6 +67,7 @@ export function ProfileEditPage() {
 
   return (
     <div className="mx-auto max-w-xl">
+      <Breadcrumb />
       <h1 className="text-xl font-semibold text-fg">プロフィール編集</h1>
       <p className="mt-1 text-sm text-fg-muted">
         {isFacilitator

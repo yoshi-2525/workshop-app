@@ -9,6 +9,7 @@ import { isWorkshopFinished } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PRIMARY_BUTTON_CLASS, THIRDLY_BUTTON_CLASS } from '@/components/ui/styles'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 
 type Tab = 'upcoming' | 'draft' | 'history'
 
@@ -80,6 +81,7 @@ export function ManageWorkshopsPage() {
 
   return (
     <div>
+      <Breadcrumb />
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-fg">ワークショップ管理</h1>
         <Link

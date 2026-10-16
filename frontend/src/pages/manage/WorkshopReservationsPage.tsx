@@ -13,7 +13,7 @@ import { parseIdParam } from '@/utils/params'
 import { formatDateTime } from '@/utils/format'
 import { ATTENDANCE_OPEN_HOURS_BEFORE, isAttendanceOpen } from '@/utils/workshop'
 import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
-import { BackLink } from '@/components/ui/BackLink'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { MaterialIcon } from '@/components/ui/MaterialIcon'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { SECONDARY_SMALL_BUTTON_CLASS } from '@/components/ui/styles'
@@ -100,7 +100,7 @@ export function WorkshopReservationsPage() {
 
   return (
     <div>
-      <BackLink to="/manage">ワークショップ管理に戻る</BackLink>
+      <Breadcrumb />
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">

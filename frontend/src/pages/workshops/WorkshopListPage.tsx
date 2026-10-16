@@ -94,8 +94,8 @@ export function WorkshopListPage() {
         {!loading && !error && workshops.length === 0 && (
           <p className="mt-6 text-fg-muted">
             {hasActiveFilter
-              ? '条件に合う場は見つかりませんでした。条件を少しゆるめてみてください。'
-              : 'いまは開かれる予定の場がありません。また、ふと思い出したときにのぞいてみてください。'}
+              ? '条件に合う対話は見つかりませんでした。条件を少しゆるめてみてください。'
+              : 'いまは開かれる予定の対話がありません。また、ふと思い出したときにのぞいてみてください。'}
           </p>
         )}
         {!loading && !error && workshops.length > 0 && (

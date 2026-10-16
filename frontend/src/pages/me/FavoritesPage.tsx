@@ -2,6 +2,7 @@ import { listMyFavorites } from '@/api/favorites'
 import { WorkshopCard } from '@/components/workshop/WorkshopCard'
 import { useApiResource } from '@/hooks/useApiResource'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 
 export function FavoritesPage() {
   const { data, loading, error } = useApiResource('favorites', listMyFavorites, 'お気に入りの取得に失敗しました')
@@ -9,6 +10,7 @@ export function FavoritesPage() {
 
   return (
     <div>
+      <Breadcrumb />
       <h1 className="text-xl font-semibold text-fg">お気に入り</h1>
       {loading && <LoadingMessage className="mt-6" />}
       <ErrorMessage message={error} className="mt-6" />

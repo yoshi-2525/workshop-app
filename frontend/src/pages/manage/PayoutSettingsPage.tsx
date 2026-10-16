@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getBankAccount, getEarnings, getPayoutRequests, getPayoutSummary, requestPayout } from '@/api/payouts'
-import { BackLink } from '@/components/ui/BackLink'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { Pagination } from '@/components/ui/Pagination'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
@@ -46,7 +46,7 @@ export function PayoutSettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <BackLink to="/me">マイページに戻る</BackLink>
+      <Breadcrumb />
       <h1 className="text-xl font-semibold text-fg">売上と振込</h1>
       <p className="mt-1 text-sm text-fg-muted">
         オンライン決済の参加費は本サービスがお預かりし、参加費の{FACILITATOR_SHARE_PERCENT}%を主催者の売上として記録します。ワークショップの開催を終えた分から、ご登録の口座への振込を申請できます。

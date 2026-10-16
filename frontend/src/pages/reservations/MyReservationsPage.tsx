@@ -12,6 +12,7 @@ import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { MaterialIcon } from '@/components/ui/MaterialIcon'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { useBackState } from '@/hooks/useBackState'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 
 // 予約履歴での状態の表示。ワークショップ自体が中止になったものは、予約の状態より中止を優先して伝える
 function reservationStatusView(reservation: Reservation): { label: string; className: string } {
@@ -184,6 +185,7 @@ function ReservationList({ kind }: { kind: ListKind }) {
 export function MyReservationsPage() {
   return (
     <div>
+      <Breadcrumb />
       <h1 className="text-xl font-semibold text-fg">参加予定のワークショップ</h1>
       <p className="mt-1 text-sm text-fg-muted">
         キャンセルをご希望の場合は、ワークショップの主催者にご連絡ください。
@@ -205,6 +207,7 @@ export function ReservationHistoryPage() {
 
   return (
     <div>
+      <Breadcrumb />
       <h1 className="text-xl font-semibold text-fg">予約・参加履歴</h1>
       <ToggleGroup
         label="表示する履歴"

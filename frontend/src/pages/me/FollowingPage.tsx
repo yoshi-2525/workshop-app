@@ -13,6 +13,7 @@ import { WorkshopSortSelect } from '@/components/workshop/WorkshopSortSelect'
 import { useApiResource } from '@/hooks/useApiResource'
 import { useBackState } from '@/hooks/useBackState'
 import { pageCount } from '@/utils/pagination'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 
 const PAGE_TITLE = 'フォロー中の主催者のワークショップ'
 const WORKSHOPS_PER_PAGE = 10
@@ -54,6 +55,7 @@ export function FollowingPage() {
 
   return (
     <div>
+      <Breadcrumb />
       <h1 className="text-xl font-semibold text-fg">{PAGE_TITLE}</h1>
       <ToggleGroup
         label="表示する内容"

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { getAdminPayoutRequests, markPayoutPaid, rejectPayout } from '@/api/payouts'
-import { BackLink } from '@/components/ui/BackLink'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { Pagination } from '@/components/ui/Pagination'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
@@ -86,7 +86,7 @@ export function AdminPayoutRequestsPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <BackLink to="/me">マイページに戻る</BackLink>
+      <Breadcrumb />
       <h1 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-fg focus:outline-none">
         振込の申請
       </h1>

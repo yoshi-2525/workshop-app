@@ -124,14 +124,15 @@ Figma のフォントは代わりのもの(本番の游明朝 → Noto Serif JP�
 | StatusMessage(`4:124`) | `components/ui/StatusMessage.tsx` | Type: Loading = `LoadingMessage`、Error = `ErrorMessage` |
 | TextField(`4:70`) | `styles.ts` の `LABEL_CLASS` + `INPUT_CLASS`、`RequiredMark.tsx` | Type: Text = `<input>` / `<textarea>`、Select = `<select>`。State: Default = 未入力(placeholder)、Filled = 入力済み、Focus = `focus:border-ring`、Error = `aria-invalid` + `border-red-500` + 下に `text-xs text-red-300`、Disabled = `disabled`。Required = `<RequiredMark />`、Show Help = 下の `mt-1 text-xs text-fg-muted` |
 | ラジオボタン(`152:177`) | `styles.ts` の `RADIO_CLASS` | 状態: 未選択 = `<input type="radio">`、選択 = `checked`(枠が `border-accent`、中に直径 9px の点)。ラベル = `<label>` の `font-medium text-fg`。中の塗り(`bg/page`)は夜の地では `bg-background`、紙の中では透明にして紙の色を見せる。紙の中の形は「ラジオボタン（ペーパー）」(`156:164`): 枠に紺(`#28375a`)を外側へ 0〜10% 重ねる(コードは `color-mix` で 7% 混ぜた単色で近似)、選択時の点は直径 7.2px(夜の地は 9px) |
-| 通知の項目(`161:203`)、通知の種類(`161:182`) | `pages/me/NotificationsPage.tsx` | 状態: 未読 = `!is_read`(`bg-surface-muted` + `border-border`、左の印、本文 `font-medium text-fg`)、既読 = `bg-surface` + `border-border-muted`、本文 `text-fg-secondary`。日時・本文・ワークショップ名はテキストプロパティ。種類 = `typeLabel` / `typeColor`(返金の失敗は文言「返金」で注意の色)。返金のラベル(`emerald`)と未読の印(`indigo-500`)は対応する変数がないので値を直接入れている |
+| 通知の項目(`161:203`)、通知の種類(`161:182`) | `pages/me/NotificationsPage.tsx` | **Figma が古いまま(コードと未対応)**。Figma は1件ずつのカードで、種類を色で分ける形。コードは届いた日ごとにまとめた時系列で、左の日付の列と、アイコンを縦線でつないだ通知の列からなる(カードではない)。種類は色ではなくアイコンの形とラベル(`typeIcon` / `typeLabel`)で分ける: 中止 = `event_busy`、参加キャンセル = `person_remove`、リマインダー = `schedule`、新着 = `calendar_add_on`、返金 = `currency_yen`、返金の失敗 = `error`(ラベル「返金できませんでした」)。ラベルは時刻の右に、`bg-secondary` + `text-secondary-foreground` の丸い札(`rounded-full`)で出す(間の中黒はない)。アイコンは直径 40px の `bg-secondary` の丸(文字 `text-secondary-foreground`、地の色の輪 `ring-background`)で本文の上に揃え、縦線も `bg-secondary`。未読 = `!is_read`(時刻の横に `bg-accent` の点、本文 `font-semibold text-fg`)、既読 = 本文 `font-medium text-fg-secondary`。一覧を開くとすべて既読になるが、開いている間は未読の印を残す |
 | Checkbox(`4:78`) | 共通部品なし。`WorkshopListPage.tsx`・`ReservationFormPage.tsx` の `<input type="checkbox" className="h-4 w-4 rounded border-border accent-accent focus-ring">` | Label Style: Default = `text-sm text-fg`(確認の文)、Secondary = `text-sm font-medium text-fg-secondary`(絞り込み) |
 | ToggleItem(`4:83`)/ ToggleGroup(`17:64`) | `components/ui/ToggleGroup.tsx` | Options = `options` の数、Group Label = `label`、Show Label = `!hideLabel`、Full Width = `fullWidth`、各 Option の Selected = `value` |
 | InlineSelect(`17:84`) | `components/workshop/WorkshopSortSelect.tsx` | Label / Value |
 | Header(`5:110`)/ HeaderButton(`16:41`) | `components/layout/Navbar.tsx` | Auth: Guest = 未ログイン、Participant、Facilitator = `canManageWorkshops(user)`。HeaderButton の Style: Outline = ログイン(`bg-secondary border-secondary-border text-secondary-foreground`)、Accent = 新規登録・対話を開く、Accent Icon = スマホ幅の「対話を開く」。Size: Desktop = `sm:` 以上、Mobile = それ未満 |
 | Footer(`5:111`) | `components/layout/Layout.tsx` の footer | — |
 | PageItem(`4:101`)/ Pagination(`4:102`) | `components/ui/Pagination.tsx` | Current = `aria-current="page"`、Nav = 前へ / 次へ |
-| BackLink(`4:117`) | `components/ui/BackLink.tsx`(+ `hooks/useBackState.ts`) | Label = `children` か戻り先の名前 |
+| Breadcrumb(`187:179`) | `components/ui/Breadcrumb.tsx`(階層は `utils/breadcrumbs.ts`) | Levels: 2 / 3 = 今のページを含めた階層の数。First / Second = 上の階層の名前(リンク、`text/secondary`)、Current = 今のページ(`text/muted`、`aria-current="page"`)。区切りは `chevron_right` 16px(`text/subtle`)。階層が決まっているページで使う |
+| BackLink(`4:117`) | `components/ui/BackLink.tsx`(+ `hooks/useBackState.ts`) | Label = `children` か戻り先の名前。戻り先が来た経路で変わるページ(ワークショップの詳細、主催者のページ、主催者に問い合わせる、規約の各ページ)だけで使い、ほかはパンくず |
 | PaperCard(`5:21`) | `components/ui/PaperCard.tsx` | Corner Fold = `cornerFold`、Content = `children`。`interactive` は WorkshopCard の State で表す |
 | InfoPanel(`18:109`)/ InfoRow(`18:35`) | Details = `pages/workshops/WorkshopDetailPage.tsx` の `<dl>`、Cancellation = `components/workshop/CancellationPolicy.tsx`、Payment = `pages/reservations/ReservationFormPage.tsx` のお支払い金額の欄 | Summary = `cancellationSummary()`、Show Cancellation = 有料のときだけ |
 | WorkshopSummary(`20:83`) | `ReservationFormPage.tsx` の要約の欄 | Title / Date Time(`dateStyle="long"`)/ Location / Seats |
@@ -153,7 +154,7 @@ Screens ページ(`2:4`)は 2 種類。
 |---|---|---|
 | トップ(`84:778`) | `/` | `workshops/WorkshopListPage.tsx` |
 | ワークショップ詳細 未ログイン(`86:778`)/ 予約済み(`98:778`) | `/workshops/:id` | `workshops/WorkshopDetailPage.tsx` |
-| 主催者のページ(`87:778`) | `/facilitators/:id` | `workshops/FacilitatorProfilePage.tsx` |
+| 主催者のページ(`87:778`) | `/facilitators/:id` | `workshops/FacilitatorProfilePage.tsx`。**古いまま**: Figma はプロフィールを紙のカードに載せているが、コードは夜の地にそのまま置く。開催予定のワークショップの見出しの右に並び替え(InlineSelect `17:84`)を置くのはコードと同じ |
 | ログイン 参加者(`90:778`)/ 主催者(`93:778`) | `/login/participant` / `/login/facilitator` | `auth/ParticipantLoginPage.tsx` / `FacilitatorLoginPage.tsx` |
 | 新規登録 参加者(`96:778`)/ 主催者(`99:778`) | `/register/participant` / `/register/facilitator` | `auth/ParticipantRegisterPage.tsx` / `FacilitatorRegisterPage.tsx` |
 | TAIWA について(`102:778`)、対話のルール(`105:778`) | `/about`、`/rules` | `guide/AboutPage.tsx`、`guide/DialogueRulesPage.tsx` |
@@ -161,7 +162,7 @@ Screens ページ(`2:4`)は 2 種類。
 | 404(`94:778`) | `/404` | `NotFoundPage.tsx` |
 | 予約フォーム(`100:778`) | `/workshops/:id/reserve` | `reservations/ReservationFormPage.tsx` |
 | 参加予定(`103:778`)、予約・参加履歴(`106:778`) | `/reservations`、`/reservations/history` | `reservations/MyReservationsPage.tsx` ほか。一覧のカードはワークショップ管理の一覧のカード(`101:837`)と同じ暗いカードで、ボタンは Thirdly |
-| お気に入り(`109:778`)、フォロー中(`113:778`)、通知(`116:778`)、通知あり(`162:788`) | `/favorites`、`/following`、`/notifications` | `me/*`。通知ありの画面は `scripts/seed_sample_notifications.py` のデータ(全種類・未読4件)と同じ内容 |
+| お気に入り(`109:778`)、フォロー中(`113:778`)、通知(`116:778`)、通知あり(`162:788`) | `/favorites`、`/following`、`/notifications` | `me/*`。通知ありの画面は `scripts/seed_sample_notifications.py` のデータ(全種類・未読4件)と同じ内容。**通知の画面は古いまま**で、今のコード(日ごとの時系列・種類ごとのアイコン・「すべて既読にする」なし)とは作りが違う(「通知の項目」の行を参照) |
 | 主催者に問い合わせる(`119:778`)、問い合わせ一覧(`89:778`)、やり取り(`92:778`) | `/workshops/:id/inquiry`、`/inquiries`、`/inquiries/:id` | `inquiries/*` |
 | マイページ 参加者(`95:778`)/ 主催者(`117:778`)、プロフィール編集(`97:778`) | `/me`、`/me/profile` | `me/MyPage.tsx`、`manage/ProfileEditPage.tsx` |
 | ワークショップ管理(`101:778`)、作成(`104:778`)、編集(`107:778`) | `/manage`、`/manage/workshops/new`、`/manage/workshops/:id/edit` | `manage/ManageWorkshopsPage.tsx`、`manage/WorkshopFormPage.tsx`。一覧のカード(`101:837`)は紙ではなく `bg-surface-muted` + `shadow-card` の暗いカードで、ボタンは Thirdly |

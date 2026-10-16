@@ -13,7 +13,7 @@ import type { InquiryDetail } from '@/types'
 import { parseIdParam } from '@/utils/params'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { PaperCard } from '@/components/ui/PaperCard'
-import { BackLink } from '@/components/ui/BackLink'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { useBackState } from '@/hooks/useBackState'
 
 // 開いている間に相手から届いたメッセージを表示するため、一定間隔で読み込み直す
@@ -93,9 +93,6 @@ export function InquiryThreadPage() {
     setInquiry(sent.value)
   }
 
-  const backLink = (
-    <BackLink to="/inquiries">問い合わせ一覧に戻る</BackLink>
-  )
 
   if (loading)
     return (
@@ -104,7 +101,7 @@ export function InquiryThreadPage() {
   if (error || !inquiry)
     return (
       <div className="mx-auto max-w-2xl">
-        {backLink}
+        <Breadcrumb />
         <ErrorMessage message={error ?? '問い合わせが見つかりません'} />
       </div>
     )
@@ -113,7 +110,7 @@ export function InquiryThreadPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      {backLink}
+      <Breadcrumb />
       {/* 画面を「誰と(相手とワークショップ)」「何を話したか(やり取り)」「何を送るか(送信欄)」の3つに分け、
           面の違いで見分けられるようにする: 相手は暗い面のカード、やり取りは枠線で囲んだ一段暗い面、送信欄は紙のカード */}
       <section aria-labelledby="counterpart-name" className="rounded-lg bg-surface-muted p-5 shadow-card sm:px-6">

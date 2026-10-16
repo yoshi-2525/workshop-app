@@ -17,6 +17,7 @@ export function LegalDocument({
 }) {
   return (
     <div className="mx-auto max-w-3xl">
+      {/* マイページから開いたときはマイページへ戻す。戻り先は来た経路で変わるので、パンくずではなく BackLink を使う */}
       <BackLink to="/help">ヘルプ・規約の一覧に戻る</BackLink>
       <PaperCard as="article" cornerFold={false} className="p-6 sm:p-8">
         <h1 className="text-2xl font-semibold text-fg">{title}</h1>

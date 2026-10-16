@@ -23,6 +23,7 @@ import { WorkshopFormFields } from '@/pages/manage/WorkshopFormFields'
 import { PublishedWorkshopFormFields } from '@/pages/manage/PublishedWorkshopFormFields'
 import { removeWorkshopDraft, useWorkshopDraft, workshopDraftKey } from '@/pages/manage/useWorkshopDraft'
 import { GHOST_BUTTON_CLASS, PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS } from '@/components/ui/styles'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 
 // 公開中のワークショップで変更できない項目(参加者が予約したときの条件)。バックエンドの check_workshop_input と揃える
 const LOCKED_WHEN_PUBLISHED = [
@@ -76,6 +77,16 @@ function toWorkshopInput(workshop: Workshop): WorkshopInput {
   }
 }
 
+// 公開中で変更できない項目だけ、source の値に置き換える
+function preserveLockedFields(form: WorkshopInput, source: WorkshopInput): WorkshopInput {
+  const next = { ...form }
+  for (const key of LOCKED_WHEN_PUBLISHED) {
+    // 項目ごとに型が違い next[key] = source[key] では型が合わないので、ひとつずつ写す
+    Object.assign(next, { [key]: source[key] })
+  }
+  return next
+}
+
 // 開催済み・中止のワークショップは編集できない。編集できるなら null
 function notEditableReason(workshop: Workshop): string | null {
   if (workshop.status === 'canceled') return '中止したワークショップは編集できません。'
@@ -83,34 +94,14 @@ function notEditableReason(workshop: Workshop): string | null {
   return null
 }
 
+// 編集画面では保存済みのワークショップを読み込み、編集できるものだけフォームを出す
 export function WorkshopFormPage() {
   const { id } = useParams<{ id: string }>()
   const isEdit = Boolean(id)
   const workshopId = parseIdParam(id)
-  const navigate = useNavigate()
-  const formRef = useRef<HTMLFormElement>(null)
-  const [form, setForm] = useState<WorkshopInput>(emptyForm)
-  const [initialForm, setInitialForm] = useState<WorkshopInput>(emptyForm)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  // 開催済み・中止のワークショップは編集できない(URL を直接開いた場合もフォームを出さない)。
-  // 編集できない理由のメッセージを入れる
-  const [notEditableMessage, setNotEditableMessage] = useState<string | null>(null)
-  const finished = notEditableMessage !== null
-  // 編集画面で読み込んだ、保存済みのワークショップ(中止の処理に使う)
-  const [savedWorkshop, setSavedWorkshop] = useState<Workshop | null>(null)
-  const [canceling, setCanceling] = useState(false)
   const { user } = useAuth()
-  // 公開中なら参加費・日時・場所は変更できない
-  const lockConditions = savedWorkshop?.status === 'published'
-  // 定員はこの枚数(参加人数)より少なくできない
-  const reservedCount = savedWorkshop?.reserved_count ?? 0
 
-  const [currentImageUrl, setCurrentImageUrl] = useState('')
-  const imageInputRef = useRef<HTMLInputElement>(null)
-  const image = useImageSelection(imageInputRef, setError)
-
-  // 編集画面では、保存済みのワークショップを読み込む(ID が不正なら読み込まない)
+  // ID が不正なら読み込まない
   const {
     data: loadedWorkshop,
     loading,
@@ -120,44 +111,72 @@ export function WorkshopFormPage() {
     (signal) => getWorkshop(workshopId!, signal),
     '取得に失敗しました',
   )
-  // 読み込んだ内容をフォームに反映する(読み込みごとに1回だけ)
-  const [appliedWorkshop, setAppliedWorkshop] = useState<Workshop | null>(null)
-  if (loadedWorkshop && loadedWorkshop !== appliedWorkshop) {
-    setAppliedWorkshop(loadedWorkshop)
-    const message = notEditableReason(loadedWorkshop)
-    setNotEditableMessage(message)
-    if (message === null) {
-      const loaded = toWorkshopInput(loadedWorkshop)
-      setForm(loaded)
-      setInitialForm(loaded)
-      setCurrentImageUrl(loadedWorkshop.image_url)
-      setSavedWorkshop(loadedWorkshop)
-    }
-  }
+  // 開催済み・中止のワークショップは編集できない(URL を直接開いた場合もフォームを出さない)
+  const notEditableMessage = loadedWorkshop ? notEditableReason(loadedWorkshop) : null
+  const isNotEditable = notEditableMessage !== null
 
-  // 入力内容をこのブラウザに自動保存する。編集画面では、読み込んだ内容をフォームに反映してから始める
-  // (反映前に始めると、空のフォームと比べて下書きの有無を判断してしまう)
-  const formReady = !isEdit || (loadedWorkshop !== undefined && loadedWorkshop === appliedWorkshop)
-  const draftKey =
-    user && formReady && !finished ? workshopDraftKey(user.id, isEdit ? workshopId : null) : null
+  // 編集できなくなったワークショップの下書きは、残しておいても使えないので消す
+  useEffect(() => {
+    if (isNotEditable && user && workshopId !== null) removeWorkshopDraft(workshopDraftKey(user.id, workshopId))
+  }, [isNotEditable, user, workshopId])
+
+  if (loading) return <LoadingMessage />
+  // 不正な ID や読み込めなかったまま保存すると新規作成扱いになるため、フォームを出さない
+  if (isEdit && workshopId === null) return <ErrorMessage message="ワークショップが見つかりませんでした" />
+  if (loadError) return <ErrorMessage message={loadError} />
+  if (isEdit && !loadedWorkshop) return <LoadingMessage />
+  if (isNotEditable) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <p className="text-fg-secondary">{notEditableMessage}</p>
+        <Link to="/manage" className="mt-4 inline-block text-sm text-fg-secondary underline">
+          ワークショップの管理に戻る
+        </Link>
+      </div>
+    )
+  }
+  // 読み込んだ内容はフォームの初期値にだけ使う。別のワークショップを開いたら key でフォームを作り直す
+  return <WorkshopForm key={workshopId ?? 'new'} workshop={loadedWorkshop ?? null} />
+}
+
+interface WorkshopFormProps {
+  // 編集するワークショップ。新規作成なら null
+  workshop: Workshop | null
+}
+
+function WorkshopForm({ workshop }: WorkshopFormProps) {
+  const isEdit = workshop !== null
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const formRef = useRef<HTMLFormElement>(null)
+  // 読み込んだ内容(新規なら空のフォーム)。変更の有無と下書きの要否はこれと比べる
+  const [initialForm] = useState<WorkshopInput>(() => (workshop ? toWorkshopInput(workshop) : emptyForm))
+  const [form, setForm] = useState<WorkshopInput>(initialForm)
+  const [saving, setSaving] = useState(false)
+  const [canceling, setCanceling] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  // 保存済みのワークショップ。編集画面では読み込んだもので始まり、保存するたびに置き換える
+  // (新規作成のあと画像の保存だけ失敗した場合も、もう一度保存したときに二重に作らず更新するため)
+  const [savedWorkshop, setSavedWorkshop] = useState<Workshop | null>(workshop)
+  // 公開中なら参加費・日時・場所は変更できない
+  const lockConditions = savedWorkshop?.status === 'published'
+  // 定員はこの枚数(参加人数)より少なくできない
+  const reservedCount = savedWorkshop?.reserved_count ?? 0
+
+  const currentImageUrl = workshop?.image_url ?? ''
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const image = useImageSelection(imageInputRef, setError)
+
+  // 入力内容をこのブラウザに自動保存する
+  const draftKey = user ? workshopDraftKey(user.id, workshop?.id ?? null) : null
   const { pendingDraft, takePendingDraft, discardPendingDraft, clearDraft } =
     useWorkshopDraft({ storageKey: draftKey, form, baseline: initialForm })
-
-  // 編集できなくなった(開催済み・中止の)ワークショップの下書きは、残しておいても使えないので消す
-  useEffect(() => {
-    if (finished && user && workshopId !== null) removeWorkshopDraft(workshopDraftKey(user.id, workshopId))
-  }, [finished, user, workshopId])
 
   function handleRestoreDraft() {
     const restored = takePendingDraft()
     if (!restored) return
     // 公開中なら、変更できない項目は下書きの値ではなく今の値のままにする
-    setForm((prev) => {
-      if (!lockConditions) return restored
-      const next = { ...restored }
-      for (const key of LOCKED_WHEN_PUBLISHED) Object.assign(next, { [key]: prev[key] })
-      return next
-    })
+    setForm((prev) => (lockConditions ? preserveLockedFields(restored, prev) : restored))
   }
 
   // 読み込んだ内容(新規なら空のフォーム)から変更があるか。画像の選択・削除も変更に含める
@@ -194,99 +213,88 @@ export function WorkshopFormPage() {
     }
   }
 
-  async function handleSave(targetStatus: WorkshopStatus) {
-    setError(null)
-
+  // 保存の前に入力を確かめる。問題があればその内容を返す
+  function validateForm(): string | null {
     if (!formRef.current?.reportValidity()) {
-      setError('未入力または入力範囲外の項目があります。赤枠の項目を確認してください。')
-      return
+      return '未入力または入力範囲外の項目があります。赤枠の項目を確認してください。'
     }
     // required は空白だけの入力を通すので、必須の文字欄はここで確かめる(バックエンドは前後の空白を除いてから検証する)
     const blankField = BLANK_CHECKED_FIELDS.find(({ key }) => !form[key].trim())
-    if (blankField) {
-      setError(`${blankField.label}を入力してください。`)
-      return
-    }
+    if (blankField) return `${blankField.label}を入力してください。`
 
     const startDate = new Date(form.start_at)
     const endDate = new Date(form.end_at)
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      setError('開始日時・終了日時を正しく入力してください。')
-      return
+      return '開始日時・終了日時を正しく入力してください。'
     }
-    if (endDate <= startDate) {
-      setError('終了日時は開始日時より後に設定してください。')
-      return
+    if (endDate <= startDate) return '終了日時は開始日時より後に設定してください。'
+    if (form.capacity < reservedCount) return `定員は現在の参加人数(${reservedCount}名)以上にしてください。`
+    return null
+  }
+
+  // 送信する内容を作る(validateForm を通ったあとに呼ぶ)
+  function buildPayload(targetStatus: WorkshopStatus): WorkshopInput {
+    const payload: WorkshopInput = {
+      ...form,
+      status: targetStatus,
+      start_at: new Date(form.start_at).toISOString(),
+      end_at: new Date(form.end_at).toISOString(),
     }
-    if (form.capacity < reservedCount) {
-      setError(`定員は現在の参加人数(${reservedCount}名)以上にしてください。`)
+    if (!lockConditions || !savedWorkshop) return payload
+    // 公開中なら、変更できない項目は保存済みの値をそのまま送る
+    // (フォームの日時は分単位なので、作り直すと秒以下が保存済みの値とずれることがある)。
+    // 当日のご案内・緊急連絡先は Workshop では participant_info の中にあるので、入力値の形にそろえてから取り出す
+    const savedValues: WorkshopInput = {
+      ...toWorkshopInput(savedWorkshop),
+      start_at: savedWorkshop.start_at,
+      end_at: savedWorkshop.end_at,
+    }
+    return preserveLockedFields(payload, savedValues)
+  }
+
+  // 選んだ画像のアップロード、または画像の削除。画像を変えていなければ何もしない
+  async function saveImage(workshopId: number) {
+    if (image.file) {
+      await uploadWorkshopImage(workshopId, image.file)
+    } else if (image.removed) {
+      await deleteWorkshopImage(workshopId)
+    }
+  }
+
+  async function handleSave(targetStatus: WorkshopStatus) {
+    setError(null)
+    const validationError = validateForm()
+    if (validationError) {
+      setError(validationError)
       return
     }
 
     setSaving(true)
-    const payload: WorkshopInput = {
-      ...form,
-      status: targetStatus,
-      start_at: startDate.toISOString(),
-      end_at: endDate.toISOString(),
-    }
-    // 公開中なら、変更できない項目は保存済みの値をそのまま送る
-    // (フォームの日時は分単位なので、作り直すと秒以下が保存済みの値とずれることがある)
-    if (lockConditions && savedWorkshop) {
-      // 当日のご案内・緊急連絡先は Workshop では participant_info の中にあるので、入力値の形にそろえてから取り出す。
-      // 日時はフォームの分単位の値ではなく、保存済みの値(ISO 形式)をそのまま使う
-      const savedValues: WorkshopInput = {
-        ...toWorkshopInput(savedWorkshop),
-        start_at: savedWorkshop.start_at,
-        end_at: savedWorkshop.end_at,
-      }
-      for (const key of LOCKED_WHEN_PUBLISHED) Object.assign(payload, { [key]: savedValues[key] })
-    }
-    // 保存済みのものがあれば更新する。新規作成のあと画像の保存だけ失敗した場合も、
-    // もう一度保存したときに同じワークショップを二重に作らないよう、作成済みのものを更新する
-    const existingId = savedWorkshop?.id ?? (isEdit ? workshopId : null)
-    let workshop: Workshop
     try {
-      workshop = existingId !== null ? await updateWorkshop(existingId, payload) : await createWorkshop(payload)
-    } catch (err) {
-      setError(extractErrorMessage(err, '保存に失敗しました'))
-      setSaving(false)
-      return
-    }
-    setSavedWorkshop(workshop)
-
-    try {
-      if (image.file) {
-        await uploadWorkshopImage(workshop.id, image.file)
-      } else if (image.removed) {
-        await deleteWorkshopImage(workshop.id)
+      const payload = buildPayload(targetStatus)
+      let saved: Workshop
+      try {
+        saved = savedWorkshop ? await updateWorkshop(savedWorkshop.id, payload) : await createWorkshop(payload)
+      } catch (err) {
+        setError(extractErrorMessage(err, '保存に失敗しました'))
+        return
       }
-    } catch (err) {
-      setError(
-        `ワークショップの内容は保存しましたが、画像の${image.file ? 'アップロード' : '削除'}に失敗しました。` +
-          `もう一度保存してください(${extractErrorMessage(err, '原因不明のエラー')})`,
-      )
-      setSaving(false)
-      return
-    }
-    clearDraft()
-    setSaving(false)
-    navigate('/manage')
-  }
+      setSavedWorkshop(saved)
 
-  if (loading) return <LoadingMessage />
-  // 不正な ID や読み込めなかったまま保存すると新規作成扱いになるため、フォームを出さない
-  if (isEdit && workshopId === null) return <ErrorMessage message="ワークショップが見つかりませんでした" />
-  if (loadError) return <ErrorMessage message={loadError} />
-  if (finished) {
-    return (
-      <div className="mx-auto max-w-xl">
-        <p className="text-fg-secondary">{notEditableMessage}</p>
-        <Link to="/manage" className="mt-4 inline-block text-sm text-fg-secondary underline">
-          ワークショップの管理に戻る
-        </Link>
-      </div>
-    )
+      try {
+        await saveImage(saved.id)
+      } catch (err) {
+        setError(
+          `ワークショップの内容は保存しましたが、画像の${image.file ? 'アップロード' : '削除'}に失敗しました。` +
+            `もう一度保存してください(${extractErrorMessage(err, '原因不明のエラー')})`,
+        )
+        return
+      }
+      clearDraft()
+      navigate('/manage')
+    } finally {
+      setSaving(false)
+    }
   }
 
   // 保存のボタンは入力欄と同じカードの中、右下に置く(角の折れはカードの下の余白で避ける)
@@ -349,6 +357,7 @@ export function WorkshopFormPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
+      <Breadcrumb />
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold text-fg">
           {isEdit ? 'ワークショップを編集' : 'ワークショップを新規作成'}
@@ -410,7 +419,6 @@ export function WorkshopFormPage() {
             removeImage={image.removed}
             onImageChange={image.select}
             onRemoveImage={image.remove}
-            lockConditions={lockConditions}
             reservedCount={reservedCount}
             isNew={!isEdit}
             footer={footer}

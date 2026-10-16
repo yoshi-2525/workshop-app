@@ -9,6 +9,7 @@ import { formatDateTime, formatTime } from '@/utils/format'
 import { parseIdParam } from '@/utils/params'
 import { ErrorMessage, LoadingMessage } from '@/components/ui/StatusMessage'
 import { useBackState } from '@/hooks/useBackState'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 
 // 一覧の時刻は「10/15 14:55」と短く出す。今年でなければ年も付ける
 function formatShortDateTime(value: string): string {
@@ -48,6 +49,7 @@ export function InquiriesPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
+      <Breadcrumb />
       <div className="flex items-baseline justify-between gap-3">
         <h1 className="text-xl font-semibold text-fg">問い合わせ</h1>
         {unreadThreads > 0 && (

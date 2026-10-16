@@ -73,7 +73,7 @@ export function AboutPage() {
           はじめての方へ
         </h2>
         <p className="mt-4 leading-loose text-fg-secondary">
-          気になる場を見つけたら、まずは詳細をのぞいてみてください。
+          気になる対話を見つけたら、まずは詳細をのぞいてみてください。
           参加の前に「対話のルール」にも目を通してもらえると、安心して当日を迎えられます。
         </p>
         <div className="mt-6 flex flex-wrap justify-end gap-3 ">
