@@ -20,7 +20,7 @@ def upgrade() -> None:
     # 予約した参加者にだけ見せる当日の案内と緊急連絡先。開催前日のリマインダーにも載せる
     op.add_column(
         "workshops",
-        sa.Column("participant_guide", sa.Text(), nullable=False, server_default=""),
+        sa.Column("participant_guide", sa.Text(), nullable=False, server_default=sa.text("('')")),
     )
     op.add_column(
         "workshops",

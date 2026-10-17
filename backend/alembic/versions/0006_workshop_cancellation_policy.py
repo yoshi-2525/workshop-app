@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column(
         "workshops",
-        sa.Column("cancellation_policy", sa.Text(), nullable=False, server_default=""),
+        sa.Column("cancellation_policy", sa.Text(), nullable=False, server_default=sa.text("('')")),
     )
 
 

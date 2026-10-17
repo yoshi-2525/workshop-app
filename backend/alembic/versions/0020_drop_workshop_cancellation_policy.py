@@ -26,5 +26,5 @@ def downgrade() -> None:
     # 列は戻すが、削除した文章は戻らない(空文字になる)
     op.add_column(
         "workshops",
-        sa.Column("cancellation_policy", sa.Text(), nullable=False, server_default=""),
+        sa.Column("cancellation_policy", sa.Text(), nullable=False, server_default=sa.text("('')")),
     )
