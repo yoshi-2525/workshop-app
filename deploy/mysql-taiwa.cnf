@@ -1,0 +1,7 @@
+# /etc/mysql/mysql.conf.d/zz-taiwa.cnf
+# メモリ 2GB の EC2 で uvicorn と同居させるための設定
+[mysqld]
+bind-address = 127.0.0.1
+innodb_buffer_pool_size = 256M
+max_connections = 50
+performance_schema = OFF

@@ -121,7 +121,7 @@ class WorkshopSearchQuery(PageQuery):
     q: str | None = Field(default=None, max_length=100)
     location_type: LocationType | None = None
     price: Literal["free", "paid"] | None = None
-    # price=paid のときだけ使う
+    # 参加費の上限(円)。price=free のときは使わない
     max_price: int | None = Field(default=None, ge=0)
     # 予約できる(満員でなく、予約の締め切り前の)ものだけ
     available: bool = False

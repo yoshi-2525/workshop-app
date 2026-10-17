@@ -57,6 +57,76 @@ return to_workshop_read(db, workshop, current_user)
 - API と DB の両方で守る制約は、定数を1つ定義して両方で使う（例: `MAX_TICKETS_PER_RESERVATION` を CHECK 制約とスキーマの両方で使う）。
 - 二重登録は一意制約で防ぐ（予約・お気に入り・通知など）。
 - どの経路で更新しても必要な値は、ORM のイベントで設定する（例: `_set_published_at`）。
+- モデルには列・制約・関連・状態の Enum だけを置き、業務ルールの判定（「公開中なら変更できない」など）は `services/` に置く。
+
+### core/ — 業務に依存しない共通の仕組み
+
+- 認証・パスワード・エラー応答・時刻・外部 API の呼び出し口など、どの業務からも使う仕組みを置く。ワークショップ・予約などの業務ルールは置かない（`services/` へ）。
+- `core/` から `services/` / `routers/` を import しない。
+
+### 依存の向き
+
+```
+routers → services → models / schemas / core
+                     schemas → models（制約の定数を使う）
+```
+
+`services/` から `routers/` を、`models/` / `schemas/` から `services/` を import しない。`core/deps.py` は認証のため例外的に `models/user.py` を使う。
+
+## ファイルごとの役割
+
+`routers/` と `services/` は、それぞれの CLAUDE.md の「ファイルごとの役割」を参照。
+
+### app/ 直下
+
+| ファイル | 役割 |
+|---|---|
+| `main.py` | FastAPI アプリの組み立て。CORS・`BodySizeLimitMiddleware`、ルーターの登録（`/api`）、`/api/uploads` の配信、lifespan での APScheduler（リマインダー 30 分・決済の後片付け 10 分）の起動 |
+| `config.py` | `Settings`（`.env` で上書き）。`check_jwt_secret()` で弱い秘密鍵を警告・拒否する |
+| `database.py` | エンジンとセッション、`Base`、`get_db()`。接続ごとに UTC・READ COMMITTED に固定する |
+
+### core/
+
+| ファイル | 役割 |
+|---|---|
+| `deps.py` | `get_current_user` / `get_current_user_optional` / `require_roles()` |
+| `security.py` | bcrypt のハッシュ・照合（`burn_password_check` で存在しないユーザーでも同じ時間をかける）、JWT の発行・検証 |
+| `errors.py` | `bad_request()` / `not_found()` / `forbidden()` / `conflict()` / `service_unavailable()` とよく使うメッセージの定数 |
+| `stripe_client.py` | Stripe API の唯一の呼び出し口。SDK の例外を `StripeUnavailable` に変える。テストではここを差し替える |
+| `rate_limit.py` | `FailureLimiter`（ログイン失敗の回数制限。プロセスのメモリに持つ） |
+| `body_limit.py` | `BodySizeLimitMiddleware`（受け取り中に本文の大きさを確かめて 413） |
+| `timeutil.py` | `utcnow_naive()`、`hours_label()` |
+
+### models/
+
+| ファイル | テーブル・Enum・定数 |
+|---|---|
+| `user.py` | `User`、`UserRole` |
+| `workshop.py` | `Workshop`、`WorkshopStatus` / `LocationType` / `PaymentMethod`、公開日時を設定する `_set_published_at` |
+| `reservation.py` | `Reservation`、`ReservationStatus` / `CancelReason` / `AttendanceStatus`、`MAX_TICKETS_PER_RESERVATION` |
+| `payment.py` | `Payment`（オンライン決済1件ごとの金額・手数料・主催者の受取額）、`PaymentStatus` |
+| `payout.py` | `PayoutBankAccount` / `PayoutRequest`（共通の口座の列は `_BankAccountColumns`）、口座の桁数・長さの定数 |
+| `stripe_event.py` | `StripeEvent`（処理済みの Webhook イベント。二重反映の防止） |
+| `notification.py` | `Notification`、`NotificationType` |
+| `inquiry.py` | `Inquiry` / `InquiryMessage`、`INQUIRY_MESSAGE_MAX_LENGTH` |
+| `favorite.py` / `follow.py` | `Favorite`、`FacilitatorFollow`（対象は `FOLLOWABLE_ROLE`） |
+| `__init__.py` | 全モデルの import（Alembic とリレーションの解決のため） |
+
+### schemas/
+
+| ファイル | 役割 |
+|---|---|
+| `types.py` | 共通の型。`TrimmedStr`、`EmailAddress`、`NaiveUTCDateTime`（入力）、`UTCDateTime`（出力） |
+| `pagination.py` | `PageQuery`（`limit` / `offset`、`extra="forbid"`） |
+| `workshop.py` | `WorkshopInput`、`WorkshopRead`（`viewer` / `participant_info` を含む）、`WorkshopSearchQuery` などと、入力の上限の定数（フロントの `utils/workshop.ts` と揃える） |
+| `reservation.py` | `ReservationCreate` / `ReservationRead` / `ReservationCancel` / `AttendanceUpdate` |
+| `payment.py` | 振込先口座の入力・表示、売上の状況・明細、振込の申請（主催者用・運営用） |
+| `user.py` | `UserRegister`（自分で選べるロールは `SelfRegisterRole` だけ）、`UserRead` / `UserUpdate`、主催者の公開プロフィール |
+| `inquiry.py` / `notification.py` / `auth.py` | 問い合わせ、通知、ログインのトークン |
+
+### scripts/
+
+開発用の手作業のスクリプト（サンプルデータの投入・削除、`set_role.py` による admin への昇格）。アプリからは import しない。データは `models/` を直接作ってよいが、通知の作成など業務ロジックは書き直さず `services/` の関数を使う（例: `send_participant_guide`）。
 
 ## エラー応答
 
@@ -133,4 +203,4 @@ return to_workshop_read(db, workshop, current_user)
 
 ## レビュー
 
-バックエンドを変更したら、`backend-code-reviewer` エージェント（`.claude/agents/backend-code-reviewer.md`）でセキュリティ・入力バリデーション・データ整合性・保守性を確認する。
+バックエンドを変更したら、`backend-code-reviewer` エージェント（`.claude/agents/backend-code-reviewer.md`）でセキュリティ・入力バリデーション・データ整合性・保守性・責務の配置を確認する。責務の配置はこのファイルの「層の役割」と、`app/routers/CLAUDE.md`・`app/services/CLAUDE.md` を基準にする。

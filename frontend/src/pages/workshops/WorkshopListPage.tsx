@@ -8,6 +8,8 @@ import { useListScrollRestoration } from '@/hooks/useListScrollRestoration'
 import { useWorkshopListPage } from '@/hooks/useWorkshopListPage'
 import { HomeHero } from '@/components/home/HomeHero'
 import {
+  DEFAULT_LIST_STATE,
+  hasSearchConditions,
   readListState,
   saveLastListUrl,
   toSearchParams,
@@ -56,13 +58,14 @@ export function WorkshopListPage() {
   }
 
   const totalPages = Math.ceil(total / PER_PAGE)
-  const hasActiveFilter = Boolean(
-    listState.q ||
-      listState.locationType !== 'all' ||
-      listState.price !== 'all' ||
-      listState.date !== 'all' ||
-      onlyAvailable,
-  )
+  const hasSearchFilter = hasSearchConditions(listState)
+  const hasActiveFilter = hasSearchFilter || onlyAvailable
+
+  // 検索欄の条件だけを初期値に戻す(参加可能・並び替えはそのまま)
+  function clearFilters() {
+    const { q, locationType, price, maxPrice, date, from, to } = DEFAULT_LIST_STATE
+    updateList({ q, locationType, price, maxPrice, date, from, to, page: 1 })
+  }
 
   return (
     <div>
@@ -94,14 +97,30 @@ export function WorkshopListPage() {
         {!loading && !error && workshops.length === 0 && (
           <p className="mt-6 text-fg-muted">
             {hasActiveFilter
-              ? '条件に合う対話は見つかりませんでした。条件を少しゆるめてみてください。'
-              : 'いまは開かれる予定の対話がありません。また、ふと思い出したときにのぞいてみてください。'}
+              ? '条件に合う対話は見つかりませんでした。'
+              : 'いまは開かれる予定の対話がありません。'}
           </p>
         )}
         {!loading && !error && workshops.length > 0 && (
           <p className="mt-6 text-sm text-fg-secondary">
-            全{total}件中 {(page - 1) * PER_PAGE + 1}〜{(page - 1) * PER_PAGE + workshops.length}件を表示
+            <span className="text-lg font-semibold text-fg">{total}</span>件の対話
+            {totalPages > 1 && (
+              <span className="ml-2 text-xs text-fg-muted">
+                （{(page - 1) * PER_PAGE + 1}〜{(page - 1) * PER_PAGE + workshops.length}件を表示）
+              </span>
+            )}
           </p>
+        )}
+        {hasSearchFilter && !loading && (
+          <div className="mt-1 flex justify-end">
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded text-[13px] text-fg-secondary underline underline-offset-[3px] hover:text-fg focus-ring focus:outline-none"
+            >
+              条件をクリア
+            </button>
+          </div>
         )}
       </div>
       <ErrorMessage message={error} className="mt-6" />

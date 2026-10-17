@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import type { WorkshopSort } from '@/api/workshops'
+import type { WorkshopSort } from '@/types'
 
 const SORT_OPTIONS: { value: WorkshopSort; label: string }[] = [
   { value: 'start', label: '開催日時の近い順' },

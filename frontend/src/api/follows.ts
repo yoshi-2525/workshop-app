@@ -1,6 +1,5 @@
 import { apiClient, fetchPage } from '@/api/client'
-import type { WorkshopSort } from '@/api/workshops'
-import type { FacilitatorProfile, Page, Workshop } from '@/types'
+import type { FacilitatorProfile, Page, Workshop, WorkshopSort } from '@/types'
 
 export async function followFacilitator(facilitatorId: number): Promise<void> {
   await apiClient.post(`/facilitators/${facilitatorId}/follow`)

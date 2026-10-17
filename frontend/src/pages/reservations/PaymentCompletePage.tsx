@@ -81,7 +81,7 @@ export function PaymentCompletePage() {
   // 支払いが確定したら、参加登録の完了画面へ(この画面は履歴に残さない)
   // (confirmed になるのは予約を取得できたときだけなので、reservation は必ずある)
   if (view === 'confirmed') {
-    const state: ReservationCompleteState = { workshopTitle: reservation?.workshop.title ?? '' }
+    const state: ReservationCompleteState = { reservation: reservation! }
     return <Navigate to={RESERVATION_COMPLETE_PATH} replace state={state} />
   }
 

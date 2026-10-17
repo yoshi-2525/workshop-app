@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeWorkshop } from '@/test/factories'
 import {
+  firstReservableDate,
   getReservationBlocker,
   hasFewSeats,
   isAttendanceOpen,
@@ -61,6 +62,11 @@ describe('日時の判定', () => {
     expect(reservationDeadline(workshop)).toBe(hoursFromNow(24))
     expect(isReservationClosed(makeWorkshop({ start_at: hoursFromNow(24) }))).toBe(true)
     expect(isReservationClosed(makeWorkshop({ start_at: hoursFromNow(25) }))).toBe(false)
+  })
+
+  it('予約できる最初の日は、締め切りの時間だけ先の日(0時)', () => {
+    expect(firstReservableDate(new Date(2026, 9, 4, 0, 0))).toEqual(new Date(2026, 9, 5))
+    expect(firstReservableDate(new Date(2026, 9, 31, 23, 59))).toEqual(new Date(2026, 10, 1))
   })
 
   it('出欠は開始の24時間前から記録できる', () => {

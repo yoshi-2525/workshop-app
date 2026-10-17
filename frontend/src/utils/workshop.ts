@@ -1,4 +1,5 @@
 import type { LocationType, Workshop } from '@/types'
+import { addDays } from '@/utils/date'
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -53,6 +54,12 @@ export const RESERVATION_DEADLINE_HOURS_BEFORE = 24
 // 予約の締め切り日時(開始日時の RESERVATION_DEADLINE_HOURS_BEFORE 時間前)。ISO 8601 形式
 export function reservationDeadline(workshop: Pick<Workshop, 'start_at'>): string {
   return new Date(new Date(workshop.start_at).getTime() - RESERVATION_DEADLINE_HOURS_BEFORE * HOUR_MS).toISOString()
+}
+
+// まだ予約を受け付けているワークショップがありうる最初の日(端末の時間帯での0時)。
+// 締め切りが開始の RESERVATION_DEADLINE_HOURS_BEFORE 時間前なので、それより前に始まる日のものは予約できない
+export function firstReservableDate(now = new Date()): Date {
+  return addDays(new Date(now.getTime() + RESERVATION_DEADLINE_HOURS_BEFORE * HOUR_MS), 0)
 }
 
 // 予約の締め切りを過ぎたかどうか。開始済みのものも含む

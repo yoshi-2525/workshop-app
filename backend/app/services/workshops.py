@@ -244,8 +244,9 @@ def public_workshops_select(query: WorkshopSearchQuery, current_user: User | Non
         stmt = stmt.where(Workshop.price == 0)
     elif query.price == "paid":
         stmt = stmt.where(Workshop.price > 0)
-        if query.max_price is not None:
-            stmt = stmt.where(Workshop.price <= query.max_price)
+    # 上限金額は無料・有料を問わず使う(「3,000円まで」なら無料のものも含める)
+    if query.max_price is not None and query.price != "free":
+        stmt = stmt.where(Workshop.price <= query.max_price)
     if query.start_from is not None:
         stmt = stmt.where(Workshop.start_at >= query.start_from)
     if query.start_to is not None:

@@ -1,12 +1,12 @@
 import { useId, type ChangeEvent, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react'
 import { LocationTypeBadge } from '@/components/workshop/LocationTypeBadge'
+import { WorkshopDateTime } from '@/components/workshop/WorkshopDateTime'
 import { NumberInput } from '@/components/ui/NumberInput'
 import { PaperCard } from '@/components/ui/PaperCard'
 import { RequiredMark } from '@/components/ui/RequiredMark'
 import { LABEL_CLASS } from '@/components/ui/styles'
 import type { Workshop, WorkshopInput } from '@/types'
-import { getDayInfo } from '@/utils/date'
-import { formatPriceYen, formatTime } from '@/utils/format'
+import { formatPriceYen } from '@/utils/format'
 import { UPLOAD_IMAGE_ACCEPT } from '@/utils/image'
 import { googleMapsSearchUrl } from '@/utils/maps'
 import {
@@ -34,19 +34,6 @@ interface PublishedWorkshopFormFieldsProps {
   reservedCount: number
   // カードの最後に置く内容(保存・中止のボタン)
   footer?: ReactNode
-}
-
-// 「2026/10/24(土)」の形式
-function formatDay(date: Date): string {
-  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}(${getDayInfo(date).label})`
-}
-
-// 「2026/10/24(土) 14:00〜16:00」。終了が別の日なら終了側にも日付を付ける
-function formatPeriod(startAt: string, endAt: string): string {
-  const start = new Date(startAt)
-  const end = new Date(endAt)
-  const sameDay = start.toDateString() === end.toDateString()
-  return `${formatDay(start)} ${formatTime(start)}〜${sameDay ? '' : `${formatDay(end)} `}${formatTime(end)}`
 }
 
 // 「予約の条件」の1項目。値が空なら「未設定」と出す
@@ -232,7 +219,9 @@ export function PublishedWorkshopFormFields({
               </a>
             )}
           </ConditionRow>
-          <ConditionRow label="開催日時">{formatPeriod(workshop.start_at, workshop.end_at)}</ConditionRow>
+          <ConditionRow label="開催日時">
+            <WorkshopDateTime start={workshop.start_at} end={workshop.end_at} />
+          </ConditionRow>
           <ConditionRow label="参加費">
             {formatPriceYen(workshop.price)}
             {paymentLabel && ` ・ ${paymentLabel}`}

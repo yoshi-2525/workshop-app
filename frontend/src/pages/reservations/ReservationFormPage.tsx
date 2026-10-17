@@ -8,7 +8,7 @@ import { useApiResource } from '@/hooks/useApiResource'
 import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { formatPrice } from '@/utils/format'
 import { cancellationSummary, isOnlinePayment } from '@/utils/payment'
-import type { Workshop } from '@/types'
+import type { ReservationCreateResult, Workshop } from '@/types'
 import { parseIdParam } from '@/utils/params'
 import {
   getReservationBlocker,
@@ -87,13 +87,13 @@ function useAfterReservation(onRestored?: () => void) {
     return () => window.removeEventListener('pageshow', handlePageShow)
   }, [])
 
-  function goNext(checkoutUrl: string | null, workshopTitle: string) {
+  function goNext({ checkout_url: checkoutUrl, reservation }: ReservationCreateResult) {
     if (checkoutUrl) {
       setRedirecting(true)
       window.location.assign(checkoutUrl)
       return
     }
-    const state: ReservationCompleteState = { workshopTitle }
+    const state: ReservationCompleteState = { reservation }
     navigate(RESERVATION_COMPLETE_PATH, { state })
   }
 
@@ -116,7 +116,7 @@ function PendingPaymentPanel({ workshop, onChanged }: { workshop: Workshop; onCh
       'お支払いを再開できませんでした',
       'resume',
     )
-    if (result.ok) goNext(result.value.checkout_url, workshop.title)
+    if (result.ok) goNext(result.value)
   }
 
   async function handleAbandon() {
@@ -229,7 +229,7 @@ export function ReservationFormPage() {
       online ? '予約またはお支払いの準備ができませんでした' : '予約に失敗しました',
     )
     if (result.ok) {
-      goNext(result.value.checkout_url, workshop.title)
+      goNext(result.value)
     } else if (online && !result.skipped) {
       // 席の確保だけ済んで支払い画面に進めなかった場合もあるので、取り直して今の状態を出す
       reload()

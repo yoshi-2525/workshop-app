@@ -33,6 +33,7 @@ npx vitest run src/utils/workshop.test.ts   # 1 ファイル
 
 - 変更後もフロントエンド :5173 とバックエンド :8000 は起動したままにしておく。
 - Swagger UI: http://localhost:8000/docs
+- 本番は AWS EC2 1 台（Nginx + uvicorn + MySQL 同居）。構築・更新・バックアップの手順と設定ファイルは [deploy/README.md](deploy/README.md)。
 
 ## アーキテクチャ
 
@@ -51,6 +52,8 @@ npx vitest run src/utils/workshop.test.ts   # 1 ファイル
 層の役割（routers は薄く・services に業務ロジック・commit はルーター）、エラー応答、権限、行ロック、日時、マイグレーション、テストの方針は [backend/CLAUDE.md](backend/CLAUDE.md) にまとめている。
 
 ### フロントエンド (`frontend/src/`)
+
+フォルダごとの責務（画面・部品・フック・utils・api の分担と依存の向き）、置き場所の決め方、ファイルごとの役割は [frontend/CLAUDE.md](frontend/CLAUDE.md) にまとめている。
 
 - import は `@/` エイリアス（`src` からのパス）で書く。
 - API 呼び出しは `api/` にリソースごとの関数として置き、画面からは `apiClient` を直接使わない。エラー文言は `extractErrorMessage()` で取り出す。
@@ -79,4 +82,4 @@ npx vitest run src/utils/workshop.test.ts   # 1 ファイル
 ## 設計書・エージェント
 
 - `docs/design/` に設計書（サイトマップ、画面遷移、ER 図など）がある。更新は `design-doc-writer` エージェントで行う。
-- コード変更後のレビューには `.claude/agents/` の `frontend-code-reviewer` / `backend-code-reviewer` を使う。
+- コード変更後のレビューには `.claude/agents/` の `frontend-code-reviewer` / `backend-code-reviewer` を使う。どちらも「責務の配置」の観点を持ち、`frontend/CLAUDE.md`・`backend/CLAUDE.md`（と `app/routers/`・`app/services/` の CLAUDE.md）に書いた役割を基準にする。フォルダやファイルの役割を変えたら、これらの CLAUDE.md も直す。

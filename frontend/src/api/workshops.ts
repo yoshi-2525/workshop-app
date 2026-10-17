@@ -1,26 +1,5 @@
 import { apiClient, fetchPage, fileFormData } from '@/api/client'
-import type { LocationType, Page, RelatedWorkshops, Workshop, WorkshopInput } from '@/types'
-
-// start: 開催日時の近い順 / newest: 公開日時の新しい順 / price: 価格の安い順
-export type WorkshopSort = 'start' | 'newest' | 'price'
-
-export type ListWorkshopsParams = {
-  facilitator_id?: number
-  q?: string
-  location_type?: LocationType
-  price?: 'free' | 'paid'
-  max_price?: number
-  // true なら満員でない(チケットを購入できる)ものだけ
-  available?: boolean
-  // true ならログイン中のユーザーが予約済みのものを除く
-  exclude_reserved?: boolean
-  // true ならログイン中のユーザーが主催するものを除く
-  exclude_own?: boolean
-  sort?: WorkshopSort
-  // 開催日時の範囲 [start_from, start_to)。ISO 8601 形式
-  start_from?: string
-  start_to?: string
-}
+import type { ListWorkshopsParams, Page, RelatedWorkshops, Workshop, WorkshopInput } from '@/types'
 
 export async function listWorkshops(
   params?: ListWorkshopsParams,

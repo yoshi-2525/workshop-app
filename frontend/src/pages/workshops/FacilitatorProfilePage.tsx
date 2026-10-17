@@ -1,6 +1,7 @@
 import { useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { getFacilitatorProfile } from '@/api/users'
-import { listWorkshops, type WorkshopSort } from '@/api/workshops'
+import { listWorkshops } from '@/api/workshops'
+import type { WorkshopSort } from '@/types'
 import { FollowButton } from '@/components/facilitator/FollowButton'
 import { Avatar } from '@/components/ui/Avatar'
 import { BackLink } from '@/components/ui/BackLink'

@@ -1,6 +1,5 @@
-import type { ListWorkshopsParams, WorkshopSort } from '@/api/workshops'
-import type { LocationType } from '@/types'
-import { parseDateInput } from '@/utils/date'
+import type { ListWorkshopsParams, LocationType, WorkshopSort } from '@/types'
+import { addDays, parseDateInput } from '@/utils/date'
 import { WORKSHOP_PRICE_MAX } from '@/utils/workshop'
 import { readStorage, writeStorage } from '@/utils/storage'
 
@@ -16,6 +15,7 @@ export interface WorkshopListState {
   q: string
   locationType: LocationTypeFilter
   price: PriceFilter
+  // 参加費の上限(円)。price が free 以外のときに使う(無料のものも含めて、この金額以下)
   maxPrice: number | undefined
   date: DateFilter
   // date が range のときの期間(YYYY-MM-DD)。片方だけでもよい
@@ -26,6 +26,7 @@ export interface WorkshopListState {
   page: number
 }
 
+// バックエンドの schemas/workshop.py の WorkshopSearchQuery.q と揃える
 export const KEYWORD_MAX_LENGTH = 100
 export const DEFAULT_LIST_STATE: WorkshopListState = {
   q: '',
@@ -38,6 +39,17 @@ export const DEFAULT_LIST_STATE: WorkshopListState = {
   available: false,
   sort: 'start',
   page: 1,
+}
+
+// 検索欄の条件(キーワード・開催日・開催形式・参加費)のどれかを指定しているか。参加可能・並び替え・ページは含めない
+export function hasSearchConditions(state: WorkshopListState): boolean {
+  return (
+    state.q !== DEFAULT_LIST_STATE.q ||
+    state.locationType !== DEFAULT_LIST_STATE.locationType ||
+    state.price !== DEFAULT_LIST_STATE.price ||
+    state.maxPrice !== DEFAULT_LIST_STATE.maxPrice ||
+    state.date !== DEFAULT_LIST_STATE.date
+  )
 }
 
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -54,35 +66,23 @@ function isValidMaxPrice(value: number): boolean {
   return Number.isInteger(value) && value >= 0 && value <= WORKSHOP_PRICE_MAX
 }
 
-// --- 検索フォームの入力チェック(URL を読むときと同じ基準で確かめる) ---
-
-// 上限金額の入力欄の値を数値にする。空欄なら指定なし(undefined)
-export function parseMaxPriceInput(input: string): { value: number | undefined } | { error: string } {
-  if (!input.trim()) return { value: undefined }
-  const value = Number(input)
-  if (!isValidMaxPrice(value)) {
-    return { error: `上限金額は 0〜${WORKSHOP_PRICE_MAX.toLocaleString()} の整数で入力してください` }
+// 期間指定(YYYY-MM-DD、片方だけでもよい)を「10/16〜10/20」の形で表す。指定のない側は空にする
+export function dateRangeLabel(from: string, to: string): string {
+  const monthDay = (value: string) => {
+    if (!value) return ''
+    const date = parseDateInput(value)
+    return `${date.getMonth() + 1}/${date.getDate()}`
   }
-  return { value }
-}
-
-// 期間指定の開始日・終了日(YYYY-MM-DD、片方だけでもよい)を確かめ、問題があればメッセージを返す
-export function validateDateRange(from: string, to: string): string | null {
-  if (!from && !to) return '開始日か終了日の少なくとも一方を選択してください'
-  if ((from && !DATE_INPUT_PATTERN.test(from)) || (to && !DATE_INPUT_PATTERN.test(to))) {
-    return '日付の形式が正しくありません'
-  }
-  // YYYY-MM-DD 形式どうしなので、文字列の比較で日付の前後が分かる
-  if (from && to && to < from) return '終了日は開始日以降の日付を選択してください'
-  return null
+  return `${monthDay(from)}〜${monthDay(to)}`
 }
 
 // URL は手で書き換えられるので、不正な値は無視して既定値に戻す
 export function readListState(params: URLSearchParams): WorkshopListState {
   const price = pick(params.get('price'), ['all', 'free', 'paid'] as const, 'all')
   const maxPriceRaw = Number(params.get('max_price'))
+  // 上限金額は「無料のみ」以外のときに使う(以前の URL の price=paid&max_price=... もそのまま読める)
   const maxPrice =
-    price === 'paid' && params.get('max_price') !== null && isValidMaxPrice(maxPriceRaw) ? maxPriceRaw : undefined
+    price !== 'free' && params.get('max_price') !== null && isValidMaxPrice(maxPriceRaw) ? maxPriceRaw : undefined
 
   let date = pick(params.get('date'), DATE_FILTERS, 'all')
   let from = ''
@@ -117,7 +117,7 @@ export function toSearchParams(state: WorkshopListState): URLSearchParams {
   if (state.q) params.set('q', state.q)
   if (state.locationType !== 'all') params.set('location_type', state.locationType)
   if (state.price !== 'all') params.set('price', state.price)
-  if (state.price === 'paid' && state.maxPrice !== undefined) params.set('max_price', String(state.maxPrice))
+  if (state.price !== 'free' && state.maxPrice !== undefined) params.set('max_price', String(state.maxPrice))
   if (state.date !== 'all') params.set('date', state.date)
   if (state.date === 'range') {
     if (state.from) params.set('from', state.from)
@@ -127,10 +127,6 @@ export function toSearchParams(state: WorkshopListState): URLSearchParams {
   if (state.sort !== 'start') params.set('sort', state.sort)
   if (state.page > 1) params.set('page', String(state.page))
   return params
-}
-
-function addDays(base: Date, days: number): Date {
-  return new Date(base.getFullYear(), base.getMonth(), base.getDate() + days)
 }
 
 // 端末の時間帯での日付の区切り(0時)を基準に、開催日時の範囲 [start_from, start_to) を返す。
@@ -158,7 +154,7 @@ export function toApiParams(state: WorkshopListState): ListWorkshopsParams {
     q: state.q || undefined,
     location_type: state.locationType === 'all' ? undefined : state.locationType,
     price: state.price === 'all' ? undefined : state.price,
-    max_price: state.price === 'paid' ? state.maxPrice : undefined,
+    max_price: state.price !== 'free' ? state.maxPrice : undefined,
     available: state.available || undefined,
     // 予約済みのワークショップは一覧に出さない(予約は「予約履歴・参加履歴」から確認する)
     exclude_reserved: true,

@@ -1,0 +1,19 @@
+# /etc/systemd/system/taiwa.service
+# バックエンド(uvicorn)を常駐させる。Nginx から 127.0.0.1:8000 に転送する
+[Unit]
+Description=TAIWA backend (FastAPI)
+After=network.target mysql.service
+Requires=mysql.service
+
+[Service]
+User=ubuntu
+WorkingDirectory=/srv/taiwa/backend
+# --proxy-headers: ログイン失敗の回数制限は接続元 IP ごとに数えるので、Nginx が付ける X-Forwarded-For を使う
+# (付けないと全員が 127.0.0.1 になり、誰かの失敗で全員がログインできなくなる)。
+# worker を増やすとスケジューラーもプロセスごとに動くが、MySQL の GET_LOCK で二重実行はされない
+ExecStart=/srv/taiwa/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2 --proxy-headers
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

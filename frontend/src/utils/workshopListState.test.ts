@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  dateRangeLabel,
   DEFAULT_LIST_STATE,
-  parseMaxPriceInput,
+  hasSearchConditions,
   readListState,
   toApiParams,
   toSearchParams,
-  validateDateRange,
   type WorkshopListState,
 } from '@/utils/workshopListState'
 
@@ -77,22 +77,6 @@ describe('toSearchParams', () => {
   })
 })
 
-describe('入力チェック', () => {
-  it('parseMaxPriceInput', () => {
-    expect(parseMaxPriceInput('')).toEqual({ value: undefined })
-    expect(parseMaxPriceInput('500')).toEqual({ value: 500 })
-    expect(parseMaxPriceInput('-1')).toHaveProperty('error')
-    expect(parseMaxPriceInput('abc')).toHaveProperty('error')
-  })
-
-  it('validateDateRange', () => {
-    expect(validateDateRange('', '')).not.toBeNull()
-    expect(validateDateRange('2026-10-01', '')).toBeNull()
-    expect(validateDateRange('2026-10-05', '2026-10-01')).not.toBeNull()
-    expect(validateDateRange('2026/10/01', '')).not.toBeNull()
-  })
-})
-
 describe('toApiParams', () => {
   it('自分の予約済み・主催のものは常に除き、既定値の条件は送らない', () => {
     expect(toApiParams(DEFAULT_LIST_STATE)).toEqual({
@@ -123,5 +107,36 @@ describe('toApiParams', () => {
     const params = toApiParams({ ...DEFAULT_LIST_STATE, date: 'range', from: '2026-10-01', to: '2026-10-03' })
     expect(params.start_from).toBe(new Date(2026, 9, 1).toISOString())
     expect(params.start_to).toBe(new Date(2026, 9, 4).toISOString())
+  })
+})
+
+describe('dateRangeLabel', () => {
+  it('開始日・終了日を月/日で表す', () => {
+    expect(dateRangeLabel('2026-10-16', '2026-11-03')).toBe('10/16〜11/3')
+  })
+
+  it('指定のない側は空にする', () => {
+    expect(dateRangeLabel('2026-10-16', '')).toBe('10/16〜')
+    expect(dateRangeLabel('', '2026-01-05')).toBe('〜1/5')
+  })
+})
+
+describe('hasSearchConditions', () => {
+  it('既定の条件なら指定なしとみなす', () => {
+    expect(hasSearchConditions(DEFAULT_LIST_STATE)).toBe(false)
+  })
+
+  it('参加可能・並び替え・ページだけを変えても指定なしとみなす', () => {
+    expect(hasSearchConditions({ ...DEFAULT_LIST_STATE, available: true, sort: 'price', page: 3 })).toBe(false)
+  })
+
+  it.each<Partial<WorkshopListState>>([
+    { q: '哲学' },
+    { locationType: 'online' },
+    { price: 'free' },
+    { maxPrice: 3000 },
+    { date: 'range', from: '2026-10-26', to: '2026-10-26' },
+  ])('検索欄の条件を指定していれば true(%o)', (changes) => {
+    expect(hasSearchConditions({ ...DEFAULT_LIST_STATE, ...changes })).toBe(true)
   })
 })

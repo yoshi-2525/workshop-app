@@ -21,6 +21,11 @@ export function toDateTimeInputValue(date: Date): string {
   return `${toDateInputValue(date)}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`
 }
 
+// base の日付から days 日後の、端末の時間帯での0時。days = 0 ならその日の0時
+export function addDays(base: Date, days: number): Date {
+  return new Date(base.getFullYear(), base.getMonth(), base.getDate() + days)
+}
+
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
 
 // 曜日の表示ラベル(「土」「月・祝」など)と、文字色を決めるための日の種類

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getDayInfo, parseDateInput, toDateInputValue, toDateTimeInputValue } from '@/utils/date'
+import { addDays, getDayInfo, parseDateInput, toDateInputValue, toDateTimeInputValue } from '@/utils/date'
 import { formatDateTime, formatPrice, formatPriceYen, formatTime, formatYen } from '@/utils/format'
 import { parseIdParam } from '@/utils/params'
 import { canManageWorkshops, followButtonMode } from '@/utils/user'
@@ -40,6 +40,11 @@ describe('date', () => {
     expect([date.getFullYear(), date.getMonth(), date.getDate(), date.getHours()]).toEqual([2026, 9, 4, 0])
     expect(toDateInputValue(date)).toBe('2026-10-04')
     expect(toDateTimeInputValue(new Date(2026, 0, 2, 3, 4))).toBe('2026-01-02T03:04')
+  })
+
+  it('addDays は days 日後の0時を返し、月をまたげる', () => {
+    expect(addDays(new Date(2026, 9, 31, 15, 30), 1)).toEqual(new Date(2026, 10, 1))
+    expect(addDays(new Date(2026, 9, 4, 23, 59), 0)).toEqual(new Date(2026, 9, 4))
   })
 
   it('曜日と祝日', () => {

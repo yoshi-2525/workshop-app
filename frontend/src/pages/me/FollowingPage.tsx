@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { listFollowedFacilitators, listFollowedWorkshops } from '@/api/follows'
-import type { WorkshopSort } from '@/api/workshops'
+import type { WorkshopSort } from '@/types'
 import { FollowButton } from '@/components/facilitator/FollowButton'
 import { Avatar } from '@/components/ui/Avatar'
 import { MaterialIcon } from '@/components/ui/MaterialIcon'

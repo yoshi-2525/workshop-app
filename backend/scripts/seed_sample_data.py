@@ -18,6 +18,7 @@ from app.database import SessionLocal  # noqa: E402
 from app.models.reservation import Reservation, ReservationStatus  # noqa: E402
 from app.models.user import User, UserRole  # noqa: E402
 from app.models.workshop import LocationType, Workshop, WorkshopStatus  # noqa: E402
+from app.services.notifications import send_participant_guide  # noqa: E402
 
 PASSWORD = "password123"
 
@@ -47,6 +48,55 @@ SAMPLE_FACILITATORS = {
         "ogawa@example.com",
         "小川 直樹",
         "カウンセラー。言葉にならない気持ちを、無理に結論づけずに一緒に見つめる場づくりをしています。",
+    ),
+}
+
+# 主催者ごとの当日の緊急連絡先(架空の番号)
+SAMPLE_EMERGENCY_CONTACTS = {
+    "shiraishi": "090-0000-0001(白石)",
+    "hayase": "090-0000-0002(早瀬)",
+    "takahashi": "090-0000-0003(高橋)",
+    "nakamura": "090-0000-0004(中村)",
+    "ogawa": "090-0000-0005(小川)",
+}
+
+# 会場ごとの当日の案内。オンラインは配信に使うツール名(location)で引く
+SAMPLE_VENUE_GUIDES = {
+    "東京都渋谷区神宮前4丁目 表参道カフェスペース": (
+        "表参道駅 A2 出口から徒歩3分です。1階のカフェの奥にある階段から2階へお上がりください。\n"
+        "開始の15分前から受付をしています。ワンドリンク制で、飲み物は当日カフェでご注文いただけます。"
+    ),
+    "東京都渋谷区渋谷2丁目 渋谷コミュニティスペース": (
+        "渋谷駅 B1 出口から徒歩5分です。ビルの3階、エレベーターを降りて右手のお部屋が会場です。\n"
+        "開始の10分前から入室できます。筆記用具はこちらで用意しています。"
+    ),
+    "東京都千代田区神田神保町1丁目 神保町ブックカフェ": (
+        "神保町駅 A7 出口から徒歩2分です。店内奥の貸切スペースで行います。入口で主催者の名前をお伝えください。\n"
+        "店内の本は自由に手に取っていただけます。"
+    ),
+    "東京都新宿区西新宿1丁目 西新宿レンタルスペース": (
+        "新宿駅 西口から徒歩7分です。ビルの5階、502号室が会場です。\n"
+        "ビルの入口はオートロックです。1階のインターホンで「502」を呼び出してください。"
+    ),
+    "東京都渋谷区円山町 ミニシアター併設ラウンジ": (
+        "渋谷駅 道玄坂口から徒歩8分です。ミニシアターの受付で対話会の参加者とお伝えいただくと、ラウンジへご案内します。\n"
+        "上映作品の鑑賞は含まれていません。"
+    ),
+    "東京都渋谷区道玄坂2丁目 BAR しずく": (
+        "渋谷駅 道玄坂口から徒歩4分です。地下1階の木の扉が入口です。\n"
+        "当日は貸切のため、扉の前の札は「CLOSED」になっていますが、そのままお入りください。参加費にワンドリンクが含まれています。"
+    ),
+    "東京都中央区日本橋2丁目 日本橋ワークラウンジ": (
+        "日本橋駅 B6 出口から徒歩1分です。1階の受付で名前をお伝えのうえ、6階のラウンジへお上がりください。\n"
+        "館内は飲み物の持ち込みができます。"
+    ),
+    "Zoom": (
+        "参加用の Zoom の URL は、開催の前日までにこのメッセージでお送りします。\n"
+        "開始の5分前から入室できます。お名前は予約したときと同じ表示名にしてください。カメラのオンオフは自由です。"
+    ),
+    "Google Meet": (
+        "参加用の Google Meet の URL は、開催の前日までにこのメッセージでお送りします。\n"
+        "開始の5分前から入室できます。カメラのオンオフは自由です。"
     ),
 }
 
@@ -146,15 +196,30 @@ def get_or_create_workshop(db, **kwargs) -> Workshop:
     return workshop
 
 
-def get_or_create_reservation(db, workshop_id: int, user_id: int, status: ReservationStatus) -> None:
+def ensure_participant_guide(workshop: Workshop, facilitator_key: str) -> bool:
+    """当日の案内・緊急連絡先がどちらも空なら、サンプルの内容を入れる。入れたら True
+
+    主催者が書いた内容は上書きしない。案内のなかった頃のサンプルデータに再投入したときにも入るようにするため、
+    作成時だけでなく既存のワークショップにも入れる
+    """
+    if workshop.participant_guide or workshop.emergency_contact:
+        return False
+    workshop.participant_guide = SAMPLE_VENUE_GUIDES.get(workshop.location, "")
+    workshop.emergency_contact = SAMPLE_EMERGENCY_CONTACTS[facilitator_key]
+    return True
+
+
+def get_or_create_reservation(db, workshop_id: int, user_id: int, status: ReservationStatus) -> bool:
+    """予約を作る。作ったら True(既にあれば何もしない)"""
     existing = (
         db.query(Reservation)
         .filter(Reservation.workshop_id == workshop_id, Reservation.user_id == user_id)
         .first()
     )
     if existing is not None:
-        return
+        return False
     db.add(Reservation(workshop_id=workshop_id, user_id=user_id, status=status))
+    return True
 
 
 def main() -> None:
@@ -169,6 +234,7 @@ def main() -> None:
         shiraishi, hayase, takahashi, nakamura, ogawa = (
             facilitators[key] for key in ("shiraishi", "hayase", "takahashi", "nakamura", "ogawa")
         )
+        facilitator_keys = {user.id: key for key, user in facilitators.items()}
 
         sato = get_or_create_user(db, "sato@example.com", "佐藤 次郎", UserRole.participant)
         tanaka = get_or_create_user(db, "tanaka@example.com", "田中 三郎", UserRole.participant)
@@ -629,6 +695,8 @@ def main() -> None:
         ]
 
         workshops: dict[str, Workshop] = {}
+        # 今回、当日の案内を入れたワークショップ。既にある確定済みの予約にも案内のメッセージを送る
+        guide_added: set[int] = set()
         for index, item in enumerate(sample_workshops):
             workshop = get_or_create_workshop(
                 db,
@@ -644,6 +712,8 @@ def main() -> None:
                 facilitator_id=item["facilitator"].id,
             )
             ensure_sample_image(workshop, index, item["key"])
+            if ensure_participant_guide(workshop, facilitator_keys[workshop.facilitator_id]):
+                guide_added.add(workshop.id)
             workshops[item["key"]] = workshop
 
         db.flush()
@@ -679,7 +749,11 @@ def main() -> None:
             ("philosophy_night", ito, confirmed),
         ]
         for key, user, status in sample_reservations:
-            get_or_create_reservation(db, workshops[key].id, user.id, status)
+            workshop = workshops[key]
+            created = get_or_create_reservation(db, workshop.id, user.id, status)
+            # アプリでは予約の確定時に当日の案内を主催者からのメッセージで送るので、サンプルでも同じ状態にする
+            if status == confirmed and (created or workshop.id in guide_added):
+                send_participant_guide(db, workshop, user.id)
 
         db.commit()
         print("seed complete")

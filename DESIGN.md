@@ -190,6 +190,8 @@ TAIWA の見た目と言葉づかいの方針、それを実装するための�
 | `BackLink` + `useBackState` | `components/ui/BackLink.tsx`、`hooks/useBackState.ts` | 「← ○○に戻る」。リンク元が `state={useBackState('ページ名')}` を渡すと、そのページへ戻る。渡されなければ既定の戻り先 |
 | `MaterialIcon` | `components/ui/MaterialIcon.tsx` | アイコン。使えるのは `index.html` の `icon_names` にあるものだけ（アルファベット順に追加する） |
 | `ToggleGroup` | `components/ui/ToggleGroup.tsx` | 2〜5 個の選択肢の切り替え（タブ・絞り込み） |
+| `ChipGroup` | `components/ui/ChipGroup.tsx` | 検索欄の絞り込み条件を1つ選ぶ丸いボタンの並び。項目名は画面に出した要素を `labelledBy` で指す。選択中は `bg-accent` |
+| `DateStripPicker` | `components/ui/DateStripPicker.tsx` | 検索欄の開催日を1日選ぶ。明日から2週間分を「曜日＋日付」のボタンで横に並べ、それより先は右端の「カレンダー」から選ぶ。選んだ日は `bg-accent`、ほかの日は `text-fg-muted` に控える（不透明度は下げない） |
 | `focus-ring` | `index.css` のユーティリティ | キーボードフォーカスの枠(ボタンはすべてに付ける。紙の中の Ghost と Danger Small は枠に加えて面の色も変える)。`focus:outline-hidden` と組み合わせる(`outline-none` だと強制カラーモードで枠が消える)。リングのすき間は `ring-offset` トークンで、紙の中では紙の色になる |
 
 **`MaterialIcon` の注意**：自前で表示形式を指定しているため、画面幅で隠すときは外側の `<span className="flex sm:hidden">` などで隠す。

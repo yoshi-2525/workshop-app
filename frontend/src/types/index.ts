@@ -87,6 +87,28 @@ export interface RelatedWorkshops {
   nearby: Workshop[]
 }
 
+// ワークショップ一覧の取得条件(GET /api/workshops のクエリ)。バックエンドの schemas/workshop.py の WorkshopSearchQuery と揃える
+// start: 開催日時の近い順 / newest: 公開日時の新しい順 / price: 価格の安い順
+export type WorkshopSort = 'start' | 'newest' | 'price'
+
+export type ListWorkshopsParams = {
+  facilitator_id?: number
+  q?: string
+  location_type?: LocationType
+  price?: 'free' | 'paid'
+  max_price?: number
+  // true なら満員でない(チケットを購入できる)ものだけ
+  available?: boolean
+  // true ならログイン中のユーザーが予約済みのものを除く
+  exclude_reserved?: boolean
+  // true ならログイン中のユーザーが主催するものを除く
+  exclude_own?: boolean
+  sort?: WorkshopSort
+  // 開催日時の範囲 [start_from, start_to)。ISO 8601 形式
+  start_from?: string
+  start_to?: string
+}
+
 export type WorkshopInput = Pick<
   Workshop,
   | 'title'

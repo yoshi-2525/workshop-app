@@ -11,7 +11,7 @@ import { parseDateInput, toDateInputValue } from '@/utils/date'
 //
 // 大きさはライブラリの初期値の約 80%。バランスが崩れないよう、マス・ボタン・矢印・文字を同じ比率で縮める
 // (初期値: マス 44px / ボタン 42px / 矢印ボタン 36px / 見出しの高さ 44px / 文字 16px / 見出し 18px)
-const CALENDAR_STYLE = {
+export const CALENDAR_STYLE = {
   '--rdp-accent-color': 'var(--color-accent)',
   '--rdp-accent-background-color': 'var(--color-surface-strong)',
   '--rdp-day-width': '35px',
@@ -28,11 +28,11 @@ const CALENDAR_STYLE = {
 } as CSSProperties
 
 // 月の見出しと選択中の日付は、ライブラリが固定の大きさ(font-size: large = 18px)を指定しているので個別に縮める
-const CALENDAR_PART_STYLES = {
+export const CALENDAR_PART_STYLES = {
   month_caption: { fontSize: '0.9375rem' },
   chevron: { width: 19, height: 19 },
 }
-const CALENDAR_MODIFIER_STYLES = {
+export const CALENDAR_MODIFIER_STYLES = {
   selected: { fontSize: '0.9375rem' },
 }
 

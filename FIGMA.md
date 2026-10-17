@@ -127,6 +127,8 @@ Figma のフォントは代わりのもの(本番の游明朝 → Noto Serif JP�
 | 通知の項目(`161:203`)、通知の種類(`161:182`) | `pages/me/NotificationsPage.tsx` | **Figma が古いまま(コードと未対応)**。Figma は1件ずつのカードで、種類を色で分ける形。コードは届いた日ごとにまとめた時系列で、左の日付の列と、アイコンを縦線でつないだ通知の列からなる(カードではない)。種類は色ではなくアイコンの形とラベル(`typeIcon` / `typeLabel`)で分ける: 中止 = `event_busy`、参加キャンセル = `person_remove`、リマインダー = `schedule`、新着 = `calendar_add_on`、返金 = `currency_yen`、返金の失敗 = `error`(ラベル「返金できませんでした」)。ラベルは時刻の右に、`bg-secondary` + `text-secondary-foreground` の丸い札(`rounded-full`)で出す(間の中黒はない)。アイコンは直径 40px の `bg-secondary` の丸(文字 `text-secondary-foreground`、地の色の輪 `ring-background`)で本文の上に揃え、縦線も `bg-secondary`。未読 = `!is_read`(時刻の横に `bg-accent` の点、本文 `font-semibold text-fg`)、既読 = 本文 `font-medium text-fg-secondary`。一覧を開くとすべて既読になるが、開いている間は未読の印を残す |
 | Checkbox(`4:78`) | 共通部品なし。`WorkshopListPage.tsx`・`ReservationFormPage.tsx` の `<input type="checkbox" className="h-4 w-4 rounded border-border accent-accent focus-ring">` | Label Style: Default = `text-sm text-fg`(確認の文)、Secondary = `text-sm font-medium text-fg-secondary`(絞り込み) |
 | ToggleItem(`4:83`)/ ToggleGroup(`17:64`) | `components/ui/ToggleGroup.tsx` | Options = `options` の数、Group Label = `label`、Show Label = `!hideLabel`、Full Width = `fullWidth`、各 Option の Selected = `value` |
+| (Figma 未作成)ChipGroup | `components/ui/ChipGroup.tsx` | **Figma に対応する部品がまだない**。検索欄の開催形式・参加費の丸いボタン |
+| (Figma 未作成)DateStripPicker | `components/ui/DateStripPicker.tsx` | **Figma に対応する部品がまだない**。検索欄の開催日の帯とカレンダー |
 | InlineSelect(`17:84`) | `components/workshop/WorkshopSortSelect.tsx` | Label / Value |
 | Header(`5:110`)/ HeaderButton(`16:41`) | `components/layout/Navbar.tsx` | Auth: Guest = 未ログイン、Participant、Facilitator = `canManageWorkshops(user)`。HeaderButton の Style: Outline = ログイン(`bg-secondary border-secondary-border text-secondary-foreground`)、Accent = 新規登録・対話を開く、Accent Icon = スマホ幅の「対話を開く」。Size: Desktop = `sm:` 以上、Mobile = それ未満 |
 | Footer(`5:111`) | `components/layout/Layout.tsx` の footer | — |
@@ -159,7 +161,7 @@ Screens ページ(`2:4`)は 2 種類。
 | 新規登録 参加者(`96:778`)/ 主催者(`99:778`) | `/register/participant` / `/register/facilitator` | `auth/ParticipantRegisterPage.tsx` / `FacilitatorRegisterPage.tsx` |
 | TAIWA について(`102:778`)、対話のルール(`105:778`) | `/about`、`/rules` | `guide/AboutPage.tsx`、`guide/DialogueRulesPage.tsx` |
 | ヘルプ・規約(`108:778`)、利用規約(`111:778`)、キャンセルポリシー(`115:778`)、主催者ガイドライン(`88:778`)、特定商取引法(`91:778`) | `/help`、`/help/*` | `help/*` |
-| 404(`94:778`) | `/404` | `NotFoundPage.tsx` |
+| 404(`94:778`) | `/404` | `NotFoundPage.tsx`。絵(「Illustration - 途切れた小道」)は `LostPathIllustration` の SVG をそのまま取り込んだもので、色は `accent`・`fg` の値を直接持つ(月は予約完了の絵と同じ `#f0cf8f`)。ボタンは Button の Primary「はじめの場所に戻る」(`/`)と Secondary「ヘルプ・規約を見る」(`/help`) |
 | 予約フォーム(`100:778`) | `/workshops/:id/reserve` | `reservations/ReservationFormPage.tsx` |
 | 参加予定(`103:778`)、予約・参加履歴(`106:778`) | `/reservations`、`/reservations/history` | `reservations/MyReservationsPage.tsx` ほか。一覧のカードはワークショップ管理の一覧のカード(`101:837`)と同じ暗いカードで、ボタンは Thirdly |
 | お気に入り(`109:778`)、フォロー中(`113:778`)、通知(`116:778`)、通知あり(`162:788`) | `/favorites`、`/following`、`/notifications` | `me/*`。通知ありの画面は `scripts/seed_sample_notifications.py` のデータ(全種類・未読4件)と同じ内容。**通知の画面は古いまま**で、今のコード(日ごとの時系列・種類ごとのアイコン・「すべて既読にする」なし)とは作りが違う(「通知の項目」の行を参照) |
