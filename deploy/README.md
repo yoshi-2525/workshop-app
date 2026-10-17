@@ -1,6 +1,6 @@
 # 本番環境(AWS EC2 1 台)
 
-EC2 1 台に Nginx・uvicorn・MySQL を同居させる構成。アップロード画像も同じ EBS に置き、DB と画像は毎日 S3 にバックアップする。
+EC2 1 台に Nginx・uvicorn・MySQL を同居させる構成。アップロード画像も同じ EBS に置く。バックアップは EBS スナップショットでサーバーごと取る。
 
 ```
 ブラウザ ─HTTPS→ Nginx ─┬ /       → frontend/dist
@@ -13,7 +13,6 @@ EC2 1 台に Nginx・uvicorn・MySQL を同居させる構成。アップロー�
 | `taiwa.service` | `/etc/systemd/system/taiwa.service` |
 | `nginx-taiwa.conf` | `/etc/nginx/sites-available/taiwa` |
 | `mysql-taiwa.cnf` | `/etc/mysql/mysql.conf.d/zz-taiwa.cnf` |
-| `backup.sh` | リポジトリのまま cron から実行 |
 | `update.sh` | リポジトリのまま、更新のたびに実行 |
 
 ## 1. AWS の準備
@@ -21,8 +20,6 @@ EC2 1 台に Nginx・uvicorn・MySQL を同居させる構成。アップロー�
 - EC2: Ubuntu 24.04、t4g.small(メモリ 2GB)以上、EBS gp3 20〜30GB。Elastic IP を割り当てる。
 - セキュリティグループ: 80・443 は全体、22 は自分の IP だけ。3306 は開けない。
 - ドメインの A レコードを Elastic IP に向ける。
-- バックアップ用の S3 バケットを作り、ライフサイクルルールで 30 日後に削除する。
-- EC2 に IAM ロールを付ける。権限はそのバケットへの `s3:PutObject` と `s3:ListBucket` だけ。
 
 ## 2. パッケージ
 
@@ -30,7 +27,7 @@ EC2 1 台に Nginx・uvicorn・MySQL を同居させる構成。アップロー�
 sudo apt update && sudo apt install -y nginx mysql-server git
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs
 curl -LsSf https://astral.sh/uv/install.sh | sh   # Python 3.14 を入れるのに使う(Ubuntu 標準は 3.12)
-sudo snap install aws-cli --classic
+source $HOME/.local/bin/env                        # いまのシェルで uv を使えるようにする
 ```
 
 スワップ 2GB(MySQL と同居するのでメモリ不足で落ちないように):
@@ -93,7 +90,7 @@ cd /srv/taiwa/backend
 ./venv/bin/python -m alembic upgrade head
 ```
 
-`scripts/seed_*.py` は本番では実行しない。
+動作確認のためにサンプルデータを入れるときは `./venv/bin/python scripts/seed_sample_data.py`。サンプルのアカウントは全員パスワードが `password123` で誰でもログインできるので、実際に公開する前に DB を作り直して消す(`DROP DATABASE` → `CREATE DATABASE` → `alembic upgrade head`、`uploads/workshops/sample-*` も削除)。
 
 ## 5. 常駐と公開
 
@@ -124,28 +121,16 @@ cd /srv/taiwa/backend && ./venv/bin/python scripts/set_role.py you@example.com a
 
 ## 7. バックアップ
 
-`~/.my.cnf`(`chmod 600`):
+EBS スナップショットでサーバーごと戻せるようにする。DB と画像は同じ EBS にあるので、まとめて残る。
 
-```ini
-[mysqldump]
-user=taiwa
-password=<パスワード>
-```
+1. EC2 コンソール →「ライフサイクルマネージャー」→「ライフサイクルポリシーを作成」→「EBS スナップショットポリシー」
+2. 対象: インスタンス。EC2 に付けたタグ(例 `Backup=taiwa`)で選ぶ
+3. IAM ロール: デフォルトロール(初回は自動で作られる)
+4. スケジュール: 24 時間ごと、開始時刻は利用の少ない時間(UTC で指定)、保持は 7 個程度
 
-`crontab -e`:
+スナップショットは稼働中に取るので、MySQL から見ると電源が落ちた直後と同じ状態になる。InnoDB は起動時に自動で回復するので、個人開発の規模ならこれで足りる。
 
-```
-0 4 * * * BACKUP_BUCKET=<バケット名> bash /srv/taiwa/deploy/backup.sh >> /home/ubuntu/backup.log 2>&1
-```
-
-一度は手で実行し、S3 に届くことと、次の手順で戻せることを確かめておく。
-
-```bash
-aws s3 cp s3://<バケット名>/db/workshop-XXXX.sql.gz .
-gunzip < workshop-XXXX.sql.gz | mysql -u taiwa -p workshop
-```
-
-サーバーごと戻せるように、EBS スナップショットも Data Lifecycle Manager で毎日取っておく。
+戻すときは、スナップショットから AMI を作ってインスタンスを起動し、Elastic IP を付け替える(またはスナップショットからボリュームを作って入れ替える)。一度は試しておく。
 
 ## 更新
 

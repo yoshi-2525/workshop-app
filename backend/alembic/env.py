@@ -16,7 +16,9 @@ from app.models import Reservation, User, Workshop  # noqa: E402, F401
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# alembic の設定値は configparser を通るので % を %% にする。
+# パスワードの記号は URL エンコードで %21 などになり、そのままだと補間の構文として読まれて失敗する
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
